@@ -1,8 +1,0 @@
--- CreateTable
-CREATE TABLE "MealEntry" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "chatId" TEXT NOT NULL,
-    "text" TEXT NOT NULL,
-    "mealType" TEXT NOT NULL DEFAULT 'unknown',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);

@@ -6,56 +6,56 @@ Telegram-бот для отслеживания питания. Позволяе
 
 - Node.js + TypeScript
 - [Telegraf 4](https://telegraf.js.org/) (polling)
-- Prisma ORM + SQLite
+- Prisma ORM + PostgreSQL
 
-## Установка
+## Локальная разработка
 
 ```bash
 git clone <repo-url>
 cd Prostoe_Pitanie
 npm install
+cp .env.example .env   # заполнить BOT_TOKEN и DATABASE_URL
+npm run db:migrate     # создать/обновить таблицы
+npm run dev            # запуск с hot reload
 ```
 
-## Настройка
-
-1. Скопируй `.env.example` в `.env`:
-
-```bash
-cp .env.example .env
-```
-
-2. Заполни переменные в `.env`:
+### Переменные окружения
 
 | Переменная | Описание |
 |------------|----------|
 | `BOT_TOKEN` | Токен бота от [@BotFather](https://t.me/BotFather) |
-| `DATABASE_URL` | Путь к SQLite базе (по умолчанию `file:./prisma/dev.db`) |
+| `DATABASE_URL` | PostgreSQL URL (`postgresql://user:pass@host:5432/db`) |
 
-## База данных
+## Деплой на Railway
 
-Инициализировать или обновить схему:
+### 1. Создать PostgreSQL базу
+
+В Railway: **New Project → Add PostgreSQL**. Railway автоматически добавит переменную `DATABASE_URL` в окружение.
+
+### 2. Создать сервис для бота
+
+**New Service → Deploy from GitHub Repo**.
+
+Настройки в Railway:
+- **Build command**: `npm run build`
+- **Start command**: `npm start`
+- **Environment variable**: добавить `BOT_TOKEN`
+
+`DATABASE_URL` подтягивается автоматически из PostgreSQL-сервиса Railway.
+
+### 3. Миграции
+
+При первом деплое `npm start` выполняет `prisma migrate deploy` автоматически перед запуском бота.
+
+## Скрипты
 
 ```bash
-npm run db:migrate
-```
-
-Или только синхронизировать схему без создания migration-файла (для разработки):
-
-```bash
-npx prisma db push
-```
-
-## Запуск
-
-```bash
-# Разработка (hot reload через tsx)
-npm run dev
-
-# Сборка
-npm run build
-
-# Запуск из собранного dist/
-npm start
+npm run dev          # разработка (tsx, hot reload)
+npm run build        # prisma generate + tsc → dist/
+npm start            # migrate deploy + запуск dist/index.js
+npm run db:migrate   # создать новую миграцию (dev)
+npm run db:deploy    # применить миграции (prod)
+npm run db:generate  # регенерировать Prisma Client
 ```
 
 ## Команды бота

@@ -1,7 +1,0 @@
--- CreateTable
-CREATE TABLE "WeightEntry" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "chatId" TEXT NOT NULL,
-    "weightKg" REAL NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
