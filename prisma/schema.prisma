@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model UserProfile {
+  id                  Int      @id @default(autoincrement())
+  chatId              String   @unique
+  heightCm            Float?
+  currentWeightKg     Float?
+  goalType            String?
+  dailyCaloriesKcal   Float?
+  dailyProteinG       Float?
+  dailyFatG           Float?
+  dailyCarbsG         Float?
+  dailyFiberG         Float?
+  sex               String?
+  birthDate         DateTime?
+  activityLevel     Float?
+  notificationsEnabled Boolean  @default(true)
+  notificationCount    Int      @default(3)
+  notificationTimes    String?
+  desiredWeightKg      Float?
+  city                 String?
+  timezone             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model MealEntry {
+  id            Int      @id @default(autoincrement())
+  chatId        String
+  text          String
+  mealType      String   @default("unknown")
+  sourceType    String   @default("text")
+  photoFileId   String?
+  voiceFileId   String?
+  caloriesKcal  Float?
+  proteinG      Float?
+  fatG          Float?
+  carbsG        Float?
+  fiberG        Float?
+  createdAt     DateTime @default(now())
+}
+
+model WeightEntry {
+  id        Int      @id @default(autoincrement())
+  chatId    String
+  weightKg  Float
+  createdAt DateTime @default(now())
+}
