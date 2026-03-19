@@ -8,7 +8,7 @@ import { addMeal, getTodayMeals, deleteLastTodayMeal, clearTodayMeals, updateMea
 import { getProfile, upsertProfile, getAllOnboardedProfiles } from './state/profileStore';
 import { goalMenu, GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
 import { addWeightEntry, getRecentWeightEntries, countWeightEntries, getFirstWeightEntry } from './state/weightStore';
-import { analyzeFood } from './ai/analyzeFood';
+import { analyzeFood, analyzeFoodPhoto, NotFoodError } from './ai/analyzeFood';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -877,7 +877,7 @@ bot.on(message('photo'), async (ctx) => {
 
   if (state?.action === 'awaiting_meal_photo' || state?.action === 'awaiting_meal_input') {
     const processingMsg = await ctx.reply(
-      '🔍 Сохраняю запись...',
+      '🔍 Анализирую фото...',
       Markup.inlineKeyboard([[Markup.button.callback('✖️ Отменить', 'cancel_analysis')]])
     );
     processingState.set(chatId, { messageId: processingMsg.message_id, cancelled: false });
@@ -886,8 +886,26 @@ bot.on(message('photo'), async (ctx) => {
       const photo = photos[photos.length - 1];
       const ps = processingState.get(chatId);
       if (ps?.cancelled) { processingState.delete(chatId); return; }
+
+      const fileLink = await ctx.telegram.getFileLink(photo.file_id);
+      const analysis = await analyzeFoodPhoto(fileLink.href);
+
+      const ps2 = processingState.get(chatId);
+      if (ps2?.cancelled) { processingState.delete(chatId); return; }
       processingState.delete(chatId);
-      const draft: MealDraft = { text: 'Фото приёма пищи', sourceType: 'photo', photoFileId: photo.file_id };
+
+      const draft: MealDraft = {
+        text: analysis.name,
+        composition: analysis.composition,
+        sourceType: 'photo',
+        photoFileId: photo.file_id,
+        caloriesKcal: analysis.caloriesKcal,
+        proteinG: analysis.proteinG,
+        fatG: analysis.fatG,
+        carbsG: analysis.carbsG,
+        fiberG: analysis.fiberG,
+        weightG: analysis.weightG,
+      };
       clearPending(chatId);
       setDraft(chatId, draft);
       await ctx.telegram.editMessageText(
@@ -895,10 +913,13 @@ bot.on(message('photo'), async (ctx) => {
         formatDraftCard(draft),
         draftActionsMenu
       );
-    } catch {
+    } catch (err: unknown) {
       processingState.delete(chatId);
       clearPending(chatId);
-      try { await ctx.telegram.editMessageText(chatId, processingMsg.message_id, undefined, '⚠️ Не удалось обработать запись. Попробуй ещё раз.'); } catch {}
+      const errMsg = err instanceof NotFoodError
+        ? '🤔 На фото не видно еды. Пришли чёткое фото тарелки или опиши блюдо текстом.'
+        : '⚠️ Не удалось проанализировать фото. Попробуй ещё раз или опиши блюдо текстом.';
+      try { await ctx.telegram.editMessageText(chatId, processingMsg.message_id, undefined, errMsg); } catch {}
     }
     return;
   }
