@@ -8,6 +8,7 @@ import { addMeal, getTodayMeals, deleteLastTodayMeal, clearTodayMeals, updateMea
 import { getProfile, upsertProfile, getAllOnboardedProfiles } from './state/profileStore';
 import { goalMenu, GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
 import { addWeightEntry, getRecentWeightEntries, countWeightEntries, getFirstWeightEntry } from './state/weightStore';
+import { analyzeFood } from './ai/analyzeFood';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -1010,15 +1011,31 @@ bot.on('text', async (ctx) => {
 
   if (state?.action === 'awaiting_meal_text' || state?.action === 'awaiting_meal_input') {
     const processingMsg = await ctx.reply(
-      '🔍 Сохраняю запись...',
+      '🔍 Анализирую блюдо...',
       Markup.inlineKeyboard([[Markup.button.callback('✖️ Отменить', 'cancel_analysis')]])
     );
     processingState.set(chatId, { messageId: processingMsg.message_id, cancelled: false });
     try {
       const ps = processingState.get(chatId);
       if (ps?.cancelled) { processingState.delete(chatId); return; }
+
+      const analysis = await analyzeFood(ctx.message.text);
+
+      const ps2 = processingState.get(chatId);
+      if (ps2?.cancelled) { processingState.delete(chatId); return; }
       processingState.delete(chatId);
-      const draft: MealDraft = { text: ctx.message.text, sourceType: 'text' };
+
+      const draft: MealDraft = {
+        text: analysis.name,
+        composition: analysis.composition,
+        sourceType: 'text',
+        caloriesKcal: analysis.caloriesKcal,
+        proteinG: analysis.proteinG,
+        fatG: analysis.fatG,
+        carbsG: analysis.carbsG,
+        fiberG: analysis.fiberG,
+        weightG: analysis.weightG,
+      };
       clearPending(chatId);
       setDraft(chatId, draft);
       await ctx.telegram.editMessageText(
@@ -1029,7 +1046,7 @@ bot.on('text', async (ctx) => {
     } catch {
       processingState.delete(chatId);
       clearPending(chatId);
-      try { await ctx.telegram.editMessageText(chatId, processingMsg.message_id, undefined, '⚠️ Не удалось обработать запись. Попробуй ещё раз.'); } catch {}
+      try { await ctx.telegram.editMessageText(chatId, processingMsg.message_id, undefined, '⚠️ Не удалось проанализировать блюдо. Попробуй ещё раз или добавь вручную через редактирование.'); } catch {}
     }
     return;
   }
