@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { createApiServer } from './api/server';
 import { Telegraf, Markup } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { mainMenu, BUTTONS } from './keyboards/mainMenu';
@@ -1736,6 +1737,8 @@ bot.on('message', async (ctx) => {
     return ctx.reply('Отправь описание текстом, фото или голосовое сообщение.');
   }
 });
+
+createApiServer();
 
 bot.launch()
   .then(() => {

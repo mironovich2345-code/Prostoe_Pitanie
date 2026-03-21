@@ -53,3 +53,49 @@ model WeightEntry {
   weightKg  Float
   createdAt DateTime @default(now())
 }
+
+model TrainerProfile {
+  id                 Int      @id @default(autoincrement())
+  chatId             String   @unique
+  verificationStatus String   @default("pending")
+  bio                String?
+  specialization     String?
+  referralCode       String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model TrainerClientLink {
+  id                Int      @id @default(autoincrement())
+  trainerId         String
+  clientId          String
+  status            String   @default("active")
+  fullHistoryAccess Boolean  @default(false)
+  connectedAt       DateTime @default(now())
+  disconnectedAt    DateTime?
+  @@unique([trainerId, clientId])
+}
+
+model Subscription {
+  id                 Int      @id @default(autoincrement())
+  chatId             String   @unique
+  planId             String   @default("free")
+  status             String   @default("trial")
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+  autoRenew          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model TrainerReward {
+  id             Int      @id @default(autoincrement())
+  trainerId      String
+  referredChatId String
+  planId         String
+  amountRub      Float    @default(0)
+  status         String   @default("pending_hold")
+  holdUntil      DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+}

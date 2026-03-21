@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && tsc && npm run build:miniapp",
+    "build:miniapp": "cd miniapp && npm install && npm run build",
     "start": "prisma migrate deploy && node dist/index.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -16,12 +17,16 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.19.2",
+    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "express": "^5.2.1",
     "openai": "^6.32.0",
     "prisma": "^6.19.2",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.3.5",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
