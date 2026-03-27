@@ -46,6 +46,8 @@ export const api = {
   profile: () => request<{ profile: import('../types').UserProfile | null; weightHistory: Array<{ id: number; weightKg: number; createdAt: string }> }>('/api/profile'),
   patchNotifications: (data: { notificationsEnabled?: boolean; notificationCount?: number; notificationTimes?: string }) =>
     request<{ ok: boolean }>('/api/profile/notifications', { method: 'PATCH', body: JSON.stringify(data) }),
+  patchProfileData: (data: { heightCm?: number; currentWeightKg?: number; desiredWeightKg?: number; sex?: string; birthDate?: string; activityLevel?: number; city?: string }) =>
+    request<{ ok: boolean; profile: import('../types').UserProfile | null }>('/api/profile/data', { method: 'PATCH', body: JSON.stringify(data) }),
   subscription: () => request<{ subscription: import('../types').SubscriptionInfo | null }>('/api/subscription'),
   trainerClients: () => request<{ clients: Array<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }> }>('/api/trainer/clients'),
   trainerClientCard: (clientId: string) => request<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }>(`/api/trainer/clients/${clientId}`),

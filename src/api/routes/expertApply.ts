@@ -50,6 +50,9 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
     // Notify admin via Telegram bot
     const botToken = process.env.BOT_TOKEN ?? '';
     const adminChatId = process.env.ADMIN_CHAT_ID ?? '';
+    if (!adminChatId) {
+      console.warn('[expert/apply] ADMIN_CHAT_ID is not set — admin notification skipped. Set this env var to receive trainer applications.');
+    }
     if (botToken && adminChatId) {
       const telegram = new Telegram(botToken);
       const user = req.telegramUser;

@@ -24,6 +24,9 @@ export interface UserProfile {
   notificationTimes: string | null;
   city: string | null;
   timezone: string | null;
+  sex: string | null;
+  birthDate: string | null;
+  activityLevel: number | null;
 }
 
 export interface TrainerProfileInfo {

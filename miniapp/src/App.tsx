@@ -24,6 +24,7 @@ import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
 import ExpertApplicationScreen from './screens/expert/ExpertApplicationScreen';
 import ExpertStatusScreen from './screens/expert/ExpertStatusScreen';
+import EditProfileDataScreen from './screens/client/EditProfileDataScreen';
 import type { AppMode } from './types';
 
 export default function App() {
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/notifications" element={<NotificationSettingsScreen bootstrap={bootstrap} />} />
             <Route path="/expert/apply" element={<ExpertApplicationScreen />} />
             <Route path="/expert/status" element={<ExpertStatusScreen />} />
+            <Route path="/diary/edit-data" element={<EditProfileDataScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

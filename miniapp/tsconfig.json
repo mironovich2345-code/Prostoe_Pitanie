@@ -12,7 +12,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "customConditions": ["@tanstack/custom-condition"]
   },
   "include": ["src"]
 }

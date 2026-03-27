@@ -11,6 +11,8 @@ import { getProfile, upsertProfile, getAllOnboardedProfiles } from './state/prof
 import { goalMenu, GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
 import { addWeightEntry, getRecentWeightEntries, countWeightEntries, getFirstWeightEntry } from './state/weightStore';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from './ai/analyzeFood';
+import { calcAge, deriveGoal, tryAutoCalcNorms } from './utils/normsCalc';
+import { resolveTimezone } from './utils/timezone';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -156,78 +158,6 @@ const processingState = new Map<number, ProcessingEntry>();
 // ── Чистый чат (храним последние 3 сообщения бота) ──────────────────────
 const lastBotMsgs = new Map<number, number[]>();
 
-function calcAge(birthDate: Date): number {
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-  return age;
-}
-
-interface NormCalcResult {
-  calories: number;
-  proteinG: number;
-  fatG: number;
-  carbsG: number;
-}
-
-function deriveGoal(currentWeightKg: number, desiredWeightKg: number): string {
-  const diff = desiredWeightKg - currentWeightKg;
-  if (diff < -0.5) return 'cut';
-  if (diff > 0.5) return 'bulk';
-  return 'maintain';
-}
-
-const CITY_TZ_MAP: Record<string, string> = {
-  'москва': 'Europe/Moscow', 'московская': 'Europe/Moscow',
-  'санкт-петербург': 'Europe/Moscow', 'петербург': 'Europe/Moscow', 'питер': 'Europe/Moscow', 'спб': 'Europe/Moscow',
-  'екатеринбург': 'Asia/Yekaterinburg', 'екб': 'Asia/Yekaterinburg',
-  'новосибирск': 'Asia/Novosibirsk', 'нск': 'Asia/Novosibirsk', 'новосиб': 'Asia/Novosibirsk',
-  'красноярск': 'Asia/Krasnoyarsk',
-  'омск': 'Asia/Omsk',
-  'томск': 'Asia/Tomsk',
-  'тюмень': 'Asia/Yekaterinburg',
-  'пермь': 'Asia/Yekaterinburg',
-  'уфа': 'Asia/Yekaterinburg',
-  'челябинск': 'Asia/Yekaterinburg',
-  'самара': 'Europe/Samara',
-  'казань': 'Europe/Moscow',
-  'нижний новгород': 'Europe/Moscow', 'нижний': 'Europe/Moscow', 'нн': 'Europe/Moscow',
-  'воронеж': 'Europe/Moscow',
-  'ростов-на-дону': 'Europe/Moscow', 'ростов': 'Europe/Moscow',
-  'краснодар': 'Europe/Moscow',
-  'волгоград': 'Europe/Moscow',
-  'саратов': 'Europe/Moscow',
-  'ставрополь': 'Europe/Moscow',
-  'иркутск': 'Asia/Irkutsk',
-  'якутск': 'Asia/Yakutsk',
-  'хабаровск': 'Asia/Vladivostok',
-  'владивосток': 'Asia/Vladivostok', 'вла': 'Asia/Vladivostok', 'владик': 'Asia/Vladivostok',
-  'южно-сахалинск': 'Asia/Sakhalin', 'сахалин': 'Asia/Sakhalin',
-  'магадан': 'Asia/Magadan',
-  'петропавловск-камчатский': 'Asia/Kamchatka', 'камчатка': 'Asia/Kamchatka',
-  'калининград': 'Europe/Kaliningrad',
-  'минск': 'Europe/Minsk',
-  'киев': 'Europe/Kiev',
-  'алматы': 'Asia/Almaty', 'алма-ата': 'Asia/Almaty', 'астана': 'Asia/Almaty', 'нур-султан': 'Asia/Almaty',
-  'ташкент': 'Asia/Tashkent',
-  'баку': 'Asia/Baku',
-  'ереван': 'Asia/Yerevan',
-  'тбилиси': 'Asia/Tbilisi',
-  'барнаул': 'Asia/Barnaul',
-  'кемерово': 'Asia/Novokuznetsk', 'новокузнецк': 'Asia/Novokuznetsk',
-  'чита': 'Asia/Chita',
-  'астрахань': 'Europe/Astrakhan',
-};
-
-function resolveTimezone(city: string): string | null {
-  const key = city.toLowerCase().trim();
-  if (CITY_TZ_MAP[key]) return CITY_TZ_MAP[key];
-  for (const [name, tz] of Object.entries(CITY_TZ_MAP)) {
-    if (key.includes(name) || name.includes(key)) return tz;
-  }
-  return null;
-}
 
 function getNowInTimezone(tz: string): { hour: number; minute: number } {
   try {
@@ -261,53 +191,6 @@ function formatNotifTimes(timesStr: string | null, count: number): string {
   return parseNotifTimes(str, count).map(t => `${String(t.hour).padStart(2,'0')}:${String(t.minute).padStart(2,'0')}`).join(' · ');
 }
 
-function calcNorms(sex: string, age: number, heightCm: number, weightKg: number, activity: number, goal: string): NormCalcResult {
-  const sexConst = sex === 'male' ? 5 : -161;
-  const goalMultipliers: Record<string, number> = { cut: 0.85, maintain: 1.0, bulk: 1.10 };
-  const proteinPerKg: Record<string, number> = { cut: 2.0, maintain: 1.8, bulk: 1.8 };
-  const fatPerKg: Record<string, number> = { cut: 0.8, maintain: 0.9, bulk: 0.9 };
-  const goalKey = goal === 'lose' ? 'cut' : goal === 'gain' ? 'bulk' : goal;
-  const goalMultiplier = goalMultipliers[goalKey] ?? 1.0;
-  const pPerKg = proteinPerKg[goalKey] ?? 1.8;
-  const fPerKg = fatPerKg[goalKey] ?? 0.9;
-  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + sexConst;
-  const tdee = bmr * activity;
-  const calories = tdee * goalMultiplier;
-  const proteinGrams = weightKg * pPerKg;
-  const fatGrams = weightKg * fPerKg;
-  const carbGrams = (calories - proteinGrams * 4 - fatGrams * 9) / 4;
-  return {
-    calories: Math.round(calories),
-    proteinG: Math.round(proteinGrams),
-    fatG: Math.round(fatGrams),
-    carbsG: Math.round(Math.max(0, carbGrams)),
-  };
-}
-
-async function tryAutoCalcNorms(chatId: number): Promise<void> {
-  const profile = await getProfile(chatId);
-  if (!profile?.sex || !profile?.birthDate || !profile?.heightCm || !profile?.currentWeightKg || !profile?.activityLevel) return;
-  // Derive goal: from desiredWeight if available, else from stored goalType, else 'maintain'
-  let goalKey: string;
-  if (profile.desiredWeightKg != null) {
-    goalKey = deriveGoal(profile.currentWeightKg, profile.desiredWeightKg);
-  } else if (profile.goalType && ['cut', 'maintain', 'bulk', 'lose', 'gain'].includes(profile.goalType)) {
-    goalKey = profile.goalType === 'lose' ? 'cut' : profile.goalType === 'gain' ? 'bulk' : profile.goalType;
-  } else {
-    goalKey = 'maintain';
-  }
-  if (!['cut', 'maintain', 'bulk'].includes(goalKey)) return;
-  const age = calcAge(profile.birthDate);
-  if (age < 10 || age > 120) return;
-  const norms = calcNorms(profile.sex, age, profile.heightCm, profile.currentWeightKg, profile.activityLevel, goalKey);
-  await upsertProfile(chatId, {
-    dailyCaloriesKcal: norms.calories,
-    dailyProteinG: norms.proteinG,
-    dailyFatG: norms.fatG,
-    dailyCarbsG: norms.carbsG,
-    dailyFiberG: 25,
-  });
-}
 
 async function buildProfileText(chatId: number): Promise<string> {
   const profile = await getProfile(chatId);
