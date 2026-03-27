@@ -8,7 +8,7 @@ import { MEAL_BUTTONS, MEAL_TYPE_BUTTONS } from './keyboards/mealMenu';
 import { setPending, getPending, clearPending, setDraft, getDraft, clearDraft, MealDraft } from './state/pendingActions';
 import { addMeal, getTodayMeals, deleteLastTodayMeal, clearTodayMeals, updateMealNutrition, getMealsForDate } from './state/mealStore';
 import { getProfile, upsertProfile, getAllOnboardedProfiles } from './state/profileStore';
-import { goalMenu, GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
+import { GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
 import { addWeightEntry, getRecentWeightEntries, countWeightEntries, getFirstWeightEntry } from './state/weightStore';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from './ai/analyzeFood';
 import { calcAge, deriveGoal, tryAutoCalcNorms } from './utils/normsCalc';
@@ -28,11 +28,9 @@ function formatEntry(entry: { text: string; mealType: string; sourceType: string
 }
 
 // ── Inline keyboards ──────────────────────────────────────────────────
-const profileActionsMenu = Markup.inlineKeyboard([
-  [Markup.button.callback('📏 Рост', 'profile_set_height'), Markup.button.callback('⚖️ Вес', 'profile_set_weight')],
-  [Markup.button.callback('🎯 Желаемый вес', 'profile_set_desired_weight')],
-  [Markup.button.callback('👤 Пол', 'profile_set_sex'), Markup.button.callback('🎂 День рождения', 'profile_set_birthdate')],
-  [Markup.button.callback('⚡ Активность', 'profile_set_activity'), Markup.button.callback('🌍 Город', 'profile_set_city')],
+// Profile editing is now only available in the mini app
+const profileViewMenu = Markup.inlineKeyboard([
+  ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Открыть приложение', process.env.MINIAPP_URL)]] : []),
   [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
 ]);
 
@@ -186,10 +184,6 @@ function defaultNotifTimesStr(count: number): string {
   return DEFAULT_NOTIF_TIMES.slice(0, Math.max(1, Math.min(5, count))).join(',');
 }
 
-function formatNotifTimes(timesStr: string | null, count: number): string {
-  const str = timesStr ?? defaultNotifTimesStr(count);
-  return parseNotifTimes(str, count).map(t => `${String(t.hour).padStart(2,'0')}:${String(t.minute).padStart(2,'0')}`).join(' · ');
-}
 
 
 async function buildProfileText(chatId: number): Promise<string> {
@@ -551,21 +545,19 @@ bot.command('onboarding', (ctx) => {
 
 bot.command('profile', async (ctx) => {
   const text = await buildProfileText(ctx.message.chat.id);
-  return ctx.reply(text, profileActionsMenu);
+  return ctx.reply(text + '\n\n📱 Редактировать данные профиля можно в приложении.', profileViewMenu);
 });
 
 bot.command('set_height', (ctx) => {
-  setPending(ctx.message.chat.id, { action: 'awaiting_height' });
-  return ctx.reply('Отправь рост в сантиметрах.\nПример: 180\n\nЧтобы выйти, нажми /cancel.');
+  return ctx.reply('📱 Редактирование роста доступно только в приложении.\nОткрой его через кнопку меню.', profileViewMenu);
 });
 
 bot.command('set_weight', (ctx) => {
-  setPending(ctx.message.chat.id, { action: 'awaiting_weight' });
-  return ctx.reply('Отправь текущий вес в килограммах.\nПример: 82 или 75.5\n\nЧтобы выйти, нажми /cancel.');
+  return ctx.reply('📱 Редактирование веса доступно только в приложении.\nОткрой его через кнопку меню.', profileViewMenu);
 });
 
 bot.command('set_goal', (ctx) => {
-  return ctx.reply('Выбери цель:', goalMenu);
+  return ctx.reply('📱 Редактирование цели доступно только в приложении.\nОткрой его через кнопку меню.', profileViewMenu);
 });
 
 bot.command('set_norms', (ctx) => {
@@ -588,7 +580,7 @@ bot.command('log_weight', (ctx) => {
 // Главное меню
 bot.hears(BUTTONS.PROFILE, async (ctx) => {
   const text = await buildProfileText(ctx.message.chat.id);
-  return ctx.reply(text, profileActionsMenu);
+  return ctx.reply(text + '\n\n📱 Редактировать данные профиля можно в приложении.', profileViewMenu);
 });
 
 bot.hears(BUTTONS.ADD_MEAL, (ctx) => {
@@ -606,24 +598,16 @@ bot.hears(BUTTONS.STATS, async (ctx) => {
 });
 
 
-async function buildSettingsText(profile: { notificationsEnabled: boolean | null; notificationCount: number | null; notificationTimes: string | null } | null): Promise<string> {
+function buildSettingsText(profile: { notificationsEnabled: boolean | null } | null): string {
   const enabled = profile?.notificationsEnabled !== false;
-  const count = Math.max(1, Math.min(5, profile?.notificationCount ?? 3));
-  const timesDisplay = formatNotifTimes(profile?.notificationTimes ?? null, count);
-  return `⚙️ Настройки\n\n🔔 Напоминания о еде: ${enabled ? 'включены ✅' : 'выключены ❌'}\n📅 Количество в день: ${count}\n⏰ Время: ${timesDisplay}`;
+  return `⚙️ Настройки\n\n🔔 Напоминания о еде: ${enabled ? 'включены ✅' : 'выключены ❌'}\n\n📱 Время и количество уведомлений настраиваются в приложении.`;
 }
 
-function buildSettingsKeyboard(profile: { notificationsEnabled: boolean | null; notificationCount: number | null } | null) {
+function buildSettingsKeyboard(profile: { notificationsEnabled: boolean | null } | null) {
   const enabled = profile?.notificationsEnabled !== false;
-  const count = Math.max(1, Math.min(5, profile?.notificationCount ?? 3));
   return Markup.inlineKeyboard([
     [Markup.button.callback(enabled ? '🔕 Выключить уведомления' : '🔔 Включить уведомления', 'settings_toggle_notifications')],
-    [
-      Markup.button.callback(count > 1 ? '➖' : '·', count > 1 ? 'settings_notif_count_dec' : 'noop'),
-      Markup.button.callback(`${count} в день`, 'noop'),
-      Markup.button.callback(count < 5 ? '➕' : '·', count < 5 ? 'settings_notif_count_inc' : 'noop'),
-    ],
-    [Markup.button.callback('⏰ Изменить время', 'settings_notif_time')],
+    ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Настроить в приложении', process.env.MINIAPP_URL)]] : []),
     [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
   ]);
 }
@@ -631,7 +615,7 @@ function buildSettingsKeyboard(profile: { notificationsEnabled: boolean | null; 
 bot.hears(BUTTONS.SETTINGS, async (ctx) => {
   const chatId = ctx.message.chat.id;
   const profile = await getProfile(chatId);
-  const text = await buildSettingsText(profile);
+  const text = buildSettingsText(profile);
   return ctx.reply(text, buildSettingsKeyboard(profile));
 });
 
@@ -957,26 +941,9 @@ bot.on('text', async (ctx) => {
     return;
   }
 
-  if (state?.action === 'awaiting_height') {
-    const value = parseInt(ctx.message.text.trim(), 10);
-    if (isNaN(value) || value < 100 || value > 250) {
-      return ctx.reply('Введи рост числом от 100 до 250 (в сантиметрах).\nПример: 180');
-    }
+  if (state?.action === 'awaiting_height' || state?.action === 'awaiting_weight') {
     clearPending(chatId);
-    await upsertProfile(chatId, { heightCm: value });
-    await tryAutoCalcNorms(chatId);
-    return ctx.reply(`✅ Рост: ${value} см`, mainMenu);
-  }
-
-  if (state?.action === 'awaiting_weight') {
-    const value = parseFloat(ctx.message.text.trim().replace(',', '.'));
-    if (isNaN(value) || value < 30 || value > 300) {
-      return ctx.reply('Введи вес числом от 30 до 300 (в килограммах).\nПример: 82 или 75.5');
-    }
-    clearPending(chatId);
-    await upsertProfile(chatId, { currentWeightKg: value });
-    await tryAutoCalcNorms(chatId);
-    return ctx.reply(`✅ Вес: ${value} кг`, mainMenu);
+    return ctx.reply('📱 Редактирование физических данных доступно только в приложении.', profileViewMenu);
   }
 
   if (state?.action === 'awaiting_weight_log') {
@@ -1050,19 +1017,8 @@ bot.on('text', async (ctx) => {
   }
 
   if (state?.action === 'awaiting_birthdate') {
-    const parts = ctx.message.text.trim().split('.');
-    if (parts.length !== 3) {
-      return ctx.reply('Введи дату в формате ДД.ММ.ГГГГ\nПример: 15.03.1990');
-    }
-    const [d, m, y] = parts.map(Number);
-    const birthDate = new Date(y, m - 1, d);
-    if (isNaN(birthDate.getTime()) || y < 1900 || y > new Date().getFullYear() - 5) {
-      return ctx.reply('Неверная дата. Проверь формат ДД.ММ.ГГГГ\nПример: 15.03.1990');
-    }
     clearPending(chatId);
-    await upsertProfile(chatId, { birthDate });
-    await tryAutoCalcNorms(chatId);
-    return ctx.reply(`✅ Дата рождения сохранена.`, mainMenu);
+    return ctx.reply('📱 Редактирование физических данных доступно только в приложении.', profileViewMenu);
   }
 
   if (state?.action === 'onboarding_city') {
@@ -1083,49 +1039,9 @@ bot.on('text', async (ctx) => {
     return ctx.reply(`✅ Город: ${cityInput} (${tz})\n\nПрофиль настроен. Можно начинать!${normsText}`, mainMenu);
   }
 
-  if (state?.action === 'awaiting_city') {
-    const cityInput = ctx.message.text.trim();
-    const tz = resolveTimezone(cityInput);
-    if (!tz) {
-      return ctx.reply(
-        `Не удалось определить часовой пояс для «${cityInput}».\n\nПопробуй другое название (например: Москва, Екатеринбург, Новосибирск).`
-      );
-    }
+  if (state?.action === 'awaiting_city' || state?.action === 'awaiting_desired_weight' || state?.action === 'awaiting_notif_time') {
     clearPending(chatId);
-    await upsertProfile(chatId, { city: cityInput, timezone: tz });
-    return ctx.reply(`✅ Город: ${cityInput} (${tz})`, mainMenu);
-  }
-
-  if (state?.action === 'awaiting_desired_weight') {
-    const value = parseFloat(ctx.message.text.trim().replace(',', '.'));
-    if (isNaN(value) || value < 30 || value > 300) {
-      return ctx.reply('Введи желаемый вес числом от 30 до 300 (в килограммах).\nПример: 78 или 72.5');
-    }
-    clearPending(chatId);
-    await upsertProfile(chatId, { desiredWeightKg: value });
-    await tryAutoCalcNorms(chatId);
-    return ctx.reply(`✅ Желаемый вес: ${value} кг`, mainMenu);
-  }
-
-  if (state?.action === 'awaiting_notif_time') {
-    const input = ctx.message.text.trim();
-    const tokens = input.split(/[\s,]+/).filter(Boolean);
-    const parsed = tokens.map(t => {
-      const m = t.match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return null;
-      const h = parseInt(m[1]), min = parseInt(m[2]);
-      if (h < 0 || h > 23 || min < 0 || min > 59) return null;
-      return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
-    }).filter((t): t is string => t !== null);
-    if (parsed.length < 1 || parsed.length > 5) {
-      return ctx.reply('Введи от 1 до 5 значений времени через пробел.\nПример: 09:00 13:00 19:00');
-    }
-    clearPending(chatId);
-    const profile = await getProfile(chatId);
-    const count = Math.min(5, Math.max(1, profile?.notificationCount ?? parsed.length));
-    const timesStr = parsed.slice(0, count).join(',');
-    await upsertProfile(chatId, { notificationTimes: timesStr, notificationCount: parsed.length });
-    return ctx.reply(`✅ Время уведомлений: ${parsed.join(' · ')}`, mainMenu);
+    return ctx.reply('📱 Редактирование физических данных и уведомлений доступно только в приложении.', profileViewMenu);
   }
 
   if (state?.action === 'awaiting_norms') {
@@ -1448,67 +1364,17 @@ bot.action('reminder_add_meal', async (ctx) => {
   );
 });
 
-// ── Профиль: действия ────────────────────────────────────────────────
-bot.action('profile_set_height', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_height' });
-  return ctx.reply('Отправь рост в сантиметрах.\nПример: 180');
-});
+// ── Профиль: действия (перенесены в mini app) ────────────────────────
+const miniAppHint = '📱 Редактирование профиля доступно только в приложении.\nОткрой его через кнопку меню.';
 
-bot.action('profile_set_weight', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_weight' });
-  return ctx.reply('Отправь текущий вес в килограммах.\nПример: 82 или 75.5');
-});
-
-bot.action('profile_set_goal', async (ctx) => {
-  await ctx.answerCbQuery();
-  return ctx.reply('Выбери цель:', goalMenu);
-});
-
-bot.action('profile_set_sex', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_sex' });
-  return ctx.reply('Выбери пол:', sexMenu);
-});
-
-bot.action('profile_set_birthdate', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_birthdate' });
-  return ctx.reply('Отправь дату рождения в формате ДД.ММ.ГГГГ\nПример: 15.03.1990');
-});
-
-bot.action('profile_set_activity', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_activity' });
-  return ctx.reply('Выбери уровень активности:', activityMenu);
-});
-
-bot.action('profile_set_desired_weight', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_desired_weight' });
-  return ctx.reply('Отправь желаемый вес в килограммах.\nПример: 78 или 72.5');
-});
-
-bot.action('profile_set_city', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_city' });
-  return ctx.reply('Отправь название своего города.\nПример: Москва, Новосибирск, Екатеринбург');
-});
+bot.action('profile_set_height', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_weight', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_goal', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_sex', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_birthdate', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_activity', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_desired_weight', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
+bot.action('profile_set_city', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(miniAppHint, profileViewMenu); });
 
 // ── Вес: действия ───────────────────────────────────────────────────
 bot.action('weight_log', async (ctx) => {
@@ -1552,42 +1418,15 @@ bot.action('settings_toggle_notifications', async (ctx) => {
   await upsertProfile(chatId, { notificationsEnabled: !current });
   const updated = await getProfile(chatId);
   try {
-    await ctx.editMessageText(await buildSettingsText(updated), buildSettingsKeyboard(updated));
+    await ctx.editMessageText(buildSettingsText(updated), buildSettingsKeyboard(updated));
   } catch {}
 });
 
-bot.action('settings_notif_count_dec', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  const profile = await getProfile(chatId);
-  const current = Math.max(1, Math.min(5, profile?.notificationCount ?? 3));
-  const newCount = Math.max(1, current - 1);
-  await upsertProfile(chatId, { notificationCount: newCount });
-  const updated = await getProfile(chatId);
-  try { await ctx.editMessageText(await buildSettingsText(updated), buildSettingsKeyboard(updated)); } catch {}
-});
+const notifSettingsHint = '📱 Количество и время уведомлений настраиваются только в приложении.';
 
-bot.action('settings_notif_count_inc', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  const profile = await getProfile(chatId);
-  const current = Math.max(1, Math.min(5, profile?.notificationCount ?? 3));
-  const newCount = Math.min(5, current + 1);
-  await upsertProfile(chatId, { notificationCount: newCount });
-  const updated = await getProfile(chatId);
-  try { await ctx.editMessageText(await buildSettingsText(updated), buildSettingsKeyboard(updated)); } catch {}
-});
-
-bot.action('settings_notif_time', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  setPending(chatId, { action: 'awaiting_notif_time' });
-  try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch {}
-  return ctx.reply('Введи время уведомлений через пробел (от 1 до 5 значений):\nПример: 09:00 13:00 19:00');
-});
+bot.action('settings_notif_count_dec', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(notifSettingsHint, profileViewMenu); });
+bot.action('settings_notif_count_inc', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(notifSettingsHint, profileViewMenu); });
+bot.action('settings_notif_time', async (ctx) => { await ctx.answerCbQuery(); return ctx.reply(notifSettingsHint, profileViewMenu); });
 
 bot.action('noop', async (ctx) => {
   await ctx.answerCbQuery();
