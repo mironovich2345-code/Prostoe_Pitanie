@@ -1,21 +1,36 @@
 import { useNavigate } from 'react-router-dom';
 import type { BootstrapData } from '../../types';
 import StatusBadge from '../../components/StatusBadge';
+import RoleSwitcher from '../../components/RoleSwitcher';
 
-interface Props { bootstrap: BootstrapData; }
+interface Props {
+  bootstrap: BootstrapData;
+  onSwitchToClient?: () => void;
+}
 
-export default function CoachProfileScreen({ bootstrap }: Props) {
+export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Props) {
   const navigate = useNavigate();
   const tp = bootstrap.trainerProfile;
+
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>👤 Профиль тренера</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>👤 Профиль тренера</h1>
+        {onSwitchToClient && (
+          <RoleSwitcher
+            mode="coach"
+            onChange={(m) => { if (m === 'client') onSwitchToClient(); }}
+          />
+        )}
+      </div>
+
       <div className="card">
         <div className="card-title">Статус</div>
         <StatusBadge status={tp?.verificationStatus ?? 'pending'} />
         {tp?.specialization && <div style={{ marginTop: 8, fontSize: 14 }}>Специализация: {tp.specialization}</div>}
         {tp?.referralCode && <div style={{ marginTop: 4, fontSize: 14, color: 'var(--tg-theme-hint-color)' }}>Реферальный код: {tp.referralCode}</div>}
       </div>
+
       <div className="section-header">Финансы</div>
       <div className="card" style={{ padding: 0 }}>
         {[

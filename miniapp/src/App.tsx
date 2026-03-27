@@ -4,7 +4,6 @@ import { useBootstrap } from './hooks/useBootstrap';
 import ClientLayout from './layouts/ClientLayout';
 import CoachLayout from './layouts/CoachLayout';
 import LoadingScreen from './components/LoadingScreen';
-import RoleSwitcher from './components/RoleSwitcher';
 import HomeScreen from './screens/client/HomeScreen';
 import StatsScreen from './screens/client/StatsScreen';
 import FoodDiaryScreen from './screens/client/FoodDiaryScreen';
@@ -61,11 +60,6 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {isVerifiedTrainer && (
-        <div style={{ padding: '12px 16px 0' }}>
-          <RoleSwitcher mode={mode} onChange={setMode} />
-        </div>
-      )}
       {mode === 'client' ? (
         <Routes>
           <Route element={<ClientLayout />}>
@@ -97,7 +91,7 @@ export default function App() {
             <Route path="/client/:clientId" element={<CoachClientCardScreen />} />
             <Route path="/client/:clientId/stats" element={<CoachClientStatsScreen />} />
             <Route path="/alerts" element={<CoachAlertsDashboardScreen />} />
-            <Route path="/profile" element={<CoachProfileScreen bootstrap={bootstrap} />} />
+            <Route path="/profile" element={<CoachProfileScreen bootstrap={bootstrap} onSwitchToClient={() => setMode('client')} />} />
             <Route path="/referrals" element={<CoachReferralsScreen />} />
             <Route path="/payouts" element={<CoachPayoutsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,29 +1,21 @@
 import { useNavigate } from 'react-router-dom';
 import type { BootstrapData, TrainerVerificationStatus } from '../../types';
+import RoleSwitcher from '../../components/RoleSwitcher';
 
 interface Props {
   bootstrap: BootstrapData;
   onSwitchToCoach?: () => void;
 }
 
-function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationStatus | undefined; onSwitchToCoach?: () => void }) {
+// Shown when trainer is not yet verified — status chip with navigation
+function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined }) {
   const navigate = useNavigate();
 
-  if (status === 'verified') {
-    return (
-      <button
-        onClick={onSwitchToCoach}
-        style={chipStyle('var(--tg-theme-button-color, #007aff)', '#fff')}
-      >
-        Режим эксперта
-      </button>
-    );
-  }
   if (status === 'pending') {
     return (
       <span
         onClick={() => navigate('/expert/status')}
-        style={{ ...chipStyle('#d6eaff', '#004085'), cursor: 'pointer' }}
+        style={chipStyle('rgba(0,122,255,0.12)', 'var(--tg-theme-link-color, #007aff)')}
       >
         На проверке
       </span>
@@ -33,7 +25,7 @@ function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationSt
     return (
       <span
         onClick={() => navigate('/expert/status')}
-        style={{ ...chipStyle('#f8d7da', '#721c24'), cursor: 'pointer' }}
+        style={chipStyle('rgba(255,59,48,0.12)', '#ff3b30')}
       >
         Отклонено
       </span>
@@ -43,7 +35,7 @@ function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationSt
     return (
       <span
         onClick={() => navigate('/expert/status')}
-        style={{ ...chipStyle('#f0f0f0', '#555'), cursor: 'pointer' }}
+        style={chipStyle('rgba(120,120,128,0.16)', 'var(--tg-theme-hint-color, #8e8e93)')}
       >
         Заблокирован
       </span>
@@ -53,7 +45,7 @@ function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationSt
   return (
     <button
       onClick={() => navigate('/expert/apply')}
-      style={chipStyle('rgba(0,0,0,0.06)', 'var(--tg-theme-text-color, #000)')}
+      style={chipStyle('rgba(120,120,128,0.14)', 'var(--tg-theme-text-color, #000)')}
     >
       Стать экспертом
     </button>
@@ -62,6 +54,7 @@ function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationSt
 
 function chipStyle(bg: string, color: string): React.CSSProperties {
   return {
+    display: 'inline-block',
     background: bg,
     color,
     border: 'none',
@@ -71,38 +64,29 @@ function chipStyle(bg: string, color: string): React.CSSProperties {
     fontWeight: 600,
     whiteSpace: 'nowrap',
     flexShrink: 0,
+    cursor: 'pointer',
   };
 }
 
 export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
   const navigate = useNavigate();
-  const p = bootstrap.profile;
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
+  const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
 
   return (
     <div className="screen">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1 style={{ margin: 0 }}>👤 Профиль</h1>
-        <ExpertChip status={trainerStatus} onSwitchToCoach={onSwitchToCoach} />
+        {isVerified ? (
+          <RoleSwitcher
+            mode="client"
+            onChange={(m) => { if (m === 'coach') onSwitchToCoach!(); }}
+          />
+        ) : (
+          <ExpertChip status={trainerStatus} />
+        )}
       </div>
-      {p && (
-        <div className="card">
-          <div className="card-title">Физические данные</div>
-          {p.heightCm && <div className="stat-row"><span className="stat-label">📏 Рост</span><span className="stat-value">{p.heightCm} см</span></div>}
-          {p.currentWeightKg && <div className="stat-row"><span className="stat-label">⚖️ Вес</span><span className="stat-value">{p.currentWeightKg} кг</span></div>}
-          {p.desiredWeightKg && <div className="stat-row"><span className="stat-label">🎯 Желаемый вес</span><span className="stat-value">{p.desiredWeightKg} кг</span></div>}
-          {p.city && <div className="stat-row"><span className="stat-label">🌍 Город</span><span className="stat-value">{p.city}</span></div>}
-        </div>
-      )}
-      {p?.dailyCaloriesKcal && (
-        <div className="card">
-          <div className="card-title">Дневные нормы</div>
-          <div className="stat-row"><span className="stat-label">🔥 Калории</span><span className="stat-value">{p.dailyCaloriesKcal} ккал</span></div>
-          <div className="stat-row"><span className="stat-label">💪 Белки</span><span className="stat-value">{p.dailyProteinG} г</span></div>
-          <div className="stat-row"><span className="stat-label">🧈 Жиры</span><span className="stat-value">{p.dailyFatG} г</span></div>
-          <div className="stat-row"><span className="stat-label">🌾 Углеводы</span><span className="stat-value">{p.dailyCarbsG} г</span></div>
-        </div>
-      )}
+
       <div className="section-header">Разделы</div>
       <div className="card" style={{ padding: 0 }}>
         {[

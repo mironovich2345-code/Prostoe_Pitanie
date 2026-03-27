@@ -1595,12 +1595,11 @@ bot.action('noop', async (ctx) => {
 
 // ── Expert / Trainer verification ─────────────────────────────────────
 bot.action(/^trainer_approve_(.+)$/, async (ctx) => {
-  await ctx.answerCbQuery('Одобряю...');
   const targetChatId = ctx.match[1];
   try {
     const current = await prisma.trainerProfile.findUnique({ where: { chatId: targetChatId } });
     if (!current) {
-      await ctx.answerCbQuery('Профиль тренера не найден');
+      await ctx.answerCbQuery('⚠️ Профиль тренера не найден');
       return;
     }
     const code = current.referralCode ?? Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -1617,15 +1616,17 @@ bot.action(/^trainer_approve_(.+)$/, async (ctx) => {
       targetChatId,
       '🎉 Твоя заявка тренера одобрена!\n\nТеперь ты можешь переключиться в режим Эксперта в приложении.',
     );
+    await ctx.answerCbQuery('✅ Одобрено');
+    // Edit admin message using plain text (no HTML parse_mode to avoid escaping issues)
     const originalText = (ctx.callbackQuery.message as { text?: string })?.text ?? '';
-    await ctx.editMessageText(`${originalText}\n\n✅ Одобрено администратором`, { parse_mode: 'HTML' }).catch(() => null);
+    await ctx.editMessageText(`${originalText}\n\n✅ Одобрено администратором (${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })})`).catch(() => null);
   } catch (err) {
     console.error('[trainer_approve]', err);
+    await ctx.answerCbQuery('❌ Ошибка при одобрении').catch(() => null);
   }
 });
 
 bot.action(/^trainer_reject_(.+)$/, async (ctx) => {
-  await ctx.answerCbQuery('Отклоняю...');
   const targetChatId = ctx.match[1];
   try {
     await prisma.trainerProfile.update({
@@ -1639,10 +1640,13 @@ bot.action(/^trainer_reject_(.+)$/, async (ctx) => {
       targetChatId,
       '😔 Твоя заявка тренера была отклонена.\n\nТы можешь подать повторную заявку в приложении.',
     );
+    await ctx.answerCbQuery('❌ Отклонено');
+    // Edit admin message using plain text
     const originalText = (ctx.callbackQuery.message as { text?: string })?.text ?? '';
-    await ctx.editMessageText(`${originalText}\n\n❌ Отклонено администратором`, { parse_mode: 'HTML' }).catch(() => null);
+    await ctx.editMessageText(`${originalText}\n\n❌ Отклонено администратором (${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })})`).catch(() => null);
   } catch (err) {
     console.error('[trainer_reject]', err);
+    await ctx.answerCbQuery('❌ Ошибка при отклонении').catch(() => null);
   }
 });
 
