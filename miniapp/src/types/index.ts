@@ -31,6 +31,10 @@ export interface TrainerProfileInfo {
   bio: string | null;
   specialization: string | null;
   referralCode: string | null;
+  fullName: string | null;
+  socialLink: string | null;
+  documentLink: string | null;
+  appliedAt: string | null;
 }
 
 export interface SubscriptionInfo {

@@ -22,6 +22,8 @@ import CoachPayoutsScreen from './screens/coach/CoachPayoutsScreen';
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
+import ExpertApplicationScreen from './screens/expert/ExpertApplicationScreen';
+import ExpertStatusScreen from './screens/expert/ExpertStatusScreen';
 import type { AppMode } from './types';
 
 export default function App() {
@@ -69,10 +71,20 @@ export default function App() {
             <Route path="/" element={<HomeScreen bootstrap={bootstrap} />} />
             <Route path="/stats" element={<StatsScreen />} />
             <Route path="/diary" element={<FoodDiaryScreen />} />
-            <Route path="/profile" element={<ProfileScreen bootstrap={bootstrap} />} />
+            <Route
+              path="/profile"
+              element={
+                <ProfileScreen
+                  bootstrap={bootstrap}
+                  onSwitchToCoach={isVerifiedTrainer ? () => setMode('coach') : undefined}
+                />
+              }
+            />
             <Route path="/subscription" element={<SubscriptionScreen bootstrap={bootstrap} />} />
             <Route path="/trainer" element={<MyTrainerScreen bootstrap={bootstrap} />} />
             <Route path="/notifications" element={<NotificationSettingsScreen bootstrap={bootstrap} />} />
+            <Route path="/expert/apply" element={<ExpertApplicationScreen />} />
+            <Route path="/expert/status" element={<ExpertStatusScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

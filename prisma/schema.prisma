@@ -55,14 +55,23 @@ model WeightEntry {
 }
 
 model TrainerProfile {
-  id                 Int      @id @default(autoincrement())
-  chatId             String   @unique
-  verificationStatus String   @default("pending")
+  id                 Int       @id @default(autoincrement())
+  chatId             String    @unique
+  verificationStatus String    @default("pending")
   bio                String?
   specialization     String?
-  referralCode       String?  @unique
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  referralCode       String?   @unique
+  fullName           String?
+  socialLink         String?
+  documentLink       String?
+  appliedAt          DateTime?
+  verifiedAt         DateTime?
+  rejectedAt         DateTime?
+  blockedAt          DateTime?
+  verifiedByAdminId  String?
+  verificationNote   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model TrainerClientLink {

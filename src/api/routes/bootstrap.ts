@@ -48,6 +48,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         bio: trainerProfile.bio,
         specialization: trainerProfile.specialization,
         referralCode: trainerProfile.referralCode,
+        fullName: trainerProfile.fullName,
+        socialLink: trainerProfile.socialLink,
+        documentLink: trainerProfile.documentLink,
+        appliedAt: trainerProfile.appliedAt,
       } : null,
       subscription: subscription ? {
         planId: subscription.planId,

@@ -8,6 +8,7 @@ import profileRouter from './routes/profile';
 import trainerRouter from './routes/trainer';
 import subscriptionRouter from './routes/subscription';
 import clientRouter from './routes/client';
+import expertApplyRouter from './routes/expertApply';
 
 export function createApiServer() {
   const app = express();
@@ -29,6 +30,7 @@ export function createApiServer() {
   app.use('/api/trainer', trainerRouter);
   app.use('/api/subscription', subscriptionRouter);
   app.use('/api/client', clientRouter);
+  app.use('/api/expert', expertApplyRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');

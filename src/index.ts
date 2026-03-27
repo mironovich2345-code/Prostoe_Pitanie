@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApiServer } from './api/server';
 import { Telegraf, Markup } from 'telegraf';
+import prisma from './db';
 import { message } from 'telegraf/filters';
 import { mainMenu, BUTTONS } from './keyboards/mainMenu';
 import { MEAL_BUTTONS, MEAL_TYPE_BUTTONS } from './keyboards/mealMenu';
@@ -1707,6 +1708,59 @@ bot.action('settings_notif_time', async (ctx) => {
 
 bot.action('noop', async (ctx) => {
   await ctx.answerCbQuery();
+});
+
+// ── Expert / Trainer verification ─────────────────────────────────────
+bot.action(/^trainer_approve_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery('Одобряю...');
+  const targetChatId = ctx.match[1];
+  try {
+    const current = await prisma.trainerProfile.findUnique({ where: { chatId: targetChatId } });
+    if (!current) {
+      await ctx.answerCbQuery('Профиль тренера не найден');
+      return;
+    }
+    const code = current.referralCode ?? Math.random().toString(36).substring(2, 10).toUpperCase();
+    await prisma.trainerProfile.update({
+      where: { chatId: targetChatId },
+      data: {
+        verificationStatus: 'verified',
+        verifiedAt: new Date(),
+        verifiedByAdminId: String(ctx.from?.id ?? ''),
+        referralCode: code,
+      },
+    });
+    await bot.telegram.sendMessage(
+      targetChatId,
+      '🎉 Твоя заявка тренера одобрена!\n\nТеперь ты можешь переключиться в режим Эксперта в приложении.',
+    );
+    const originalText = (ctx.callbackQuery.message as { text?: string })?.text ?? '';
+    await ctx.editMessageText(`${originalText}\n\n✅ Одобрено администратором`, { parse_mode: 'HTML' }).catch(() => null);
+  } catch (err) {
+    console.error('[trainer_approve]', err);
+  }
+});
+
+bot.action(/^trainer_reject_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery('Отклоняю...');
+  const targetChatId = ctx.match[1];
+  try {
+    await prisma.trainerProfile.update({
+      where: { chatId: targetChatId },
+      data: {
+        verificationStatus: 'rejected',
+        rejectedAt: new Date(),
+      },
+    });
+    await bot.telegram.sendMessage(
+      targetChatId,
+      '😔 Твоя заявка тренера была отклонена.\n\nТы можешь подать повторную заявку в приложении.',
+    );
+    const originalText = (ctx.callbackQuery.message as { text?: string })?.text ?? '';
+    await ctx.editMessageText(`${originalText}\n\n❌ Отклонено администратором`, { parse_mode: 'HTML' }).catch(() => null);
+  } catch (err) {
+    console.error('[trainer_reject]', err);
+  }
 });
 
 // ── Онбординг: отмена ────────────────────────────────────────────────

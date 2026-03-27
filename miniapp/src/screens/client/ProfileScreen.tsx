@@ -1,14 +1,90 @@
 import { useNavigate } from 'react-router-dom';
-import type { BootstrapData } from '../../types';
+import type { BootstrapData, TrainerVerificationStatus } from '../../types';
 
-interface Props { bootstrap: BootstrapData; }
+interface Props {
+  bootstrap: BootstrapData;
+  onSwitchToCoach?: () => void;
+}
 
-export default function ProfileScreen({ bootstrap }: Props) {
+function ExpertChip({ status, onSwitchToCoach }: { status: TrainerVerificationStatus | undefined; onSwitchToCoach?: () => void }) {
+  const navigate = useNavigate();
+
+  if (status === 'verified') {
+    return (
+      <button
+        onClick={onSwitchToCoach}
+        style={chipStyle('var(--tg-theme-button-color, #007aff)', '#fff')}
+      >
+        Режим эксперта
+      </button>
+    );
+  }
+  if (status === 'pending') {
+    return (
+      <span
+        onClick={() => navigate('/expert/status')}
+        style={{ ...chipStyle('#d6eaff', '#004085'), cursor: 'pointer' }}
+      >
+        На проверке
+      </span>
+    );
+  }
+  if (status === 'rejected') {
+    return (
+      <span
+        onClick={() => navigate('/expert/status')}
+        style={{ ...chipStyle('#f8d7da', '#721c24'), cursor: 'pointer' }}
+      >
+        Отклонено
+      </span>
+    );
+  }
+  if (status === 'blocked') {
+    return (
+      <span
+        onClick={() => navigate('/expert/status')}
+        style={{ ...chipStyle('#f0f0f0', '#555'), cursor: 'pointer' }}
+      >
+        Заблокирован
+      </span>
+    );
+  }
+  // No application yet
+  return (
+    <button
+      onClick={() => navigate('/expert/apply')}
+      style={chipStyle('rgba(0,0,0,0.06)', 'var(--tg-theme-text-color, #000)')}
+    >
+      Стать экспертом
+    </button>
+  );
+}
+
+function chipStyle(bg: string, color: string): React.CSSProperties {
+  return {
+    background: bg,
+    color,
+    border: 'none',
+    borderRadius: 20,
+    padding: '5px 12px',
+    fontSize: 12,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  };
+}
+
+export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
   const navigate = useNavigate();
   const p = bootstrap.profile;
+  const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
+
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>👤 Профиль</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>👤 Профиль</h1>
+        <ExpertChip status={trainerStatus} onSwitchToCoach={onSwitchToCoach} />
+      </div>
       {p && (
         <div className="card">
           <div className="card-title">Физические данные</div>
