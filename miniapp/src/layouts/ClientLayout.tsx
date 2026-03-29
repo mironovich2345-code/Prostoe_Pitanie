@@ -4,7 +4,7 @@ const NAV = [
   { to: '/',        icon: '🏠', label: 'Главная',  end: true,  isAdd: false },
   { to: '/diary',   icon: '📋', label: 'Дневник',  end: false, isAdd: false },
   { to: '/add',     icon: '+',  label: 'Добавить', end: false, isAdd: true  },
-  { to: '/stats',   icon: '📊', label: 'Отчёт',   end: false, isAdd: false },
+  { to: '/stats',   icon: '📊', label: 'Статистика', end: false, isAdd: false },
   { to: '/profile', icon: '👤', label: 'Профиль',  end: false, isAdd: false },
 ];
 
