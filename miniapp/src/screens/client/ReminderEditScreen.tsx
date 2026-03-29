@@ -16,11 +16,12 @@ export default function ReminderEditScreen() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new';
+  const numericId = isNew ? null : parseInt(id ?? '', 10);
   const qc = useQueryClient();
 
   const { data: listData, isLoading } = useQuery({ queryKey: ['reminders'], queryFn: api.reminders });
   const reminders = listData?.reminders ?? [];
-  const existing = !isNew ? reminders.find(r => r.id === parseInt(id!, 10)) : null;
+  const existing = numericId != null ? (reminders.find(r => r.id === numericId) ?? null) : null;
 
   // Types already used by OTHER reminders (not the one being edited)
   const usedTypes = new Set(reminders.filter(r => r.id !== existing?.id).map(r => r.mealType));
@@ -37,31 +38,55 @@ export default function ReminderEditScreen() {
     }
   }, [existing, initialized]);
 
+  // Pass all needed values as explicit mutation arguments so react-query v5
+  // captures them at call time, not at async-execution time via stale closure.
   const createMutation = useMutation({
-    mutationFn: () => api.createReminder({ mealType, time }),
+    mutationFn: ({ mealType, time }: { mealType: string; time: string }) =>
+      api.createReminder({ mealType, time }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); navigate('/notifications'); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: () => api.patchReminder(existing!.id, { time }),
+    mutationFn: ({ reminderId, time }: { reminderId: number; time: string }) =>
+      api.patchReminder(reminderId, { time }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); navigate('/notifications'); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.deleteReminder(existing!.id),
+    mutationFn: (reminderId: number) => api.deleteReminder(reminderId),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); navigate('/notifications'); },
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
   const error = (createMutation.error ?? updateMutation.error ?? deleteMutation.error)?.message;
 
+  // Show spinner while loading in edit mode
   if (isLoading && !isNew) {
     return <div className="loading"><div className="spinner" /></div>;
   }
 
+  // In edit mode, if the reminder doesn't exist in loaded data — go back
+  if (!isNew && !isLoading && !existing) {
+    return (
+      <div className="screen">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <button
+            onClick={() => navigate('/notifications')}
+            style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--tg-theme-button-color, #007aff)', cursor: 'pointer' }}
+          >‹</button>
+          <h1 style={{ margin: 0, fontSize: 20 }}>Напоминание не найдено</h1>
+        </div>
+        <button className="btn" onClick={() => navigate('/notifications')}>← Назад</button>
+      </div>
+    );
+  }
+
   function handleSave() {
-    if (isNew) createMutation.mutate();
-    else updateMutation.mutate();
+    if (isNew) {
+      createMutation.mutate({ mealType, time });
+    } else if (existing) {
+      updateMutation.mutate({ reminderId: existing.id, time });
+    }
   }
 
   return (
@@ -96,7 +121,6 @@ export default function ReminderEditScreen() {
         {MEAL_OPTIONS.map(opt => {
           const blocked = usedTypes.has(opt.value);
           const selected = mealType === opt.value;
-          // In edit mode, mealType is fixed — only show selected, rest dimmed
           const clickable = isNew ? !blocked : selected;
           return (
             <button
@@ -129,10 +153,10 @@ export default function ReminderEditScreen() {
         {isPending && !deleteMutation.isPending ? 'Сохраняем...' : 'Сохранить'}
       </button>
 
-      {!isNew && (
+      {!isNew && existing && (
         <button
           className="btn btn-danger"
-          onClick={() => deleteMutation.mutate()}
+          onClick={() => deleteMutation.mutate(existing.id)}
           disabled={isPending}
         >
           {deleteMutation.isPending ? 'Удаляем...' : 'Удалить напоминание'}

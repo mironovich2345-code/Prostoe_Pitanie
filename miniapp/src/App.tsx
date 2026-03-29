@@ -25,6 +25,7 @@ import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
 import ExpertApplicationScreen from './screens/expert/ExpertApplicationScreen';
 import ExpertStatusScreen from './screens/expert/ExpertStatusScreen';
 import EditProfileDataScreen from './screens/client/EditProfileDataScreen';
+import AddMealScreen from './screens/client/AddMealScreen';
 import type { AppMode } from './types';
 
 export default function App() {
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/notifications" element={<NotificationSettingsScreen />} />
             <Route path="/notifications/new" element={<ReminderEditScreen />} />
             <Route path="/notifications/:id" element={<ReminderEditScreen />} />
+            <Route path="/add" element={<AddMealScreen />} />
             <Route path="/expert/apply" element={<ExpertApplicationScreen />} />
             <Route path="/expert/status" element={<ExpertStatusScreen />} />
             <Route path="/profile/edit-data" element={<EditProfileDataScreen />} />
