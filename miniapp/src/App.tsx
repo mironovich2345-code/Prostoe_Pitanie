@@ -11,6 +11,7 @@ import ProfileScreen from './screens/client/ProfileScreen';
 import SubscriptionScreen from './screens/client/SubscriptionScreen';
 import MyTrainerScreen from './screens/client/MyTrainerScreen';
 import NotificationSettingsScreen from './screens/client/NotificationSettingsScreen';
+import ReminderEditScreen from './screens/client/ReminderEditScreen';
 import CoachClientsScreen from './screens/coach/CoachClientsScreen';
 import CoachClientCardScreen from './screens/coach/CoachClientCardScreen';
 import CoachClientStatsScreen from './screens/coach/CoachClientStatsScreen';
@@ -77,7 +78,9 @@ export default function App() {
             />
             <Route path="/subscription" element={<SubscriptionScreen bootstrap={bootstrap} />} />
             <Route path="/trainer" element={<MyTrainerScreen bootstrap={bootstrap} />} />
-            <Route path="/notifications" element={<NotificationSettingsScreen bootstrap={bootstrap} />} />
+            <Route path="/notifications" element={<NotificationSettingsScreen />} />
+            <Route path="/notifications/new" element={<ReminderEditScreen />} />
+            <Route path="/notifications/:id" element={<ReminderEditScreen />} />
             <Route path="/expert/apply" element={<ExpertApplicationScreen />} />
             <Route path="/expert/status" element={<ExpertStatusScreen />} />
             <Route path="/profile/edit-data" element={<EditProfileDataScreen />} />

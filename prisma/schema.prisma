@@ -97,6 +97,17 @@ model Subscription {
   updatedAt          DateTime @updatedAt
 }
 
+model MealReminder {
+  id        Int      @id @default(autoincrement())
+  chatId    String
+  mealType  String
+  time      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([chatId, mealType])
+}
+
 model TrainerReward {
   id             Int      @id @default(autoincrement())
   trainerId      String

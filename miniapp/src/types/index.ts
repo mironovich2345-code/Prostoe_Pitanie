@@ -1,4 +1,12 @@
 export type TrainerVerificationStatus = 'pending' | 'verified' | 'rejected' | 'blocked';
+export type ReminderMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'extra';
+
+export interface MealReminder {
+  id: number;
+  mealType: ReminderMealType;
+  time: string;
+  enabled: boolean;
+}
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'past_due' | 'canceled';
 export type AppMode = 'client' | 'coach';
 
