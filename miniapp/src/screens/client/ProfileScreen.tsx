@@ -1,12 +1,29 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../api/client';
 import type { BootstrapData, TrainerVerificationStatus } from '../../types';
-import { Card, PageHeader, ListCard, ListItem, Button, Chip } from '../../ui';
+import { Chip, ListCard, ListItem } from '../../ui';
 import RoleSwitcher from '../../components/RoleSwitcher';
 
 interface Props {
   bootstrap: BootstrapData;
   onSwitchToCoach?: () => void;
 }
+
+type ProfileTab = 'weight' | 'trainer' | 'norms';
+
+const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
+  { key: 'weight',  label: 'Вес'    },
+  { key: 'trainer', label: 'Тренер' },
+  { key: 'norms',   label: 'Нормы'  },
+];
+
+const ACTIVITY_LABELS: Record<number, string> = {
+  1.2: 'Почти нет', 1.375: 'Лёгкая', 1.55: 'Средняя', 1.725: 'Высокая', 1.9: 'Очень высокая',
+};
+
+// ─── ExpertChip ────────────────────────────────────────────────────────────
 
 function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined }) {
   const navigate = useNavigate();
@@ -16,6 +33,7 @@ function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined 
     return <Chip variant="danger" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>Отклонено</Chip>;
   if (status === 'blocked')
     return <Chip variant="muted" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>Заблокирован</Chip>;
+  if (status === 'verified') return null; // handled by RoleSwitcher
   return (
     <button
       onClick={() => navigate('/expert/apply')}
@@ -26,81 +44,542 @@ function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined 
   );
 }
 
-const SEX_LABELS: Record<string, string> = { male: 'Мужской', female: 'Женский' };
-const ACTIVITY_LABELS: Record<number, string> = {
-  1.2: 'Почти нет', 1.375: 'Лёгкая', 1.55: 'Средняя', 1.725: 'Высокая', 1.9: 'Очень высокая',
-};
+// ─── User Hero Card ────────────────────────────────────────────────────────
 
-export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
-  const navigate = useNavigate();
+function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData; onSwitchToCoach?: () => void }) {
+  const user = bootstrap.telegramUser;
   const p = bootstrap.profile;
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
   const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
 
+  const firstName = user?.first_name ?? '';
+  const lastName = user?.last_name ?? '';
+  const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Пользователь';
+  const initial = fullName.charAt(0).toUpperCase();
+
   const age = p?.birthDate
     ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
-  const activityLabel = p?.activityLevel ? (ACTIVITY_LABELS[p.activityLevel] ?? String(p.activityLevel)) : null;
+
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      borderRadius: 'var(--r-xl)',
+      padding: '20px',
+      border: '1px solid var(--border)',
+      marginBottom: 12,
+    }}>
+      {/* Top row: avatar + info + role switcher */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: (p?.currentWeightKg || p?.desiredWeightKg) ? 16 : 0 }}>
+
+        {/* Initials avatar */}
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+          background: 'var(--accent-soft)',
+          border: '2px solid rgba(215,255,63,0.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 26, fontWeight: 700, color: 'var(--accent)',
+        }}>
+          {initial}
+        </div>
+
+        {/* Name + meta */}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', lineHeight: 1.15, marginBottom: 4 }}>
+            {fullName}
+          </div>
+          {user?.username && (
+            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>@{user.username}</div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {p?.city && (
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>📍 {p.city}</span>
+            )}
+            {age && (
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{age} лет</span>
+            )}
+          </div>
+        </div>
+
+        {/* Role switcher for verified trainers */}
+        {isVerified && (
+          <div style={{ flexShrink: 0 }}>
+            <RoleSwitcher mode="client" onChange={m => { if (m === 'coach') onSwitchToCoach!(); }} />
+          </div>
+        )}
+      </div>
+
+      {/* Mini stat tiles: weight + target */}
+      {(p?.currentWeightKg || p?.desiredWeightKg) && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          {p?.currentWeightKg && (
+            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Вес</div>
+              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1 }}>
+                {p.currentWeightKg}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+              </div>
+            </div>
+          )}
+          {p?.desiredWeightKg && (
+            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Цель</div>
+              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--accent)', lineHeight: 1 }}>
+                {p.desiredWeightKg}
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+              </div>
+            </div>
+          )}
+          {p?.dailyCaloriesKcal && (
+            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Норма</div>
+              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1 }}>
+                {p.dailyCaloriesKcal}
+                <span style={{ fontSize: 9, fontWeight: 500, color: 'var(--text-3)' }}> кк</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab: Вес ──────────────────────────────────────────────────────────────
+
+function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
+  const navigate = useNavigate();
+  const p = bootstrap.profile;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['profile-full'],
+    queryFn: api.profile,
+  });
+  const history = data?.weightHistory ?? [];
+
+  const weight = p?.currentWeightKg;
+  const target = p?.desiredWeightKg;
+  const height = p?.heightCm;
+
+  // BMI
+  const bmi = weight && height ? weight / ((height / 100) ** 2) : null;
+  const bmiLabel = bmi == null ? null
+    : bmi < 18.5 ? 'Дефицит веса'
+    : bmi < 25   ? 'Норма'
+    : bmi < 30   ? 'Избыток веса'
+    : 'Ожирение';
+  const bmiColor = bmi == null ? 'var(--text-2)'
+    : bmi < 18.5 ? 'var(--warn)'
+    : bmi < 25   ? 'var(--accent)'
+    : bmi < 30   ? 'var(--warn)'
+    : 'var(--danger)';
+
+  const diff = weight && target ? weight - target : null;
+
+  if (!weight && !isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+        <div style={{ fontSize: 44, opacity: 0.2, marginBottom: 14 }}>⚖️</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Вес не указан</div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.5 }}>
+          Добавь данные о весе, чтобы отслеживать прогресс и динамику изменений
+        </div>
+        <button
+          onClick={() => navigate('/profile/edit-data')}
+          className="btn"
+          style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
+        >
+          Добавить данные
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Main weight + target */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 8 }}>
+            Текущий вес
+          </div>
+          <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--text)', lineHeight: 1 }}>
+            {weight?.toFixed(1) ?? '—'}
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+          </div>
+          {height && (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>Рост {height} см</div>
+          )}
+        </div>
+
+        {target && (
+          <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 8 }}>
+              Цель
+            </div>
+            <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--accent)', lineHeight: 1 }}>
+              {target.toFixed(1)}
+              <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+            </div>
+            {diff !== null && (
+              <div style={{ fontSize: 12, color: diff > 0 ? 'var(--text-3)' : 'var(--accent)', marginTop: 6 }}>
+                {diff > 0.05 ? `осталось ${diff.toFixed(1)} кг` : diff < -0.05 ? `набрать ${Math.abs(diff).toFixed(1)} кг` : '🎉 цель достигнута'}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* BMI */}
+      {bmi !== null && (
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '14px 16px',
+          border: '1px solid var(--border)', marginBottom: 10,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 4 }}>
+              Индекс массы тела
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>
+              {bmi.toFixed(1)}
+            </div>
+          </div>
+          <div style={{
+            fontSize: 13, fontWeight: 600, color: bmiColor,
+            background: 'var(--surface-2)', padding: '7px 14px',
+            borderRadius: 20, border: '1px solid var(--border)',
+          }}>
+            {bmiLabel}
+          </div>
+        </div>
+      )}
+
+      {/* Weight history */}
+      {isLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+          <div className="spinner" />
+        </div>
+      ) : history.length > 0 ? (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '8px 2px 10px' }}>
+            История
+          </div>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            {[...history].reverse().slice(0, 8).map((entry, i, arr) => {
+              const prev = arr[i + 1];
+              const delta = prev ? entry.weightKg - prev.weightKg : null;
+              const dateLabel = new Date(entry.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+              return (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: 'var(--text)', lineHeight: 1 }}>
+                      {entry.weightKg.toFixed(1)}
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> кг</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{dateLabel}</div>
+                  </div>
+                  {delta !== null && (
+                    <span style={{
+                      fontSize: 13, fontWeight: 600,
+                      color: delta < -0.01 ? 'var(--accent)' : delta > 0.01 ? 'var(--danger)' : 'var(--text-3)',
+                    }}>
+                      {delta > 0 ? '+' : ''}{delta.toFixed(1)} кг
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div style={{ padding: '20px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>История взвешиваний появится здесь</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab: Тренер ───────────────────────────────────────────────────────────
+
+function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
+  const navigate = useNavigate();
+  const trainer = bootstrap.connectedTrainer;
+
+  if (trainer) {
+    const connectedDate = new Date(trainer.connectedAt).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
+    const initial = trainer.name ? trainer.name.charAt(0).toUpperCase() : '?';
+
+    return (
+      <div>
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          padding: '18px', border: '1px solid var(--border)', marginBottom: 10,
+        }}>
+          {/* Trainer header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+              background: 'var(--surface-2)', border: '2px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 22, fontWeight: 700, color: 'var(--text)',
+            }}>
+              {initial}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>
+                {trainer.name ?? 'Тренер'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Подключён с {connectedDate}</div>
+            </div>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+              background: 'var(--accent-soft)', color: 'var(--accent)',
+            }}>
+              Активен
+            </span>
+          </div>
+
+          {/* Access level */}
+          <div style={{
+            background: 'var(--surface-2)', borderRadius: 12, padding: '11px 14px',
+            border: '1px solid var(--border)', marginBottom: 14,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Доступ к истории</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: trainer.fullHistoryAccess ? 'var(--accent)' : 'var(--text)' }}>
+              {trainer.fullHistoryAccess ? 'Полный' : 'Только текущие'}
+            </span>
+          </div>
+
+          <button
+            onClick={() => navigate('/trainer')}
+            className="btn"
+            style={{ fontSize: 14 }}
+          >
+            Открыть профиль тренера
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No trainer — premium empty state
+  return (
+    <div>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        padding: '32px 20px', border: '1px solid var(--border)',
+        textAlign: 'center', marginBottom: 10,
+      }}>
+        <div style={{ fontSize: 48, opacity: 0.2, marginBottom: 14 }}>🏋</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+          Тренер не подключён
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 24, maxWidth: 260, margin: '0 auto 24px' }}>
+          Подключи персонального тренера для контроля питания и достижения целей
+        </div>
+        <button
+          onClick={() => navigate('/trainer')}
+          className="btn"
+          style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
+        >
+          Подключить тренера
+        </button>
+      </div>
+
+      {/* Feature list */}
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        {[
+          { icon: '📊', label: 'Тренер видит твою статистику питания' },
+          { icon: '🎯', label: 'Персональные рекомендации по рациону' },
+          { icon: '💬', label: 'Обратная связь и корректировка целей' },
+        ].map((item, i, arr) => (
+          <div
+            key={item.label}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
+              borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+            }}
+          >
+            <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: Нормы ────────────────────────────────────────────────────────────
+
+function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
+  const navigate = useNavigate();
+  const p = bootstrap.profile;
+
+  if (!p?.dailyCaloriesKcal) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+        <div style={{ fontSize: 44, opacity: 0.2, marginBottom: 14 }}>🎯</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+          Нормы не рассчитаны
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 24 }}>
+          Заполни физические данные и цель — AI рассчитает персональные нормы
+        </div>
+        <button
+          onClick={() => navigate('/profile/edit-data')}
+          className="btn"
+          style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
+        >
+          Заполнить данные
+        </button>
+      </div>
+    );
+  }
+
+  const macros = [
+    { label: 'Белки',    value: p.dailyProteinG, color: '#7EB8F0' },
+    { label: 'Жиры',     value: p.dailyFatG,     color: '#F0A07A' },
+    { label: 'Углеводы', value: p.dailyCarbsG,   color: '#90C860' },
+  ].filter(m => m.value != null);
+
+  return (
+    <div>
+      {/* Calorie hero */}
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)', padding: '18px',
+        border: '1px solid var(--border)', marginBottom: 10,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 10 }}>
+          Дневная норма калорий
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: p.activityLevel ? 8 : 0 }}>
+          <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: -1.5, color: 'var(--accent)', lineHeight: 1 }}>
+            {p.dailyCaloriesKcal.toLocaleString('ru')}
+          </span>
+          <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>ккал / день</span>
+        </div>
+        {p.activityLevel && (
+          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+            Уровень активности: {ACTIVITY_LABELS[p.activityLevel] ?? p.activityLevel}
+          </div>
+        )}
+      </div>
+
+      {/* Macro tiles */}
+      {macros.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          {macros.map(m => (
+            <div
+              key={m.label}
+              style={{
+                flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-md)',
+                padding: '14px 10px', border: '1px solid var(--border)',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: m.color, lineHeight: 1 }}>
+                {(m.value as number).toFixed(0)}
+                <span style={{ fontSize: 11, fontWeight: 500 }}> г</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, fontWeight: 600 }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Fiber if available */}
+      {p.dailyFiberG && (
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 16px',
+          border: '1px solid var(--border)', marginBottom: 10,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Клетчатка</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{p.dailyFiberG.toFixed(0)} г</span>
+        </div>
+      )}
+
+      <button
+        onClick={() => navigate('/profile/edit-data')}
+        className="btn btn-secondary"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', fontSize: 14, marginTop: 6 }}
+      >
+        <span>✏️ Изменить физические данные</span>
+        <span style={{ color: 'var(--text-3)' }}>›</span>
+      </button>
+    </div>
+  );
+}
+
+// ─── Main Screen ───────────────────────────────────────────────────────────
+
+export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<ProfileTab>('weight');
+
+  const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
+  const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
 
   return (
     <div className="screen">
-      <PageHeader
-        title="Профиль"
-        right={
-          isVerified ? (
-            <RoleSwitcher mode="client" onChange={m => { if (m === 'coach') onSwitchToCoach!(); }} />
-          ) : (
-            <ExpertChip status={trainerStatus} />
-          )
-        }
-      />
 
-      {/* Physical data */}
-      {p && (p.heightCm || p.currentWeightKg || p.sex) && (
-        <Card>
-          <div className="card-title">Физические данные</div>
-          {p.sex        && <div className="stat-row"><span className="stat-label">Пол</span><span className="stat-value">{SEX_LABELS[p.sex] ?? p.sex}</span></div>}
-          {p.heightCm   && <div className="stat-row"><span className="stat-label">Рост</span><span className="stat-value">{p.heightCm} см</span></div>}
-          {p.currentWeightKg && <div className="stat-row"><span className="stat-label">Вес</span><span className="stat-value">{p.currentWeightKg} кг</span></div>}
-          {p.desiredWeightKg && <div className="stat-row"><span className="stat-label">Желаемый вес</span><span className="stat-value">{p.desiredWeightKg} кг</span></div>}
-          {age          && <div className="stat-row"><span className="stat-label">Возраст</span><span className="stat-value">{age} лет</span></div>}
-          {activityLabel && <div className="stat-row"><span className="stat-label">Активность</span><span className="stat-value">{activityLabel}</span></div>}
-          {p.city       && <div className="stat-row"><span className="stat-label">Город</span><span className="stat-value">{p.city}</span></div>}
-        </Card>
-      )}
+      {/* User hero card */}
+      <UserHeroCard bootstrap={bootstrap} onSwitchToCoach={isVerified ? onSwitchToCoach : undefined} />
 
-      {/* Daily norms */}
-      {p?.dailyCaloriesKcal && (
-        <Card>
-          <div className="card-title">Дневные нормы</div>
-          <div className="stat-row"><span className="stat-label">Калории</span><span className="stat-value" style={{ color: 'var(--accent)' }}>{p.dailyCaloriesKcal} ккал</span></div>
-          <div className="stat-row"><span className="stat-label">Белки</span><span className="stat-value" style={{ color: 'var(--macro-p)' }}>{p.dailyProteinG} г</span></div>
-          <div className="stat-row"><span className="stat-label">Жиры</span><span className="stat-value" style={{ color: 'var(--macro-f)' }}>{p.dailyFatG} г</span></div>
-          <div className="stat-row"><span className="stat-label">Углеводы</span><span className="stat-value" style={{ color: 'var(--macro-c)' }}>{p.dailyCarbsG} г</span></div>
-        </Card>
-      )}
-
-      {/* Edit physical data */}
-      <Button
-        variant="secondary"
-        onClick={() => navigate('/profile/edit-data')}
-        style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', fontSize: 15 }}
-      >
-        <span>✏️ Мои физические данные</span>
-        <span style={{ color: 'var(--text-3)' }}>›</span>
-      </Button>
-
-      {/* Sections */}
-      <div className="section-title">Разделы</div>
-      <ListCard>
-        {[
-          { label: '💳 Подписка',    path: '/subscription' },
-          { label: '🏋 Мой тренер',  path: '/trainer' },
-          { label: '🔔 Уведомления', path: '/notifications' },
-        ].map(item => (
-          <ListItem key={item.path} label={item.label} onClick={() => navigate(item.path)} />
+      {/* Segment tabs */}
+      <div className="period-tabs" style={{ marginBottom: 16 }}>
+        {PROFILE_TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`period-tab${tab === t.key ? ' active' : ''}`}
+          >
+            {t.label}
+          </button>
         ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === 'weight'  && <WeightTab  bootstrap={bootstrap} />}
+      {tab === 'trainer' && <TrainerTab bootstrap={bootstrap} />}
+      {tab === 'norms'   && <NormsTab   bootstrap={bootstrap} />}
+
+      {/* Settings sections */}
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '16px 2px 10px' }}>
+        Настройки
+      </div>
+      <ListCard>
+        <ListItem label="✏️ Мои физические данные" onClick={() => navigate('/profile/edit-data')} />
+        <ListItem label="💳 Подписка"              onClick={() => navigate('/subscription')} />
+        <ListItem label="🔔 Уведомления"           onClick={() => navigate('/notifications')} />
       </ListCard>
+
+      {/* Expert status / apply (only for non-verified trainers) */}
+      {!isVerified && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'var(--surface)', borderRadius: 'var(--r-md)',
+            padding: '13px 16px', border: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Тренерский кабинет</span>
+            <ExpertChip status={trainerStatus} />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
