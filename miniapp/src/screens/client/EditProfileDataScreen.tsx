@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { PageHeader } from '../../ui';
 
 const ACTIVITY_OPTIONS = [
   { value: 1.2,   label: '🛋 Почти нет активности' },
@@ -78,39 +79,38 @@ export default function EditProfileDataScreen() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button
-          onClick={() => navigate('/profile')}
-          style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--tg-theme-button-color, #007aff)' }}
-        >
-          ‹
-        </button>
-        <h1 style={{ margin: 0, fontSize: 20 }}>Мои данные</h1>
-      </div>
+      <PageHeader title="Мои данные" onBack={() => navigate('/profile')} />
 
-      <div className="card">
-        <div className="card-title">Физические данные</div>
+      {/* Physical data */}
+      <GroupCard>
+        <GroupLabel>Физические данные</GroupLabel>
         <FieldRow label="Рост (см)">
           <input type="number" value={heightCm} onChange={e => setHeightCm(e.target.value)} placeholder="170" style={inputStyle} />
         </FieldRow>
         <FieldRow label="Вес (кг)">
           <input type="number" value={currentWeightKg} onChange={e => setCurrentWeightKg(e.target.value)} placeholder="70" style={inputStyle} />
         </FieldRow>
-        <FieldRow label="Желаемый вес (кг)">
+        <FieldRow label="Желаемый вес (кг)" isLast>
           <input type="number" value={desiredWeightKg} onChange={e => setDesiredWeightKg(e.target.value)} placeholder="65" style={inputStyle} />
         </FieldRow>
-      </div>
+      </GroupCard>
 
-      <div className="card">
-        <div className="card-title">О себе</div>
+      {/* Personal info */}
+      <GroupCard>
+        <GroupLabel>О себе</GroupLabel>
         <FieldRow label="Пол">
           <div style={{ display: 'flex', gap: 8 }}>
             {[{ v: 'male', l: '👨 Мужской' }, { v: 'female', l: '👩 Женский' }].map(opt => (
               <button
                 key={opt.v}
                 onClick={() => setSex(opt.v)}
-                className={`btn ${sex === opt.v ? '' : 'btn-secondary'}`}
-                style={{ flex: 1, padding: '7px 4px', fontSize: 13 }}
+                style={{
+                  flex: 1, padding: '9px 4px', fontSize: 13, fontWeight: 600,
+                  borderRadius: 8, border: 'none', cursor: 'pointer',
+                  background: sex === opt.v ? 'var(--accent)' : 'var(--surface-2)',
+                  color: sex === opt.v ? '#000' : 'var(--text-2)',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
               >
                 {opt.l}
               </button>
@@ -120,31 +120,45 @@ export default function EditProfileDataScreen() {
         <FieldRow label="Дата рождения">
           <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} style={inputStyle} />
         </FieldRow>
-        <FieldRow label="Город">
+        <FieldRow label="Город" isLast>
           <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Москва" style={inputStyle} />
         </FieldRow>
-      </div>
+      </GroupCard>
 
-      <div className="card">
-        <div className="card-title">Уровень активности</div>
-        {ACTIVITY_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setActivityLevel(String(opt.value))}
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px',
-              background: String(activityLevel) === String(opt.value) ? 'var(--tg-theme-button-color, #007aff)' : 'none',
-              color: String(activityLevel) === String(opt.value) ? '#fff' : 'var(--tg-theme-text-color, #000)',
-              border: 'none', borderRadius: 8, fontSize: 14, marginBottom: 4,
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      {/* Activity level */}
+      <GroupCard>
+        <GroupLabel>Уровень активности</GroupLabel>
+        {ACTIVITY_OPTIONS.map((opt, i) => {
+          const active = String(activityLevel) === String(opt.value);
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setActivityLevel(String(opt.value))}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', textAlign: 'left', padding: '13px 18px',
+                background: active ? 'var(--accent-soft)' : 'transparent',
+                color: active ? 'var(--accent)' : 'var(--text)',
+                border: 'none',
+                borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                fontSize: 14, fontWeight: active ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'background 0.15s, color 0.15s',
+              }}
+            >
+              <span>{opt.label}</span>
+              {active && <span style={{ fontSize: 15, color: 'var(--accent)' }}>✓</span>}
+            </button>
+          );
+        })}
+      </GroupCard>
 
       {error && (
-        <div style={{ color: '#dc3545', fontSize: 14, marginBottom: 12, padding: '8px 12px', background: '#f8d7da', borderRadius: 8 }}>
+        <div style={{
+          color: 'var(--danger)', fontSize: 13, marginBottom: 12,
+          padding: '10px 14px', background: 'rgba(255,87,87,0.1)',
+          borderRadius: 8, border: '1px solid rgba(255,87,87,0.2)',
+        }}>
           {error}
         </div>
       )}
@@ -156,10 +170,36 @@ export default function EditProfileDataScreen() {
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function GroupCard({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ fontSize: 13, color: 'var(--tg-theme-hint-color, #888)', display: 'block', marginBottom: 4 }}>
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+      border: '1px solid var(--border)', marginBottom: 10, overflow: 'hidden',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      padding: '12px 18px 2px',
+      fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+      letterSpacing: 1, color: 'var(--text-3)',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function FieldRow({ label, children, isLast }: { label: string; children: React.ReactNode; isLast?: boolean }) {
+  return (
+    <div style={{
+      padding: '10px 18px 14px',
+      borderBottom: isLast ? 'none' : '1px solid var(--border)',
+    }}>
+      <label style={{ fontSize: 12, color: 'var(--text-3)', display: 'block', marginBottom: 6, fontWeight: 500 }}>
         {label}
       </label>
       {children}
@@ -169,11 +209,12 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '9px 12px',
-  border: '1px solid rgba(0,0,0,0.12)',
+  padding: '10px 12px',
+  border: '1px solid var(--border-2)',
   borderRadius: 8,
   fontSize: 15,
-  background: 'var(--tg-theme-bg-color, #f0f0f0)',
-  color: 'var(--tg-theme-text-color, #000)',
+  background: 'var(--surface-2)',
+  color: 'var(--text)',
   outline: 'none',
+  boxSizing: 'border-box',
 };

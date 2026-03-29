@@ -296,3 +296,78 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .role-switcher { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; }
 .role-tab      { flex: 1; padding: 7px; text-align: center; border-radius: 9px; font-size: 13px; font-weight: 600; background: none; border: none; color: var(--text-3); transition: all 0.15s; }
 .role-tab.active { background: var(--surface-3); color: var(--text); }
+
+/* ── Segmented period control ───────────────────────────────────────── */
+.period-tabs {
+  display: flex;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  padding: 3px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.period-tab {
+  flex: 1;
+  padding: 9px 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  letter-spacing: -0.1px;
+}
+.period-tab.active {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* ── Method card (AddMeal) ──────────────────────────────────────────── */
+.method-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.method-card.active {
+  border-color: rgba(215,255,63,0.28);
+  background: rgba(215,255,63,0.04);
+}
+.method-card.soon {
+  cursor: default;
+  opacity: 0.36;
+}
+
+/* ── Screen-level heading ───────────────────────────────────────────── */
+.screen-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  color: var(--text);
+  margin-bottom: 20px;
+  line-height: 1.1;
+}
+
+/* ── Info row (home compact rows) ───────────────────────────────────── */
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.info-row:active { background: var(--surface-2); }

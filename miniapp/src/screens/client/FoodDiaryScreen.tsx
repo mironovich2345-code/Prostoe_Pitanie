@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { Card } from '../../ui';
@@ -26,6 +27,7 @@ function nextDay(d: string) {
 }
 
 export default function FoodDiaryScreen() {
+  const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
   const [date, setDate] = useState(today);
   const isToday = date === today;
@@ -48,26 +50,50 @@ export default function FoodDiaryScreen() {
 
   return (
     <div className="screen">
+
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 14 }}>
-          📋 Дневник
+        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', marginBottom: 16 }}>
+          Дневник
         </h1>
 
         {/* Date navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center',
+            background: 'var(--surface)', borderRadius: 'var(--r-md)',
+            border: '1px solid var(--border)', padding: '4px',
+          }}
+        >
           <button
             onClick={() => setDate(prevDay(date))}
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, width: 36, height: 36, color: 'var(--text-2)', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+            style={{
+              background: 'none', border: 'none',
+              width: 40, height: 40, borderRadius: 12,
+              color: 'var(--text-2)', fontSize: 20,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, cursor: 'pointer',
+            }}
           >‹</button>
-          <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ flex: 1, textAlign: 'center', padding: '4px 0' }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{fmtDate(date)}</div>
-            {isToday && <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginTop: 1 }}>Сегодня</div>}
+            {isToday && (
+              <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, marginTop: 1, letterSpacing: 0.3 }}>
+                Сегодня
+              </div>
+            )}
           </div>
           <button
             onClick={() => !isToday && setDate(nextDay(date))}
             disabled={isToday}
-            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, width: 36, height: 36, color: isToday ? 'var(--text-3)' : 'var(--text-2)', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: isToday ? 'default' : 'pointer', opacity: isToday ? 0.4 : 1 }}
+            style={{
+              background: 'none', border: 'none',
+              width: 40, height: 40, borderRadius: 12,
+              color: isToday ? 'var(--text-3)' : 'var(--text-2)', fontSize: 20,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, cursor: isToday ? 'default' : 'pointer',
+              opacity: isToday ? 0.3 : 1,
+            }}
           >›</button>
         </div>
       </div>
@@ -75,12 +101,24 @@ export default function FoodDiaryScreen() {
       {isLoading ? (
         <Card><div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div></Card>
       ) : meals.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🍽</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет записей</div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-            {isToday ? 'Добавь первый приём пищи' : 'В этот день ничего не записано'}
+        /* Premium empty state */
+        <div style={{ textAlign: 'center', padding: '52px 24px 40px' }}>
+          <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>🍽</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+            {isToday ? 'День ещё не начат' : 'В этот день пусто'}
           </div>
+          <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 28 }}>
+            {isToday ? 'Добавь первый приём пищи через бот или кнопку ниже' : 'В этот день записей нет'}
+          </div>
+          {isToday && (
+            <button
+              onClick={() => navigate('/add')}
+              className="btn"
+              style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
+            >
+              + Добавить приём
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -100,18 +138,19 @@ export default function FoodDiaryScreen() {
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 4 }}>Итого</div>
               <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)' }}>
-                {Math.round(totalCal).toLocaleString('ru')} <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>ккал</span>
+                {Math.round(totalCal).toLocaleString('ru')}
+                <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}> ккал</span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 14 }}>
               {[
                 { label: 'Б', value: totalP, color: 'var(--macro-p)' },
                 { label: 'Ж', value: totalF, color: 'var(--macro-f)' },
                 { label: 'У', value: totalC, color: 'var(--macro-c)' },
               ].map(m => (
                 <div key={m.label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: m.color }}>{m.value.toFixed(0)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>{m.label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: m.color, lineHeight: 1 }}>{m.value.toFixed(0)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2, fontWeight: 600, letterSpacing: 0.3 }}>{m.label}</div>
                 </div>
               ))}
             </div>

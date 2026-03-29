@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import { Card, MacroTiles } from '../../ui';
+import { MacroTiles } from '../../ui';
 import type { MealEntry } from '../../types';
 
 const PERIODS = [
@@ -34,18 +34,19 @@ export default function StatsScreen() {
 
   return (
     <div className="screen">
-      <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 20 }}>
-        📊 Отчёт
+
+      {/* Title */}
+      <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', marginBottom: 20 }}>
+        Отчёт
       </h1>
 
-      {/* Period selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      {/* Period selector — segmented control */}
+      <div className="period-tabs">
         {PERIODS.map(p => (
           <button
             key={p.days}
             onClick={() => setDays(p.days)}
-            className={days === p.days ? 'btn' : 'btn btn-secondary'}
-            style={{ flex: 1, padding: '10px 8px', fontSize: 13 }}
+            className={`period-tab${days === p.days ? ' active' : ''}`}
           >
             {p.label}
           </button>
@@ -53,10 +54,10 @@ export default function StatsScreen() {
       </div>
 
       {isLoading ? (
-        <Card><div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div></Card>
+        <div className="card"><div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div></div>
       ) : data && activeDays > 0 ? (
         <>
-          {/* Summary header */}
+          {/* Total summary */}
           <div
             style={{
               background: 'var(--surface)',
@@ -66,37 +67,38 @@ export default function StatsScreen() {
               border: '1px solid var(--border)',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 12 }}>
-              За {days} дней · {activeDays} активных
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 14 }}>
+              За {days} дней · {activeDays} {activeDays === 1 ? 'активный день' : activeDays < 5 ? 'активных дня' : 'активных дней'}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Всего калорий</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <span style={{ fontSize: 14, color: 'var(--text-3)' }}>Всего калорий</span>
+              <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)' }}>
                 {Math.round(totalCal).toLocaleString('ru')}
+                <span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 500 }}> ккал</span>
               </span>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>
               Белки {totalP.toFixed(0)}г · Жиры {totalF.toFixed(0)}г · Углеводы {totalC.toFixed(0)}г
               {totalFib > 0 && ` · Клетчатка ${totalFib.toFixed(0)}г`}
             </div>
           </div>
 
           {/* Average per day */}
-          <div style={{ marginBottom: 6 }}>
-            <div className="section-title">Среднее в день</div>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '2px 2px 10px', marginTop: 8 }}>
+            Среднее в день
           </div>
 
           <div
             style={{
               background: 'var(--surface)',
               borderRadius: 'var(--r-lg)',
-              padding: '16px 18px',
+              padding: '16px 18px 14px',
               marginBottom: 10,
               border: '1px solid var(--border)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 14 }}>
-              <span style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, color: 'var(--text)', lineHeight: 1 }}>
+              <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--text)', lineHeight: 1 }}>
                 {Math.round(avg(totalCal)).toLocaleString('ru')}
               </span>
               <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>ккал/день</span>
@@ -109,10 +111,10 @@ export default function StatsScreen() {
           </div>
         </>
       ) : (
-        <div className="empty-state">
-          <div className="empty-state-icon">📊</div>
-          <div style={{ fontSize: 15, color: 'var(--text-2)', fontWeight: 600, marginBottom: 6 }}>Нет данных</div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Начни записывать приёмы пищи</div>
+        <div style={{ textAlign: 'center', padding: '56px 24px 40px' }}>
+          <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>📊</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет данных</div>
+          <div style={{ fontSize: 14, color: 'var(--text-3)' }}>Начни записывать приёмы пищи, чтобы увидеть статистику</div>
         </div>
       )}
     </div>

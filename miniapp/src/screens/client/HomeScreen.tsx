@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import { CalorieCard, MacroTiles, Button } from '../../ui';
+import { CalorieCard, MacroTiles } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
 import type { BootstrapData } from '../../types';
 
@@ -24,17 +24,18 @@ export default function HomeScreen({ bootstrap }: Props) {
 
   return (
     <div className="screen">
+
       {/* Greeting */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1.1 }}>
-          Привет{firstName ? `, ${firstName}` : ''} 👋
+        <h1 style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1.1, marginBottom: 5 }}>
+          {firstName ? `Привет, ${firstName}` : 'Привет'} 👋
         </h1>
-        <div style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 4 }}>{dateLabel}</div>
+        <div style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 400 }}>{dateLabel}</div>
       </div>
 
-      {/* Calories */}
+      {/* Calories hero */}
       {isLoading ? (
-        <div className="card" style={{ padding: '24px 18px' }}>
+        <div className="card" style={{ padding: '28px 18px', marginBottom: 10 }}>
           <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div>
         </div>
       ) : today ? (
@@ -54,49 +55,43 @@ export default function HomeScreen({ bootstrap }: Props) {
           />
         </>
       ) : (
-        <div className="card">
-          <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Нет данных за сегодня</div>
+        <div className="card" style={{ padding: '28px 18px', marginBottom: 10, textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.3 }}>🍽</div>
+          <div style={{ color: 'var(--text-2)', fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Нет данных за сегодня</div>
+          <div style={{ color: 'var(--text-3)', fontSize: 13 }}>Добавь первый приём пищи</div>
         </div>
       )}
 
-      {/* CTA */}
-      <div style={{ marginTop: 16, marginBottom: 10 }}>
-        <Button onClick={() => navigate('/diary')}>
-          📋 Дневник питания
-        </Button>
-      </div>
+      {/* Primary CTA */}
+      <button
+        onClick={() => navigate('/add')}
+        className="btn"
+        style={{ marginBottom: 16, fontSize: 15 }}
+      >
+        + Добавить приём пищи
+      </button>
 
-      {/* Subscription — compact */}
+      {/* Subscription */}
       {sub && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'var(--surface)', borderRadius: 'var(--r-md)',
-            padding: '13px 16px', border: '1px solid var(--border)',
-            marginBottom: 10, cursor: 'pointer',
-          }}
-          onClick={() => navigate('/subscription')}
-        >
-          <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Подписка</span>
+        <div className="info-row" onClick={() => navigate('/subscription')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>💳</span>
+            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Подписка</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <StatusBadge status={sub.status} />
             <span style={{ color: 'var(--text-3)', fontSize: 16 }}>›</span>
           </div>
         </div>
       )}
 
-      {/* Connected trainer — compact */}
+      {/* Connected trainer */}
       {trainer && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'var(--surface)', borderRadius: 'var(--r-md)',
-            padding: '13px 16px', border: '1px solid var(--border)',
-            marginBottom: 10, cursor: 'pointer',
-          }}
-          onClick={() => navigate('/trainer')}
-        >
-          <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Тренер</span>
+        <div className="info-row" onClick={() => navigate('/trainer')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>🏋</span>
+            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Тренер</span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
               {trainer.name ?? 'Подключён'}
@@ -105,6 +100,7 @@ export default function HomeScreen({ bootstrap }: Props) {
           </div>
         </div>
       )}
+
     </div>
   );
 }

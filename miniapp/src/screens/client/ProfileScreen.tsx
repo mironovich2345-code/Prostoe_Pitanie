@@ -11,7 +11,7 @@ interface Props {
 function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined }) {
   const navigate = useNavigate();
   if (status === 'pending')
-    return <Chip variant="purple" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>На проверке</Chip>;
+    return <Chip variant="warn" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>На проверке</Chip>;
   if (status === 'rejected')
     return <Chip variant="danger" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>Отклонено</Chip>;
   if (status === 'blocked')

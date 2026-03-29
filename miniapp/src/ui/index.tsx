@@ -207,27 +207,39 @@ export function MacroTiles({ protein, fat, carbs, normProtein, normFat, normCarb
     { label: 'Углеводы', value: carbs, norm: normCarbs,  color: colors.macroC },
   ];
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      {macros.map(m => (
-        <div
-          key={m.label}
-          style={{
-            flex: 1,
-            background: 'var(--surface)',
-            borderRadius: radius.md,
-            padding: '12px 10px',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ fontSize: 20, fontWeight: 700, color: m.color, letterSpacing: -0.5, lineHeight: 1 }}>
-            {m.value.toFixed(0)}<span style={{ fontSize: 12, fontWeight: 500 }}>г</span>
+    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+      {macros.map(m => {
+        const pct = m.norm ? Math.min(100, Math.round((m.value / m.norm) * 100)) : null;
+        return (
+          <div
+            key={m.label}
+            style={{
+              flex: 1,
+              background: 'var(--surface)',
+              borderRadius: radius.md,
+              padding: '12px 10px 10px',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 700, color: m.color, letterSpacing: -0.5, lineHeight: 1 }}>
+              {m.value.toFixed(0)}<span style={{ fontSize: 12, fontWeight: 500 }}>г</span>
+            </div>
+            {m.norm ? (
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>/ {m.norm}г</div>
+            ) : (
+              <div style={{ height: 14 }} />
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, fontWeight: 500 }}>{m.label}</div>
+            {pct !== null && (
+              <div style={{ marginTop: 8, height: 3, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 3, background: m.color, width: `${pct}%`, transition: 'width 0.4s ease' }} />
+              </div>
+            )}
           </div>
-          {m.norm && (
-            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>/ {m.norm}г</div>
-          )}
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, fontWeight: 500 }}>{m.label}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
