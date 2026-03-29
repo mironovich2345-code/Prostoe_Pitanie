@@ -9,6 +9,5 @@ export const BUTTONS = {
 
 export const mainMenu = Markup.keyboard([
   [BUTTONS.ADD_MEAL],
-  [BUTTONS.STATS, BUTTONS.PROFILE],
-  [BUTTONS.SETTINGS],
+  [BUTTONS.STATS],
 ]).resize();

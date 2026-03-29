@@ -64,7 +64,7 @@ export default function EditProfileDataScreen() {
       await api.patchProfileData(body);
       await qc.invalidateQueries({ queryKey: ['bootstrap'] });
       await qc.invalidateQueries({ queryKey: ['profile-full'] });
-      navigate('/diary');
+      navigate('/profile');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка сохранения');
     } finally {
@@ -80,7 +80,7 @@ export default function EditProfileDataScreen() {
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button
-          onClick={() => navigate('/diary')}
+          onClick={() => navigate('/profile')}
           style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--tg-theme-button-color, #007aff)' }}
         >
           ‹

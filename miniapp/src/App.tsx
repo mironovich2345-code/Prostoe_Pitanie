@@ -80,7 +80,7 @@ export default function App() {
             <Route path="/notifications" element={<NotificationSettingsScreen bootstrap={bootstrap} />} />
             <Route path="/expert/apply" element={<ExpertApplicationScreen />} />
             <Route path="/expert/status" element={<ExpertStatusScreen />} />
-            <Route path="/diary/edit-data" element={<EditProfileDataScreen />} />
+            <Route path="/profile/edit-data" element={<EditProfileDataScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

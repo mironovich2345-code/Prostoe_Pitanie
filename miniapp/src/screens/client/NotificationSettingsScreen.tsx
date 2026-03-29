@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData } from '../../types';
@@ -6,6 +7,7 @@ import type { BootstrapData } from '../../types';
 interface Props { bootstrap: BootstrapData; }
 
 export default function NotificationSettingsScreen({ bootstrap }: Props) {
+  const navigate = useNavigate();
   const p = bootstrap.profile;
   const [enabled, setEnabled] = useState(p?.notificationsEnabled ?? true);
   const [count, setCount] = useState(p?.notificationCount ?? 3);
@@ -36,7 +38,10 @@ export default function NotificationSettingsScreen({ bootstrap }: Props) {
 
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>🔔 Уведомления</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <button onClick={() => navigate('/profile')} style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--tg-theme-button-color, #007aff)' }}>‹</button>
+        <h1 style={{ margin: 0 }}>🔔 Уведомления</h1>
+      </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

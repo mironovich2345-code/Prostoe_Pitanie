@@ -54,9 +54,8 @@ export default function HomeScreen({ bootstrap }: Props) {
           )}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <button className="btn" style={{ flex: 1 }} onClick={() => navigate('/stats')}>📊 Статистика</button>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => navigate('/diary')}>📋 Дневник</button>
+      <div style={{ marginTop: 8 }}>
+        <button className="btn" style={{ width: '100%' }} onClick={() => navigate('/diary')}>📋 Дневник</button>
       </div>
     </div>
   );
