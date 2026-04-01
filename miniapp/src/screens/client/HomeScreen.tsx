@@ -121,52 +121,52 @@ function MacroRingRow({ protein, fat, carbs, normP, normF, normC }: {
 
 // ─── Goal Forecast Card ────────────────────────────────────────────────────
 
-type WeightPoint = { weightKg: number; createdAt: string };
+type ForecastPeriod = 30 | 14 | 7 | 3 | 1;
 
-/** Linear regression slope: kg per day */
-function lrSlope(points: { x: number; y: number }[]): number {
-  const n = points.length;
-  const sx = points.reduce((s, p) => s + p.x, 0);
-  const sy = points.reduce((s, p) => s + p.y, 0);
-  const sxy = points.reduce((s, p) => s + p.x * p.y, 0);
-  const sx2 = points.reduce((s, p) => s + p.x * p.x, 0);
-  const d = n * sx2 - sx * sx;
-  return d === 0 ? 0 : (n * sxy - sx * sy) / d;
+interface PeriodAnalysis {
+  avgCaloriesPerDay: number;
+  period: ForecastPeriod;
+  daysWithData: number;
 }
 
-function computeForecast(
-  history: WeightPoint[],
-  currentKg: number,
-  targetKg: number,
-  direction: 'lose' | 'gain',
-): { weeks: number; pacePerWeek: number } | null {
-  if (history.length < 3) return null;
+/** Group meals by date, find best available period, compute avg kcal/day */
+function analyzePeriod(meals: MealEntry[]): PeriodAnalysis | null {
+  const byDate = new Map<string, number>();
+  for (const m of meals) {
+    const date = m.createdAt.slice(0, 10);
+    byDate.set(date, (byDate.get(date) ?? 0) + (m.caloriesKcal ?? 0));
+  }
 
-  const sorted = [...history].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
-  const t0 = new Date(sorted[0].createdAt).getTime();
-  const t1 = new Date(sorted[sorted.length - 1].createdAt).getTime();
-  const spanDays = (t1 - t0) / 86_400_000;
-  if (spanDays < 14) return null;
+  const validDays = [...byDate.entries()].filter(([, cal]) => cal > 0);
+  if (validDays.length === 0) return null;
 
-  const pts = sorted.map(e => ({ x: (new Date(e.createdAt).getTime() - t0) / 86_400_000, y: e.weightKg }));
-  const slopePerDay = lrSlope(pts);
-  const pacePerWeek = slopePerDay * 7; // kg/week (signed)
+  const totalCal = validDays.reduce((s, [, c]) => s + c, 0);
+  const avgCal = Math.round(totalCal / validDays.length);
 
-  // Pace must be in the right direction with a meaningful magnitude
-  if (direction === 'lose' && pacePerWeek > -0.05) return null;
-  if (direction === 'gain' && pacePerWeek < 0.05) return null;
+  // Determine period label from how far back oldest data goes
+  const oldestMs = Math.min(...validDays.map(([d]) => new Date(d).getTime()));
+  const spanDays = (Date.now() - oldestMs) / 86_400_000;
 
-  const remaining = targetKg - currentKg;
-  // remaining and pace must point the same way
-  if (direction === 'lose' && remaining >= 0) return null;
-  if (direction === 'gain' && remaining <= 0) return null;
+  let period: ForecastPeriod;
+  if (spanDays >= 14)      period = 30;
+  else if (spanDays >= 7)  period = 14;
+  else if (spanDays >= 3)  period = 7;
+  else if (validDays.length >= 2) period = 3;
+  else                     period = 1;
 
-  const weeks = Math.abs(remaining) / Math.abs(pacePerWeek);
-  if (weeks > 260) return null; // > 5 years — too uncertain to show
+  return { avgCaloriesPerDay: avgCal, period, daysWithData: validDays.length };
+}
 
-  return { weeks: Math.ceil(weeks), pacePerWeek };
+/**
+ * Derive maintenance (TDEE) from goal-adjusted dailyCaloriesKcal.
+ * calcNorms applies: cut×0.85, maintain×1.0, bulk×1.10
+ */
+function getMaintenanceCalories(profile: UserProfile): number | null {
+  if (!profile.dailyCaloriesKcal) return null;
+  const g = profile.goalType;
+  if (g === 'lose') return Math.round(profile.dailyCaloriesKcal / 0.85);
+  if (g === 'gain') return Math.round(profile.dailyCaloriesKcal / 1.10);
+  return Math.round(profile.dailyCaloriesKcal); // maintain / track / null → already TDEE
 }
 
 function nounWeek(n: number): string {
@@ -177,7 +177,15 @@ function nounWeek(n: number): string {
   return 'недель';
 }
 
-function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; weightHistory: WeightPoint[] | undefined }) {
+function periodLabel(p: ForecastPeriod): string {
+  if (p === 30) return '30 дней';
+  if (p === 14) return '14 дней';
+  if (p === 7) return '7 дней';
+  if (p === 3) return '3 дня';
+  return 'сегодня';
+}
+
+function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30: MealEntry[] | undefined }) {
   const { goalType, currentWeightKg, desiredWeightKg } = profile;
 
   const cardStyle: React.CSSProperties = {
@@ -187,102 +195,169 @@ function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; we
     padding: '14px 16px',
     marginBottom: 12,
   };
-  const labelStyle: React.CSSProperties = {
-    fontSize: 10,
-    fontWeight: 700,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 1,
-    color: 'var(--accent)',
-    marginBottom: 8,
-  };
-  const fallback = (text: string, sub?: string) => (
+  const accentLabel = (text: string, right?: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, color: 'var(--accent)' }}>
+        {text}
+      </span>
+      {right && <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>{right}</span>}
+    </div>
+  );
+  const fallback = (title: string, sub: string) => (
     <div style={cardStyle}>
-      <div style={labelStyle}>Прогноз</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: sub ? 5 : 0 }}>{text}</div>
-      {sub && <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{sub}</div>}
+      {accentLabel('Прогноз')}
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>{title}</div>
+      <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{sub}</div>
     </div>
   );
 
-  // No goal set at all — always show a card with a call to action
+  // ── No goal set ─────────────────────────────────────────────────────────
   if (!goalType) {
-    return fallback(
-      'Цель не выбрана',
-      'Задай цель в профиле — и мы покажем прогноз по весу',
-    );
+    return fallback('Цель не выбрана', 'Задай цель в профиле — и мы покажем прогноз');
   }
 
-  // Tracking mode — no weight forecast
+  // ── Tracking mode ───────────────────────────────────────────────────────
   if (goalType === 'track') {
     return fallback('Режим отслеживания', 'Цель по весу не задана — прогноз недоступен');
   }
 
-  // Maintenance goal
+  // ── No calorie data ─────────────────────────────────────────────────────
+  const analysis = meals30 ? analyzePeriod(meals30) : null;
+  if (!analysis) {
+    return fallback(
+      'Нет данных по калориям',
+      'Добавь приёмы пищи, и мы покажем прогноз по текущему калоражу',
+    );
+  }
+
+  const maintenanceCal = getMaintenanceCalories(profile);
+  if (!maintenanceCal) {
+    return fallback('Нормы не рассчитаны', 'Заполни физические данные в профиле, чтобы получить прогноз');
+  }
+
+  const { avgCaloriesPerDay, period, daysWithData } = analysis;
+  const delta = avgCaloriesPerDay - maintenanceCal; // negative = deficit, positive = surplus
+  const expectedKgPerWeek = (delta * 7) / 7700; // signed
+
+  // ── Maintenance goal ─────────────────────────────────────────────────────
   if (goalType === 'maintain') {
+    const absDelta = Math.abs(delta);
+    const isClose = absDelta <= 150;
+    const sign = delta > 0 ? '+' : '−';
+    const deltaText = isClose
+      ? 'близко к уровню поддержания'
+      : `${sign}${absDelta} ккал от поддержания`;
     return (
       <div style={cardStyle}>
-        <div style={labelStyle}>Цель</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Поддержание веса</div>
-        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-          Отслеживай питание, чтобы оставаться в рамках нормы
+        {accentLabel('Цель', periodLabel(period))}
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Поддержание веса</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
+            Ср. калораж {avgCaloriesPerDay.toLocaleString('ru')} ккал
+          </span>
+          <span style={{
+            fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+            background: isClose ? 'var(--accent-soft)' : 'var(--surface-2)',
+            color: isClose ? 'var(--accent)' : 'var(--text-3)',
+          }}>
+            {deltaText}
+          </span>
         </div>
       </div>
     );
   }
 
-  // lose / gain — need both weights to compute
-  if (!currentWeightKg || !desiredWeightKg) {
-    return fallback(
-      'Данные не заполнены',
-      'Укажи текущий и желаемый вес в профиле, чтобы мы могли считать прогноз',
-    );
-  }
-
-  const direction = goalType === 'lose' ? 'lose' : 'gain';
+  // ── lose / gain ──────────────────────────────────────────────────────────
+  const isEarlyEstimate = period <= 3;
+  const directionMatch = goalType === 'lose' ? expectedKgPerWeek < -0.02 : expectedKgPerWeek > 0.02;
 
   // Goal already reached
-  const goalReached = direction === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
-  if (goalReached) {
+  if (currentWeightKg && desiredWeightKg) {
+    const reached = goalType === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
+    if (reached) {
+      return (
+        <div style={cardStyle}>
+          {accentLabel('Прогресс')}
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>Цель достигнута</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Текущий вес соответствует цели</div>
+        </div>
+      );
+    }
+  }
+
+  // Direction mismatch
+  if (!directionMatch) {
+    const paceSign = expectedKgPerWeek > 0 ? '+' : '−';
+    const abs = Math.abs(expectedKgPerWeek).toFixed(2);
+    const goalWord = goalType === 'lose' ? 'снижения' : 'набора';
     return (
       <div style={cardStyle}>
-        <div style={labelStyle}>Прогресс</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>Цель достигнута</div>
-        <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Текущий вес соответствует цели</div>
+        {accentLabel('Прогноз', periodLabel(period))}
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>
+          Текущий калораж не ведёт к {goalWord} веса
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+          Ожидаемый темп: {paceSign}{abs} кг/нед при среднем калораже {avgCaloriesPerDay.toLocaleString('ru')} ккал
+        </div>
       </div>
     );
   }
 
-  const forecast = weightHistory ? computeForecast(weightHistory, currentWeightKg, desiredWeightKg, direction) : null;
+  // Normal forecast
+  const paceAbs = Math.abs(expectedKgPerWeek);
+  const paceSign = goalType === 'lose' ? '−' : '+';
+
+  // Weeks to goal (optional — needs both weights)
+  let weeksToGoal: number | null = null;
+  if (currentWeightKg && desiredWeightKg && paceAbs > 0.02) {
+    const remaining = Math.abs(currentWeightKg - desiredWeightKg);
+    const weeks = remaining / paceAbs;
+    if (weeks <= 260) weeksToGoal = Math.ceil(weeks);
+  }
 
   return (
     <div style={cardStyle}>
-      <div style={labelStyle}>Прогноз</div>
-      {forecast ? (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
-              {forecast.weeks}
-              <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-2)', marginLeft: 6 }}>
-                {nounWeek(forecast.weeks)}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 5 }}>до цели при текущем темпе</div>
+      {accentLabel(isEarlyEstimate ? 'Ранняя оценка' : 'Прогноз', periodLabel(period))}
+
+      {/* Pace hero */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>
+            {paceSign}{paceAbs.toFixed(2)}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)', marginLeft: 4 }}>кг/нед</span>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Темп</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: 8, padding: '3px 9px' }}>
-              {Math.abs(forecast.pacePerWeek).toFixed(1)} кг/нед
-            </div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+            {isEarlyEstimate
+              ? `предварительная оценка по ${daysWithData} ${daysWithData === 1 ? 'дню' : 'дням'}`
+              : `при среднем калораже ${avgCaloriesPerDay.toLocaleString('ru')} ккал/день`}
           </div>
         </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>
-            Пока недостаточно данных
+        {/* Deficit/surplus badge */}
+        <div style={{ textAlign: 'right' as const }}>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>
+            {delta < 0 ? 'дефицит' : 'профицит'}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            Добавь ещё несколько замеров веса, и мы покажем прогноз
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: 8, padding: '3px 9px' }}>
+            {Math.abs(delta).toLocaleString('ru')} ккал
           </div>
-        </>
+        </div>
+      </div>
+
+      {/* Weeks to goal */}
+      {weeksToGoal != null && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>До цели</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+            {weeksToGoal} {nounWeek(weeksToGoal)}
+          </span>
+        </div>
+      )}
+
+      {/* Early estimate disclaimer */}
+      {isEarlyEstimate && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: weeksToGoal != null ? 0 : 2, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
+          Добавляй приёмы пищи ещё несколько дней — прогноз станет точнее
+        </div>
       )}
     </div>
   );
@@ -339,10 +414,10 @@ export default function HomeScreen({ bootstrap }: Props) {
     queryFn: () => api.nutritionDiary(selectedDate),
   });
 
-  // Used for goal forecast — shared cache key with ProfileScreen
-  const { data: profileFull } = useQuery({
-    queryKey: ['profile-full'],
-    queryFn: api.profile,
+  // Last 30 days of meals — used for calorie-based forecast
+  const { data: stats30 } = useQuery({
+    queryKey: ['stats', 30],
+    queryFn: () => api.nutritionStats(30),
   });
 
   const profile = bootstrap.profile;
@@ -391,7 +466,7 @@ export default function HomeScreen({ bootstrap }: Props) {
       {profile ? (
         <GoalForecastCard
           profile={profile}
-          weightHistory={profileFull?.weightHistory}
+          meals30={stats30?.meals}
         />
       ) : (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: 12 }}>
