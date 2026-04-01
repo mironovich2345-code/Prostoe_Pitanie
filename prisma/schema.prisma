@@ -61,23 +61,25 @@ model WeightEntry {
 }
 
 model TrainerProfile {
-  id                 Int       @id @default(autoincrement())
-  chatId             String    @unique
-  verificationStatus String    @default("pending")
-  bio                String?
-  specialization     String?
-  referralCode       String?   @unique
-  fullName           String?
-  socialLink         String?
-  documentLink       String?
-  appliedAt          DateTime?
-  verifiedAt         DateTime?
-  rejectedAt         DateTime?
-  blockedAt          DateTime?
-  verifiedByAdminId  String?
-  verificationNote   String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                      Int       @id @default(autoincrement())
+  chatId                  String    @unique
+  verificationStatus      String    @default("pending")
+  bio                     String?
+  specialization          String?
+  referralCode            String?   @unique
+  fullName                String?
+  socialLink              String?
+  documentLink            String?
+  appliedAt               DateTime?
+  verifiedAt              DateTime?
+  rejectedAt              DateTime?
+  blockedAt               DateTime?
+  verifiedByAdminId       String?
+  verificationNote        String?
+  connectionCode          String?
+  connectionCodeExpiresAt DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 }
 
 model TrainerClientLink {
@@ -86,9 +88,22 @@ model TrainerClientLink {
   clientId          String
   status            String   @default("active")
   fullHistoryAccess Boolean  @default(false)
+  canViewPhotos     Boolean  @default(true)
   connectedAt       DateTime @default(now())
   disconnectedAt    DateTime?
   @@unique([trainerId, clientId])
+}
+
+model TrainerRating {
+  id         Int      @id @default(autoincrement())
+  trainerId  String
+  clientId   String
+  targetType String
+  targetId   String
+  rating     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([trainerId, clientId, targetType, targetId])
 }
 
 model Subscription {

@@ -472,13 +472,22 @@ bot.start(async (ctx) => {
   // Ensure every user has a referral code
   await ensureReferralCode(String(chatId)).catch(() => null);
 
-  // Apply referral from deep link
+  // Handle deep link payloads
   const payload = ctx.args?.[0];
   if (payload?.startsWith('trf_')) {
     await applyTrainerReferral(String(chatId), payload).catch(() => null);
   } else if (payload?.startsWith('ref_')) {
     const code = payload.slice(4);
     await applyReferral(String(chatId), code).catch(() => null);
+  } else if (payload?.startsWith('connect_')) {
+    // Trainer connection code — prompt client to open mini app
+    const miniappUrl = process.env.MINIAPP_URL;
+    if (miniappUrl) {
+      await ctx.reply(
+        '🏋 Для подключения к тренеру — открой приложение:',
+        { reply_markup: { inline_keyboard: [[{ text: '📱 Подключить тренера', url: `${miniappUrl}?startapp=${payload}` }]] } }
+      ).catch(() => null);
+    }
   }
 
   const profile = await getProfile(chatId);

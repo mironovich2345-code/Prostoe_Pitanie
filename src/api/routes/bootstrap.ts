@@ -67,6 +67,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         trainerId: clientLink.trainerId,
         name: connectedTrainerName,
         fullHistoryAccess: clientLink.fullHistoryAccess,
+        canViewPhotos: clientLink.canViewPhotos,
         connectedAt: clientLink.connectedAt,
       } : null,
     });

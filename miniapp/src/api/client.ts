@@ -66,6 +66,25 @@ export const api = {
   disconnectTrainer: () => request<{ ok: boolean }>('/api/client/trainer', { method: 'DELETE' }),
   setTrainerHistoryAccess: (fullAccess: boolean) =>
     request<{ ok: boolean; fullHistoryAccess: boolean }>('/api/client/trainer/history-access', { method: 'PATCH', body: JSON.stringify({ fullAccess }) }),
+  // Trainer connection code
+  trainerMyCode: () =>
+    request<import('../types').TrainerConnectionCode>('/api/trainer/my-code'),
+  trainerRefreshCode: () =>
+    request<import('../types').TrainerConnectionCode>('/api/trainer/my-code/refresh', { method: 'POST' }),
+  // Client: connect to trainer
+  trainerLookup: (code: string) =>
+    request<import('../types').TrainerLookupResult>('/api/client/trainer/lookup', { method: 'POST', body: JSON.stringify({ code }) }),
+  trainerConnect: (data: { code: string; fullHistoryAccess: boolean; canViewPhotos: boolean }) =>
+    request<{ ok: boolean }>('/api/client/trainer/connect', { method: 'POST', body: JSON.stringify(data) }),
+  // Ratings
+  rateMeal: (mealId: number, rating: string) =>
+    request<{ rating: import('../types').TrainerRating }>(`/api/ratings/meal/${mealId}`, { method: 'POST', body: JSON.stringify({ rating }) }),
+  rateDay: (date: string, clientId: string, rating: string) =>
+    request<{ rating: import('../types').TrainerRating }>(`/api/ratings/day/${date}`, { method: 'POST', body: JSON.stringify({ clientId, rating }) }),
+  ratingsForClient: (clientId: string) =>
+    request<{ ratings: import('../types').TrainerRating[] }>(`/api/ratings/for-client/${clientId}`),
+  myRatings: () =>
+    request<{ ratings: import('../types').TrainerRating[] }>('/api/ratings/my'),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralApply: (code: string) =>

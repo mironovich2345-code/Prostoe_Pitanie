@@ -63,7 +63,31 @@ export interface ConnectedTrainerInfo {
   trainerId: string;
   name: string | null;
   fullHistoryAccess: boolean;
+  canViewPhotos: boolean;
   connectedAt: string;
+}
+
+export interface TrainerLookupResult {
+  trainerId: string;
+  fullName: string | null;
+  specialization: string | null;
+  bio: string | null;
+}
+
+export interface TrainerConnectionCode {
+  code: string;
+  link: string;
+  expiresAt: string;
+}
+
+export interface TrainerRating {
+  id: number;
+  trainerId: string;
+  clientId: string;
+  targetType: 'meal' | 'day';
+  targetId: string;
+  rating: string;
+  createdAt: string;
 }
 
 export interface BootstrapData {

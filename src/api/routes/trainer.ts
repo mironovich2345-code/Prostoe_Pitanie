@@ -87,7 +87,19 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
     const profile = await prisma.userProfile.findUnique({ where: { chatId: clientId } });
     let todayCal = 0;
     for (const m of todayMeals) todayCal += m.caloriesKcal ?? 0;
-    res.json({ todayMeals, todayCalories: Math.round(todayCal), recentMeals, weightHistory: weights, profile });
+
+    const maskPhotos = !link.canViewPhotos;
+    const maskMeal = <T extends { photoFileId: string | null }>(m: T): T =>
+      maskPhotos ? { ...m, photoFileId: null } : m;
+
+    res.json({
+      todayMeals: todayMeals.map(maskMeal),
+      todayCalories: Math.round(todayCal),
+      recentMeals: recentMeals.map(maskMeal),
+      weightHistory: weights,
+      profile,
+      canViewPhotos: link.canViewPhotos,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

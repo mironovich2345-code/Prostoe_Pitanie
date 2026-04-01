@@ -28,6 +28,8 @@ import EditProfileDataScreen from './screens/client/EditProfileDataScreen';
 import ValuePickerScreen from './screens/client/ValuePickerScreen';
 import CityPickerScreen from './screens/client/CityPickerScreen';
 import AddMealScreen from './screens/client/AddMealScreen';
+import ConnectTrainerScreen from './screens/client/ConnectTrainerScreen';
+import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import { api } from './api/client';
 import type { AppMode } from './types';
 
@@ -45,6 +47,8 @@ export default function App() {
     } else if (startParam?.startsWith('ref_')) {
       const code = startParam.slice(4);
       api.referralApply(code).catch(() => null);
+    } else if (startParam?.startsWith('connect_')) {
+      sessionStorage.setItem('pendingConnectCode', startParam.slice(8));
     }
   }, []);
 
@@ -98,6 +102,7 @@ export default function App() {
             <Route path="/profile/edit-data" element={<EditProfileDataScreen />} />
             <Route path="/profile/pick/:field" element={<ValuePickerScreen />} />
             <Route path="/profile/pick-city" element={<CityPickerScreen />} />
+            <Route path="/connect-trainer" element={<ConnectTrainerScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
@@ -111,6 +116,7 @@ export default function App() {
             <Route path="/profile" element={<CoachProfileScreen bootstrap={bootstrap} onSwitchToClient={() => setMode('client')} />} />
             <Route path="/referrals" element={<CoachReferralsScreen />} />
             <Route path="/payouts" element={<CoachPayoutsScreen />} />
+            <Route path="/connect-client" element={<TrainerConnectionScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

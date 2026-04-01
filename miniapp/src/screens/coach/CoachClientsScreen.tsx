@@ -26,14 +26,26 @@ export default function CoachClientsScreen() {
   if (!clients.length) {
     return (
       <div className="screen">
-        <h1 style={{ marginBottom: 16 }}>👥 Клиенты</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h1 style={{ margin: 0 }}>👥 Клиенты</h1>
+          <button onClick={() => navigate('/connect-client')} className="btn" style={{ width: 'auto', padding: '8px 16px', fontSize: 13 }}>+ Добавить</button>
+        </div>
         <div className="empty-state"><div className="empty-state-icon">👥</div><div>Клиентов пока нет</div></div>
       </div>
     );
   }
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>👥 Клиенты ({clients.length})</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>👥 Клиенты ({clients.length})</h1>
+        <button
+          onClick={() => navigate('/connect-client')}
+          className="btn"
+          style={{ width: 'auto', padding: '8px 16px', fontSize: 13 }}
+        >
+          + Добавить
+        </button>
+      </div>
       <div className="card">
         {clients.map((c: ClientItem) => (
           <div key={c.link.id} className="client-item" onClick={() => navigate(`/client/${c.link.clientId}`)}>
