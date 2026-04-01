@@ -207,7 +207,7 @@ function periodLabel(p: ForecastPeriod): string {
   return 'сегодня';
 }
 
-function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30: MealEntry[] | undefined }) {
+function GoalForecastCardInner({ profile, meals30, onInfoClick }: { profile: UserProfile; meals30: MealEntry[] | undefined; onInfoClick: () => void }) {
   const { goalType, currentWeightKg, desiredWeightKg } = profile;
 
   const cardStyle: React.CSSProperties = {
@@ -219,9 +219,22 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
   };
   const accentLabel = (text: string, right?: string) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, color: 'var(--accent)' }}>
-        {text}
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1, color: 'var(--accent)' }}>
+          {text}
+        </span>
+        <button
+          onClick={e => { e.stopPropagation(); onInfoClick(); }}
+          style={{
+            width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+            background: 'transparent', border: '1px solid var(--border-2, #2a2a2a)',
+            color: 'var(--text-3)', fontSize: 10, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0, lineHeight: 1,
+          }}
+          aria-label="Как считается прогноз"
+        >?</button>
+      </div>
       {right && <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>{right}</span>}
     </div>
   );
@@ -407,6 +420,91 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Forecast Info Overlay ─────────────────────────────────────────────────
+
+function ForecastInfoOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.55)',
+          zIndex: 200,
+        }}
+      />
+      {/* Bottom sheet */}
+      <div style={{
+        position: 'fixed', left: 12, right: 12, bottom: 20,
+        background: 'var(--surface)',
+        borderRadius: 20,
+        border: '1px solid var(--border)',
+        padding: '20px 18px 28px',
+        zIndex: 201,
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>
+            Как считается прогноз
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'var(--surface-2)', border: 'none',
+              color: 'var(--text-3)', fontSize: 16, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 0, lineHeight: 1,
+            }}
+            aria-label="Закрыть"
+          >✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>
+          <p style={{ margin: '0 0 10px' }}>
+            Мы смотрим, сколько калорий вы в среднем съедаете за последние дни,
+            и сравниваем это с уровнем поддержания веса.
+          </p>
+          <p style={{ margin: '0 0 10px' }}>
+            Если калорий меньше — прогноз идёт на снижение веса.
+            Если больше — на набор.
+            Если примерно столько же — на поддержание.
+          </p>
+          <p style={{ margin: '0 0 14px' }}>
+            Эта разница переводится в примерный темп изменения веса за неделю,
+            и на его основе показывается ориентир по сроку достижения цели.
+          </p>
+        </div>
+
+        {/* Disclaimer */}
+        <div style={{
+          fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55,
+          padding: '10px 12px',
+          background: 'var(--surface-2)',
+          borderRadius: 10,
+        }}>
+          Это расчётная оценка, а не точный медицинский прогноз.
+          Реальный результат зависит от множества факторов.
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Goal Forecast Card (public wrapper) ───────────────────────────────────
+
+function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30: MealEntry[] | undefined }) {
+  const [showInfo, setShowInfo] = useState(false);
+  return (
+    <>
+      <GoalForecastCardInner profile={profile} meals30={meals30} onInfoClick={() => setShowInfo(true)} />
+      {showInfo && <ForecastInfoOverlay onClose={() => setShowInfo(false)} />}
+    </>
   );
 }
 
