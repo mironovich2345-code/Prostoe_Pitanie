@@ -199,9 +199,16 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
     <div>
       {/* Main weight + target */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 8 }}>
-            Текущий вес
+        {/* Current weight — tappable → picker */}
+        <div
+          onClick={() => navigate('/profile/pick/weight')}
+          style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
+              Текущий вес
+            </div>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>✏</span>
           </div>
           <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--text)', lineHeight: 1 }}>
             {weight?.toFixed(1) ?? '—'}
@@ -212,22 +219,33 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
           )}
         </div>
 
-        {target && (
-          <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 8 }}>
+        {/* Target weight — tappable → picker */}
+        <div
+          onClick={() => navigate(target ? '/profile/pick/desired-weight' : '/profile/pick/desired-weight')}
+          style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
               Цель
             </div>
-            <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--accent)', lineHeight: 1 }}>
-              {target.toFixed(1)}
-              <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
-            </div>
-            {diff !== null && (
-              <div style={{ fontSize: 12, color: diff > 0 ? 'var(--text-3)' : 'var(--accent)', marginTop: 6 }}>
-                {diff > 0.05 ? `осталось ${diff.toFixed(1)} кг` : diff < -0.05 ? `набрать ${Math.abs(diff).toFixed(1)} кг` : '🎉 цель достигнута'}
-              </div>
-            )}
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>✏</span>
           </div>
-        )}
+          {target ? (
+            <>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--accent)', lineHeight: 1 }}>
+                {target.toFixed(1)}
+                <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+              </div>
+              {diff !== null && (
+                <div style={{ fontSize: 12, color: diff > 0 ? 'var(--text-3)' : 'var(--accent)', marginTop: 6 }}>
+                  {diff > 0.05 ? `осталось ${diff.toFixed(1)} кг` : diff < -0.05 ? `набрать ${Math.abs(diff).toFixed(1)} кг` : 'цель достигнута'}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 4 }}>Не задана</div>
+          )}
+        </div>
       </div>
 
       {/* BMI */}

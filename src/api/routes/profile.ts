@@ -79,6 +79,31 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/profile/weight — log current weight (updates profile + adds WeightEntry)
+router.post('/weight', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { weightKg } = req.body as { weightKg: number };
+  const w = Number(weightKg);
+  if (isNaN(w) || w < 10 || w > 600) {
+    res.status(400).json({ error: 'Invalid weight' });
+    return;
+  }
+  try {
+    const [entry] = await Promise.all([
+      prisma.weightEntry.create({ data: { chatId, weightKg: w } }),
+      prisma.userProfile.upsert({
+        where: { chatId },
+        update: { currentWeightKg: w },
+        create: { chatId, currentWeightKg: w },
+      }),
+    ]);
+    res.json({ ok: true, weightEntry: entry });
+  } catch (err) {
+    console.error('[profile/weight]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.patch('/notifications', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const { notificationsEnabled, notificationCount, notificationTimes } = req.body as {

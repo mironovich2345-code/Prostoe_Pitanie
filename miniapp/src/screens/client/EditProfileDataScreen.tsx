@@ -23,19 +23,13 @@ export default function EditProfileDataScreen() {
 
   const p = data?.profile;
 
-  const [heightCm, setHeightCm] = useState('');
-  const [currentWeightKg, setCurrentWeightKg] = useState('');
-  const [desiredWeightKg, setDesiredWeightKg] = useState('');
   const [sex, setSex] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [activityLevel, setActivityLevel] = useState('');
   const [city, setCity] = useState('');
 
   // Pre-fill once data loads (only if state is still empty)
-  if (p && heightCm === '' && currentWeightKg === '' && birthDate === '') {
-    if (p.heightCm) setHeightCm(String(p.heightCm));
-    if (p.currentWeightKg) setCurrentWeightKg(String(p.currentWeightKg));
-    if (p.desiredWeightKg) setDesiredWeightKg(String(p.desiredWeightKg));
+  if (p && sex === '' && birthDate === '') {
     if (p.sex) setSex(p.sex);
     if (p.birthDate) setBirthDate(p.birthDate.split('T')[0]);
     if (p.activityLevel) setActivityLevel(String(p.activityLevel));
@@ -50,13 +44,7 @@ export default function EditProfileDataScreen() {
     setError(null);
     try {
       const body: Parameters<typeof api.patchProfileData>[0] = {};
-      const h = parseFloat(heightCm);
-      const w = parseFloat(currentWeightKg);
-      const dw = parseFloat(desiredWeightKg);
       const al = parseFloat(activityLevel);
-      if (!isNaN(h) && h > 0) body.heightCm = h;
-      if (!isNaN(w) && w > 0) body.currentWeightKg = w;
-      if (!isNaN(dw) && dw > 0) body.desiredWeightKg = dw;
       if (sex) body.sex = sex;
       if (birthDate) body.birthDate = birthDate;
       if (!isNaN(al) && al > 0) body.activityLevel = al;
@@ -81,18 +69,28 @@ export default function EditProfileDataScreen() {
     <div className="screen">
       <PageHeader title="Мои данные" onBack={() => navigate('/profile')} />
 
-      {/* Physical data */}
+      {/* Physical data — tap to open wheel picker */}
       <GroupCard>
         <GroupLabel>Физические данные</GroupLabel>
-        <FieldRow label="Рост (см)">
-          <input type="number" value={heightCm} onChange={e => setHeightCm(e.target.value)} placeholder="170" style={inputStyle} />
-        </FieldRow>
-        <FieldRow label="Вес (кг)">
-          <input type="number" value={currentWeightKg} onChange={e => setCurrentWeightKg(e.target.value)} placeholder="70" style={inputStyle} />
-        </FieldRow>
-        <FieldRow label="Желаемый вес (кг)" isLast>
-          <input type="number" value={desiredWeightKg} onChange={e => setDesiredWeightKg(e.target.value)} placeholder="65" style={inputStyle} />
-        </FieldRow>
+        <PickerRow
+          label="Рост"
+          value={p?.heightCm ? `${Math.round(p.heightCm)} см` : null}
+          placeholder="Не задан"
+          onClick={() => navigate('/profile/pick/height')}
+        />
+        <PickerRow
+          label="Текущий вес"
+          value={p?.currentWeightKg ? `${(Math.round(p.currentWeightKg * 10) / 10).toFixed(1)} кг` : null}
+          placeholder="Не задан"
+          onClick={() => navigate('/profile/pick/weight')}
+        />
+        <PickerRow
+          label="Желаемый вес"
+          value={p?.desiredWeightKg ? `${(Math.round(p.desiredWeightKg * 10) / 10).toFixed(1)} кг` : null}
+          placeholder="Не задан"
+          isLast
+          onClick={() => navigate('/profile/pick/desired-weight')}
+        />
       </GroupCard>
 
       {/* Personal info */}
@@ -204,6 +202,35 @@ function FieldRow({ label, children, isLast }: { label: string; children: React.
       </label>
       {children}
     </div>
+  );
+}
+
+function PickerRow({ label, value, placeholder, isLast, onClick }: {
+  label: string;
+  value: string | null;
+  placeholder: string;
+  isLast?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', textAlign: 'left', padding: '14px 18px',
+        background: 'transparent', border: 'none',
+        borderBottom: isLast ? 'none' : '1px solid var(--border)',
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 15, fontWeight: 600, color: value ? 'var(--text)' : 'var(--text-3)' }}>
+          {value ?? placeholder}
+        </span>
+        <span style={{ fontSize: 14, color: 'var(--text-3)' }}>›</span>
+      </div>
+    </button>
   );
 }
 

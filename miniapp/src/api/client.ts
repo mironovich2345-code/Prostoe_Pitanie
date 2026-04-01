@@ -53,6 +53,8 @@ export const api = {
     request<{ ok: boolean }>(`/api/reminders/${id}`, { method: 'DELETE' }),
   patchProfileData: (data: { heightCm?: number; currentWeightKg?: number; desiredWeightKg?: number; sex?: string; birthDate?: string; activityLevel?: number; city?: string }) =>
     request<{ ok: boolean; profile: import('../types').UserProfile | null }>('/api/profile/data', { method: 'PATCH', body: JSON.stringify(data) }),
+  logWeight: (weightKg: number) =>
+    request<{ ok: boolean; weightEntry: { id: number; weightKg: number; createdAt: string } }>('/api/profile/weight', { method: 'POST', body: JSON.stringify({ weightKg }) }),
   subscription: () => request<{ subscription: import('../types').SubscriptionInfo | null }>('/api/subscription'),
   trainerClients: () => request<{ clients: Array<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }> }>('/api/trainer/clients'),
   trainerClientCard: (clientId: string) => request<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }>(`/api/trainer/clients/${clientId}`),

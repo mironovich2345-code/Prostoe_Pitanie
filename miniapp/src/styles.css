@@ -357,6 +357,14 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
   line-height: 1.1;
 }
 
+/* ── Wheel picker ───────────────────────────────────────────────────── */
+.wheel-picker-scroll {
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.wheel-picker-scroll::-webkit-scrollbar { display: none; }
+
 /* ── Info row (home compact rows) ───────────────────────────────────── */
 .info-row {
   display: flex;
