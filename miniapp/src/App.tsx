@@ -26,6 +26,7 @@ import ExpertApplicationScreen from './screens/expert/ExpertApplicationScreen';
 import ExpertStatusScreen from './screens/expert/ExpertStatusScreen';
 import EditProfileDataScreen from './screens/client/EditProfileDataScreen';
 import ValuePickerScreen from './screens/client/ValuePickerScreen';
+import CityPickerScreen from './screens/client/CityPickerScreen';
 import AddMealScreen from './screens/client/AddMealScreen';
 import type { AppMode } from './types';
 
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/expert/status" element={<ExpertStatusScreen />} />
             <Route path="/profile/edit-data" element={<EditProfileDataScreen />} />
             <Route path="/profile/pick/:field" element={<ValuePickerScreen />} />
+            <Route path="/profile/pick-city" element={<CityPickerScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

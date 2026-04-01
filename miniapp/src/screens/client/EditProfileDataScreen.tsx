@@ -4,13 +4,47 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { PageHeader } from '../../ui';
 
+// ── Activity levels ──────────────────────────────────────────────────
+
 const ACTIVITY_OPTIONS = [
-  { value: 1.2,   label: '🛋 Почти нет активности' },
-  { value: 1.375, label: '🚶 Лёгкая (1–2 раза/нед)' },
-  { value: 1.55,  label: '🚴 Средняя (3–5 раз/нед)' },
-  { value: 1.725, label: '🏋 Высокая (6–7 раз/нед)' },
-  { value: 1.9,   label: '⚡ Очень высокая' },
+  {
+    value: 1.2,
+    title: 'Почти нет активности',
+    description: 'Сидячая работа, минимум движения в течение дня',
+    example: 'Офис, дом, редкие прогулки',
+    steps: '< 4 000 шагов / день',
+  },
+  {
+    value: 1.375,
+    title: 'Лёгкая активность',
+    description: 'Несколько прогулок и лёгких нагрузок в неделю',
+    example: 'Ходьба, зарядка, йога 1–3 раза/нед',
+    steps: '4 000–7 000 шагов / день',
+  },
+  {
+    value: 1.55,
+    title: 'Средняя активность',
+    description: 'Регулярные тренировки несколько раз в неделю',
+    example: 'Зал, бег, велосипед 3–5 раз/нед',
+    steps: '7 000–12 000 шагов / день',
+  },
+  {
+    value: 1.725,
+    title: 'Высокая активность',
+    description: 'Интенсивные нагрузки почти каждый день',
+    example: 'Ежедневный спорт или физическая работа',
+    steps: '12 000–17 000 шагов / день',
+  },
+  {
+    value: 1.9,
+    title: 'Очень высокая',
+    description: 'Профессиональный спорт или двойные тренировки',
+    example: 'Соревновательный уровень нагрузок',
+    steps: '> 17 000 шагов / день',
+  },
 ];
+
+// ── Screen ───────────────────────────────────────────────────────────
 
 export default function EditProfileDataScreen() {
   const navigate = useNavigate();
@@ -26,14 +60,12 @@ export default function EditProfileDataScreen() {
   const [sex, setSex] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [activityLevel, setActivityLevel] = useState('');
-  const [city, setCity] = useState('');
 
   // Pre-fill once data loads (only if state is still empty)
   if (p && sex === '' && birthDate === '') {
     if (p.sex) setSex(p.sex);
     if (p.birthDate) setBirthDate(p.birthDate.split('T')[0]);
     if (p.activityLevel) setActivityLevel(String(p.activityLevel));
-    if (p.city) setCity(p.city);
   }
 
   const [saving, setSaving] = useState(false);
@@ -48,7 +80,6 @@ export default function EditProfileDataScreen() {
       if (sex) body.sex = sex;
       if (birthDate) body.birthDate = birthDate;
       if (!isNaN(al) && al > 0) body.activityLevel = al;
-      if (city.trim()) body.city = city.trim();
 
       await api.patchProfileData(body);
       await qc.invalidateQueries({ queryKey: ['bootstrap'] });
@@ -98,7 +129,7 @@ export default function EditProfileDataScreen() {
         <GroupLabel>О себе</GroupLabel>
         <FieldRow label="Пол">
           <div style={{ display: 'flex', gap: 8 }}>
-            {[{ v: 'male', l: '👨 Мужской' }, { v: 'female', l: '👩 Женский' }].map(opt => (
+            {[{ v: 'male', l: 'Мужской' }, { v: 'female', l: 'Женский' }].map(opt => (
               <button
                 key={opt.v}
                 onClick={() => setSex(opt.v)}
@@ -116,10 +147,27 @@ export default function EditProfileDataScreen() {
           </div>
         </FieldRow>
         <FieldRow label="Дата рождения">
-          <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} style={inputStyle} />
+          <input
+            type="date" value={birthDate}
+            onChange={e => setBirthDate(e.target.value)}
+            style={inputStyle}
+          />
         </FieldRow>
         <FieldRow label="Город" isLast>
-          <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Москва" style={inputStyle} />
+          {/* City is edited via a separate screen to ensure correct timezone resolution */}
+          <button
+            onClick={() => navigate('/profile/pick-city')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border-2)',
+              borderRadius: 8, padding: '10px 12px', cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 15, color: p?.city ? 'var(--text)' : 'var(--text-3)', fontWeight: p?.city ? 600 : 400 }}>
+              {p?.city ?? 'Не задан'}
+            </span>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>›</span>
+          </button>
         </FieldRow>
       </GroupCard>
 
@@ -133,19 +181,47 @@ export default function EditProfileDataScreen() {
               key={opt.value}
               onClick={() => setActivityLevel(String(opt.value))}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                width: '100%', textAlign: 'left', padding: '13px 18px',
+                display: 'block',
+                width: '100%', textAlign: 'left', padding: '14px 18px 16px',
                 background: active ? 'var(--accent-soft)' : 'transparent',
-                color: active ? 'var(--accent)' : 'var(--text)',
                 border: 'none',
                 borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                fontSize: 14, fontWeight: active ? 600 : 400,
                 cursor: 'pointer',
-                transition: 'background 0.15s, color 0.15s',
+                transition: 'background 0.15s',
               }}
             >
-              <span>{opt.label}</span>
-              {active && <span style={{ fontSize: 15, color: 'var(--accent)' }}>✓</span>}
+              {/* Title row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                <span style={{
+                  fontSize: 15, fontWeight: 600,
+                  color: active ? 'var(--accent)' : 'var(--text)',
+                }}>
+                  {opt.title}
+                </span>
+                {active && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, color: 'var(--accent)',
+                    background: 'rgba(215,255,63,0.14)', padding: '2px 8px', borderRadius: 6,
+                  }}>
+                    Выбрано
+                  </span>
+                )}
+              </div>
+              {/* Description */}
+              <div style={{ fontSize: 13, color: active ? 'rgba(215,255,63,0.75)' : 'var(--text-2)', marginBottom: 4, lineHeight: 1.35 }}>
+                {opt.description}
+              </div>
+              {/* Example + Steps */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>{opt.example}</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, color: active ? 'var(--text-3)' : 'var(--text-3)',
+                  background: 'var(--surface-2)', padding: '1px 7px', borderRadius: 5,
+                  border: '1px solid var(--border)', whiteSpace: 'nowrap',
+                }}>
+                  {opt.steps}
+                </span>
+              </div>
             </button>
           );
         })}
@@ -167,6 +243,8 @@ export default function EditProfileDataScreen() {
     </div>
   );
 }
+
+// ── Local components ─────────────────────────────────────────────────
 
 function GroupCard({ children }: { children: React.ReactNode }) {
   return (
