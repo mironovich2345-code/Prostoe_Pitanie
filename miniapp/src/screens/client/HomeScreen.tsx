@@ -158,14 +158,36 @@ function analyzePeriod(meals: MealEntry[]): PeriodAnalysis | null {
 }
 
 /**
+ * Derive effective goal:
+ * 1. Use explicit goalType if set (and not 'track')
+ * 2. Derive from weight difference if weights are available
+ * 3. Return null only when truly nothing is known
+ */
+function deriveEffectiveGoal(
+  goalType: string | null,
+  currentWeightKg: number | null,
+  desiredWeightKg: number | null,
+): string | null {
+  if (goalType && goalType !== 'track') return goalType;
+  if (goalType === 'track') return 'track';
+  // Derive from weight difference
+  if (currentWeightKg != null && desiredWeightKg != null) {
+    const diff = desiredWeightKg - currentWeightKg;
+    if (diff < -0.5) return 'lose';
+    if (diff > 0.5)  return 'gain';
+    return 'maintain';
+  }
+  return null;
+}
+
+/**
  * Derive maintenance (TDEE) from goal-adjusted dailyCaloriesKcal.
  * calcNorms applies: cut×0.85, maintain×1.0, bulk×1.10
  */
-function getMaintenanceCalories(profile: UserProfile): number | null {
+function getMaintenanceCalories(profile: UserProfile, effectiveGoal: string | null): number | null {
   if (!profile.dailyCaloriesKcal) return null;
-  const g = profile.goalType;
-  if (g === 'lose') return Math.round(profile.dailyCaloriesKcal / 0.85);
-  if (g === 'gain') return Math.round(profile.dailyCaloriesKcal / 1.10);
+  if (effectiveGoal === 'lose') return Math.round(profile.dailyCaloriesKcal / 0.85);
+  if (effectiveGoal === 'gain') return Math.round(profile.dailyCaloriesKcal / 1.10);
   return Math.round(profile.dailyCaloriesKcal); // maintain / track / null → already TDEE
 }
 
@@ -211,26 +233,29 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
     </div>
   );
 
-  // ── No goal set ─────────────────────────────────────────────────────────
-  if (!goalType) {
-    return fallback('Цель не выбрана', 'Задай цель в профиле — и мы покажем прогноз');
-  }
+  // ── Resolve effective goal ───────────────────────────────────────────────
+  // Priority: explicit goalType → derived from weights → null (no goal info)
+  const effectiveGoal = deriveEffectiveGoal(goalType, currentWeightKg, desiredWeightKg);
 
   // ── Tracking mode ───────────────────────────────────────────────────────
-  if (goalType === 'track') {
+  if (effectiveGoal === 'track') {
     return fallback('Режим отслеживания', 'Цель по весу не задана — прогноз недоступен');
   }
 
   // ── No calorie data ─────────────────────────────────────────────────────
   const analysis = meals30 ? analyzePeriod(meals30) : null;
   if (!analysis) {
+    // Nothing at all — minimal fallback
+    if (effectiveGoal === null) {
+      return fallback('Нет данных', 'Добавь приёмы пищи и заполни данные профиля, чтобы получить прогноз');
+    }
     return fallback(
       'Нет данных по калориям',
       'Добавь приёмы пищи, и мы покажем прогноз по текущему калоражу',
     );
   }
 
-  const maintenanceCal = getMaintenanceCalories(profile);
+  const maintenanceCal = getMaintenanceCalories(profile, effectiveGoal);
   if (!maintenanceCal) {
     return fallback('Нормы не рассчитаны', 'Заполни физические данные в профиле, чтобы получить прогноз');
   }
@@ -240,7 +265,7 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
   const expectedKgPerWeek = (delta * 7) / 7700; // signed
 
   // ── Maintenance goal ─────────────────────────────────────────────────────
-  if (goalType === 'maintain') {
+  if (effectiveGoal === 'maintain') {
     const absDelta = Math.abs(delta);
     const isClose = absDelta <= 150;
     const sign = delta > 0 ? '+' : '−';
@@ -267,13 +292,35 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
     );
   }
 
-  // ── lose / gain ──────────────────────────────────────────────────────────
+  // ── lose / gain / null goal ───────────────────────────────────────────────
   const isEarlyEstimate = period <= 3;
-  const directionMatch = goalType === 'lose' ? expectedKgPerWeek < -0.02 : expectedKgPerWeek > 0.02;
+
+  // If no effective goal (no goalType and no weight data) — show pace without goal context
+  if (effectiveGoal === null) {
+    const paceAbs = Math.abs(expectedKgPerWeek);
+    const paceSign = expectedKgPerWeek < 0 ? '−' : '+';
+    return (
+      <div style={cardStyle}>
+        {accentLabel(isEarlyEstimate ? 'Ранняя оценка' : 'Прогноз', periodLabel(period))}
+        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1, marginBottom: 4 }}>
+          {paceSign}{paceAbs.toFixed(2)}
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)', marginLeft: 4 }}>кг/нед</span>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>
+          при среднем калораже {avgCaloriesPerDay.toLocaleString('ru')} ккал/день
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          Укажи цель в профиле, чтобы получить прогноз по срокам
+        </div>
+      </div>
+    );
+  }
+
+  const directionMatch = effectiveGoal === 'lose' ? expectedKgPerWeek < -0.02 : expectedKgPerWeek > 0.02;
 
   // Goal already reached
   if (currentWeightKg && desiredWeightKg) {
-    const reached = goalType === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
+    const reached = effectiveGoal === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
     if (reached) {
       return (
         <div style={cardStyle}>
@@ -289,7 +336,7 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
   if (!directionMatch) {
     const paceSign = expectedKgPerWeek > 0 ? '+' : '−';
     const abs = Math.abs(expectedKgPerWeek).toFixed(2);
-    const goalWord = goalType === 'lose' ? 'снижения' : 'набора';
+    const goalWord = effectiveGoal === 'lose' ? 'снижения' : 'набора';
     return (
       <div style={cardStyle}>
         {accentLabel('Прогноз', periodLabel(period))}
@@ -305,7 +352,7 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
 
   // Normal forecast
   const paceAbs = Math.abs(expectedKgPerWeek);
-  const paceSign = goalType === 'lose' ? '−' : '+';
+  const paceSign = effectiveGoal === 'lose' ? '−' : '+';
 
   // Weeks to goal (optional — needs both weights)
   let weeksToGoal: number | null = null;
