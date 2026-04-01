@@ -180,9 +180,6 @@ function nounWeek(n: number): string {
 function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; weightHistory: WeightPoint[] | undefined }) {
   const { goalType, currentWeightKg, desiredWeightKg } = profile;
 
-  // Only render for users with a goal
-  if (!goalType || goalType === 'track') return null;
-
   const cardStyle: React.CSSProperties = {
     background: 'var(--surface)',
     borderRadius: 'var(--r-lg)',
@@ -193,13 +190,33 @@ function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; we
   const labelStyle: React.CSSProperties = {
     fontSize: 10,
     fontWeight: 700,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase' as const,
     letterSpacing: 1,
     color: 'var(--accent)',
     marginBottom: 8,
   };
+  const fallback = (text: string, sub?: string) => (
+    <div style={cardStyle}>
+      <div style={labelStyle}>Прогноз</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: sub ? 5 : 0 }}>{text}</div>
+      {sub && <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{sub}</div>}
+    </div>
+  );
 
-  // Maintenance goal — no forecast weeks
+  // No goal set at all — always show a card with a call to action
+  if (!goalType) {
+    return fallback(
+      'Цель не выбрана',
+      'Задай цель в профиле — и мы покажем прогноз по весу',
+    );
+  }
+
+  // Tracking mode — no weight forecast
+  if (goalType === 'track') {
+    return fallback('Режим отслеживания', 'Цель по весу не задана — прогноз недоступен');
+  }
+
+  // Maintenance goal
   if (goalType === 'maintain') {
     return (
       <div style={cardStyle}>
@@ -212,12 +229,17 @@ function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; we
     );
   }
 
-  if (!currentWeightKg || !desiredWeightKg) return null;
+  // lose / gain — need both weights to compute
+  if (!currentWeightKg || !desiredWeightKg) {
+    return fallback(
+      'Данные не заполнены',
+      'Укажи текущий и желаемый вес в профиле, чтобы мы могли считать прогноз',
+    );
+  }
 
   const direction = goalType === 'lose' ? 'lose' : 'gain';
-  const forecast = weightHistory ? computeForecast(weightHistory, currentWeightKg, desiredWeightKg, direction) : null;
 
-  // Check if goal already reached
+  // Goal already reached
   const goalReached = direction === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
   if (goalReached) {
     return (
@@ -228,6 +250,8 @@ function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; we
       </div>
     );
   }
+
+  const forecast = weightHistory ? computeForecast(weightHistory, currentWeightKg, desiredWeightKg, direction) : null;
 
   return (
     <div style={cardStyle}>
@@ -246,17 +270,17 @@ function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; we
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Темп</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: 8, padding: '3px 9px' }}>
-              {Math.abs(forecast.pacePerWeek) < 0.1
-                ? `${Math.abs(forecast.pacePerWeek * 10).toFixed(1)} г/нед`
-                : `${Math.abs(forecast.pacePerWeek).toFixed(1)} кг/нед`}
+              {Math.abs(forecast.pacePerWeek).toFixed(1)} кг/нед
             </div>
           </div>
         </div>
       ) : (
         <>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>Пока недостаточно данных</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>
+            Пока недостаточно данных
+          </div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            Добавь несколько замеров веса — и мы рассчитаем сроки
+            Добавь ещё несколько замеров веса, и мы покажем прогноз
           </div>
         </>
       )}
@@ -364,11 +388,17 @@ export default function HomeScreen({ bootstrap }: Props) {
         </>
       )}
 
-      {profile && (
+      {profile ? (
         <GoalForecastCard
           profile={profile}
           weightHistory={profileFull?.weightHistory}
         />
+      ) : (
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--accent)', marginBottom: 8 }}>Прогноз</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>Профиль не заполнен</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>Заполни данные в профиле — мы рассчитаем прогноз</div>
+        </div>
       )}
 
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '4px 2px 10px' }}>
