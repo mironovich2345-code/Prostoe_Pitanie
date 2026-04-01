@@ -465,20 +465,78 @@ function ForecastInfoOverlay({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Body */}
-        <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>
-          <p style={{ margin: '0 0 10px' }}>
-            Мы смотрим, сколько калорий вы в среднем съедаете за последние дни,
-            и сравниваем это с уровнем поддержания веса.
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65 }}>
+
+          {/* Step 1 — avg calories */}
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>
+            Шаг 1. Средний калораж
           </p>
-          <p style={{ margin: '0 0 10px' }}>
-            Если калорий меньше — прогноз идёт на снижение веса.
-            Если больше — на набор.
-            Если примерно столько же — на поддержание.
+          <p style={{ margin: '0 0 12px' }}>
+            Берём ваш средний дневной калораж за лучший доступный период:
+            30 дней → 14 → 7 → 3 → 1 день.
+            Учитываются только дни, когда вы добавляли еду.
+          </p>
+
+          {/* Step 2 — delta */}
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>
+            Шаг 2. Разница с поддержанием
+          </p>
+          <p style={{ margin: '0 0 6px' }}>
+            Сравниваем со значением поддержания вашего текущего веса:
+          </p>
+          <div style={{
+            margin: '0 0 12px', padding: '8px 12px',
+            background: 'var(--surface-2)', borderRadius: 10,
+            fontSize: 12, color: 'var(--accent)', fontWeight: 600, letterSpacing: 0.1,
+          }}>
+            средний калораж − уровень поддержания
+          </div>
+          <p style={{ margin: '0 0 12px' }}>
+            Дефицит → снижение веса.
+            Избыток → набор.
+            Около нуля → поддержание.
+          </p>
+
+          {/* Step 3 — pace */}
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>
+            Шаг 3. Ожидаемый темп
+          </p>
+          <div style={{
+            margin: '0 0 12px', padding: '8px 12px',
+            background: 'var(--surface-2)', borderRadius: 10,
+            fontSize: 12, color: 'var(--accent)', fontWeight: 600, letterSpacing: 0.1,
+          }}>
+            (разница × 7) ÷ 7700 = кг в неделю
+          </div>
+          <p style={{ margin: '0 0 12px' }}>
+            7 700 — это примерная калорийность одного килограмма жировой ткани.
+          </p>
+
+          {/* Step 4 — weeks to goal */}
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>
+            Шаг 4. Срок до цели
           </p>
           <p style={{ margin: '0 0 14px' }}>
-            Эта разница переводится в примерный темп изменения веса за неделю,
-            и на его основе показывается ориентир по сроку достижения цели.
+            Если указаны текущий и желаемый вес, срок считается как:{' '}
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              сколько кг осталось ÷ темп в неделю
+            </span>.
           </p>
+
+          {/* Factors */}
+          <p style={{ margin: '0 0 6px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>
+            На результат могут влиять:
+          </p>
+          <ul style={{ margin: '0 0 14px', paddingLeft: 16 }}>
+            {[
+              'Неточности в учёте еды и объёма порций',
+              'Вода, соль и углеводы (временные колебания веса)',
+              'Тренировки и уровень повседневной активности',
+              'Сон, стресс и гормональный фон',
+            ].map(item => (
+              <li key={item} style={{ marginBottom: 4 }}>{item}</li>
+            ))}
+          </ul>
         </div>
 
         {/* Disclaimer */}
