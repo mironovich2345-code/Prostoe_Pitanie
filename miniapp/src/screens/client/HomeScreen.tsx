@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import StatusBadge from '../../components/StatusBadge';
 import WeekCalendar, { TODAY } from '../../components/WeekCalendar';
-import type { BootstrapData, MealEntry } from '../../types';
+import type { BootstrapData, MealEntry, UserProfile } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
 
@@ -119,6 +119,151 @@ function MacroRingRow({ protein, fat, carbs, normP, normF, normC }: {
   );
 }
 
+// ─── Goal Forecast Card ────────────────────────────────────────────────────
+
+type WeightPoint = { weightKg: number; createdAt: string };
+
+/** Linear regression slope: kg per day */
+function lrSlope(points: { x: number; y: number }[]): number {
+  const n = points.length;
+  const sx = points.reduce((s, p) => s + p.x, 0);
+  const sy = points.reduce((s, p) => s + p.y, 0);
+  const sxy = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sx2 = points.reduce((s, p) => s + p.x * p.x, 0);
+  const d = n * sx2 - sx * sx;
+  return d === 0 ? 0 : (n * sxy - sx * sy) / d;
+}
+
+function computeForecast(
+  history: WeightPoint[],
+  currentKg: number,
+  targetKg: number,
+  direction: 'lose' | 'gain',
+): { weeks: number; pacePerWeek: number } | null {
+  if (history.length < 3) return null;
+
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  const t0 = new Date(sorted[0].createdAt).getTime();
+  const t1 = new Date(sorted[sorted.length - 1].createdAt).getTime();
+  const spanDays = (t1 - t0) / 86_400_000;
+  if (spanDays < 14) return null;
+
+  const pts = sorted.map(e => ({ x: (new Date(e.createdAt).getTime() - t0) / 86_400_000, y: e.weightKg }));
+  const slopePerDay = lrSlope(pts);
+  const pacePerWeek = slopePerDay * 7; // kg/week (signed)
+
+  // Pace must be in the right direction with a meaningful magnitude
+  if (direction === 'lose' && pacePerWeek > -0.05) return null;
+  if (direction === 'gain' && pacePerWeek < 0.05) return null;
+
+  const remaining = targetKg - currentKg;
+  // remaining and pace must point the same way
+  if (direction === 'lose' && remaining >= 0) return null;
+  if (direction === 'gain' && remaining <= 0) return null;
+
+  const weeks = Math.abs(remaining) / Math.abs(pacePerWeek);
+  if (weeks > 260) return null; // > 5 years — too uncertain to show
+
+  return { weeks: Math.ceil(weeks), pacePerWeek };
+}
+
+function nounWeek(n: number): string {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 19) return 'недель';
+  if (mod10 === 1) return 'неделя';
+  if (mod10 >= 2 && mod10 <= 4) return 'недели';
+  return 'недель';
+}
+
+function GoalForecastCard({ profile, weightHistory }: { profile: UserProfile; weightHistory: WeightPoint[] | undefined }) {
+  const { goalType, currentWeightKg, desiredWeightKg } = profile;
+
+  // Only render for users with a goal
+  if (!goalType || goalType === 'track') return null;
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--surface)',
+    borderRadius: 'var(--r-lg)',
+    border: '1px solid var(--border)',
+    padding: '14px 16px',
+    marginBottom: 12,
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: 'var(--accent)',
+    marginBottom: 8,
+  };
+
+  // Maintenance goal — no forecast weeks
+  if (goalType === 'maintain') {
+    return (
+      <div style={cardStyle}>
+        <div style={labelStyle}>Цель</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Поддержание веса</div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+          Отслеживай питание, чтобы оставаться в рамках нормы
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentWeightKg || !desiredWeightKg) return null;
+
+  const direction = goalType === 'lose' ? 'lose' : 'gain';
+  const forecast = weightHistory ? computeForecast(weightHistory, currentWeightKg, desiredWeightKg, direction) : null;
+
+  // Check if goal already reached
+  const goalReached = direction === 'lose' ? currentWeightKg <= desiredWeightKg : currentWeightKg >= desiredWeightKg;
+  if (goalReached) {
+    return (
+      <div style={cardStyle}>
+        <div style={labelStyle}>Прогресс</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>Цель достигнута</div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Текущий вес соответствует цели</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={cardStyle}>
+      <div style={labelStyle}>Прогноз</div>
+      {forecast ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
+              {forecast.weeks}
+              <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-2)', marginLeft: 6 }}>
+                {nounWeek(forecast.weeks)}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 5 }}>до цели при текущем темпе</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 3 }}>Темп</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-soft)', borderRadius: 8, padding: '3px 9px' }}>
+              {Math.abs(forecast.pacePerWeek) < 0.1
+                ? `${Math.abs(forecast.pacePerWeek * 10).toFixed(1)} г/нед`
+                : `${Math.abs(forecast.pacePerWeek).toFixed(1)} кг/нед`}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5 }}>Пока недостаточно данных</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+            Добавь несколько замеров веса — и мы рассчитаем сроки
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Meal Section Card ─────────────────────────────────────────────────────
 
 function MealSectionCard({ icon, label, meals, onAdd }: { icon: string; label: string; meals: MealEntry[]; onAdd: () => void }) {
@@ -170,6 +315,12 @@ export default function HomeScreen({ bootstrap }: Props) {
     queryFn: () => api.nutritionDiary(selectedDate),
   });
 
+  // Used for goal forecast — shared cache key with ProfileScreen
+  const { data: profileFull } = useQuery({
+    queryKey: ['profile-full'],
+    queryFn: api.profile,
+  });
+
   const profile = bootstrap.profile;
   const sub = bootstrap.subscription;
   const trainer = bootstrap.connectedTrainer;
@@ -211,6 +362,13 @@ export default function HomeScreen({ bootstrap }: Props) {
             normP={profile?.dailyProteinG ?? null} normF={profile?.dailyFatG ?? null} normC={profile?.dailyCarbsG ?? null}
           />
         </>
+      )}
+
+      {profile && (
+        <GoalForecastCard
+          profile={profile}
+          weightHistory={profileFull?.weightHistory}
+        />
       )}
 
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '4px 2px 10px' }}>

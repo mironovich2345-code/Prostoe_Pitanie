@@ -27,6 +27,7 @@ export interface UserProfile {
   dailyFatG: number | null;
   dailyCarbsG: number | null;
   dailyFiberG: number | null;
+  goalType: string | null;
   notificationsEnabled: boolean;
   notificationCount: number;
   notificationTimes: string | null;

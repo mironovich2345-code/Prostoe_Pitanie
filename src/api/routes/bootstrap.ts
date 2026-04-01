@@ -37,6 +37,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         dailyFatG: profile.dailyFatG,
         dailyCarbsG: profile.dailyCarbsG,
         dailyFiberG: profile.dailyFiberG,
+        goalType: profile.goalType,
         notificationsEnabled: profile.notificationsEnabled,
         notificationCount: profile.notificationCount,
         notificationTimes: profile.notificationTimes,
