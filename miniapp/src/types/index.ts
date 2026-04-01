@@ -1,5 +1,5 @@
 export type TrainerVerificationStatus = 'pending' | 'verified' | 'rejected' | 'blocked';
-export type ReminderMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'extra';
+export type ReminderMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealReminder {
   id: number;

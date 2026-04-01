@@ -9,7 +9,6 @@ const MEAL_LABELS: Record<ReminderMealType, string> = {
   lunch:     'Обед',
   dinner:    'Ужин',
   snack:     'Перекус',
-  extra:     'Дополнительное',
 };
 
 export default function NotificationSettingsScreen() {

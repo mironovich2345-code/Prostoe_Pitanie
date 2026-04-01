@@ -7,12 +7,13 @@ import { mainMenu, BUTTONS } from './keyboards/mainMenu';
 import { MEAL_BUTTONS, MEAL_TYPE_BUTTONS } from './keyboards/mealMenu';
 import { setPending, getPending, clearPending, setDraft, getDraft, clearDraft, MealDraft } from './state/pendingActions';
 import { addMeal, getTodayMeals, deleteLastTodayMeal, clearTodayMeals, updateMealNutrition, getMealsForDate } from './state/mealStore';
-import { getProfile, upsertProfile, getAllOnboardedProfiles } from './state/profileStore';
+import { getProfile, upsertProfile } from './state/profileStore';
 import { GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
 import { addWeightEntry, getRecentWeightEntries, countWeightEntries, getFirstWeightEntry } from './state/weightStore';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from './ai/analyzeFood';
 import { calcAge, deriveGoal, tryAutoCalcNorms } from './utils/normsCalc';
 import { resolveTimezone } from './utils/timezone';
+import { pickReminderMessage } from './utils/reminderMessages';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -170,19 +171,6 @@ function getNowInTimezone(tz: string): { hour: number; minute: number } {
   }
 }
 
-function parseNotifTimes(timesStr: string, count: number): { hour: number; minute: number }[] {
-  const parsed = timesStr.split(',').map(t => {
-    const [h, m] = t.trim().split(':').map(Number);
-    return { hour: h, minute: m };
-  }).filter(t => !isNaN(t.hour) && !isNaN(t.minute));
-  return parsed.slice(0, Math.max(1, Math.min(5, count)));
-}
-
-const DEFAULT_NOTIF_TIMES = ['09:00', '13:00', '16:00', '19:00', '21:00'];
-
-function defaultNotifTimesStr(count: number): string {
-  return DEFAULT_NOTIF_TIMES.slice(0, Math.max(1, Math.min(5, count))).join(',');
-}
 
 
 
@@ -1315,35 +1303,55 @@ bot.action('nutrition_add', async (ctx) => {
 
 // ── Напоминания ─────────────────────────────────────────────────────
 async function sendReminders(): Promise<void> {
-  const profiles = await getAllOnboardedProfiles();
-  for (const p of profiles) {
-    try {
-      const tz = p.timezone ?? 'Europe/Moscow';
-      const { hour, minute } = getNowInTimezone(tz);
-      const count = Math.max(1, Math.min(5, p.notificationCount ?? 3));
-      const timesStr = p.notificationTimes ?? defaultNotifTimesStr(count);
-      const times = parseNotifTimes(timesStr, count);
-      if (!times.some(t => t.hour === hour && t.minute === minute)) continue;
+  // Fetch all enabled reminders
+  const reminders = await prisma.mealReminder.findMany({ where: { enabled: true } });
+  if (reminders.length === 0) return;
 
-      const chatIdNum = Number(p.chatId);
-      const msgs = lastBotMsgs.get(chatIdNum) ?? [];
-      while (msgs.length >= 5) {
-        const toDelete = msgs.shift()!;
-        try { await bot.telegram.deleteMessage(p.chatId, toDelete); } catch {}
-      }
-      const reminderMsg = await bot.telegram.sendMessage(
-        p.chatId,
-        '🍽 Время отметить приём пищи!\nЗапиши, что ел — это займёт 10 секунд.',
-        Markup.inlineKeyboard([
-          Markup.button.callback('➕ Добавить приём', 'reminder_add_meal'),
-        ])
-      );
-      msgs.push(reminderMsg.message_id);
-      lastBotMsgs.set(chatIdNum, msgs);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[reminder] не удалось отправить ${p.chatId}: ${msg}`);
+  const chatIds = [...new Set(reminders.map(r => r.chatId))];
+
+  // Fetch profiles for timezone + notificationsEnabled
+  const profiles = await prisma.userProfile.findMany({
+    where: { chatId: { in: chatIds }, notificationsEnabled: { not: false } },
+    select: { chatId: true, timezone: true },
+  });
+  const profileMap = new Map(profiles.map(p => [p.chatId, p]));
+
+  for (const chatId of chatIds) {
+    const profile = profileMap.get(chatId);
+    if (!profile) continue;
+
+    const tz = profile.timezone ?? 'Europe/Moscow';
+    const { hour, minute } = getNowInTimezone(tz);
+    const nowStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+    const due = reminders.filter(r => r.chatId === chatId && r.time === nowStr);
+    if (due.length === 0) continue;
+
+    const chatIdNum = Number(chatId);
+    const msgs = lastBotMsgs.get(chatIdNum) ?? [];
+    while (msgs.length >= 5) {
+      const toDelete = msgs.shift()!;
+      try { await bot.telegram.deleteMessage(chatId, toDelete); } catch {}
     }
+
+    for (const reminder of due) {
+      try {
+        const text = pickReminderMessage(chatId, reminder.mealType);
+        const sent = await bot.telegram.sendMessage(
+          chatId,
+          text,
+          Markup.inlineKeyboard([
+            Markup.button.callback('Добавить приём', 'reminder_add_meal'),
+          ])
+        );
+        msgs.push(sent.message_id);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[reminder] не удалось отправить ${chatId}: ${msg}`);
+      }
+    }
+
+    lastBotMsgs.set(chatIdNum, msgs);
   }
 }
 

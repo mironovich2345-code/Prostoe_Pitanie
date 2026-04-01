@@ -4,8 +4,14 @@ import prisma from '../../db';
 
 const router = Router();
 
-const VALID_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'extra'] as const;
-type MealType = typeof VALID_TYPES[number];
+const MAX_REMINDERS = 5;
+const MAX_PER_TYPE: Record<string, number> = {
+  breakfast: 1,
+  lunch: 1,
+  dinner: 1,
+  snack: 2,
+};
+const VALID_TYPES = Object.keys(MAX_PER_TYPE);
 
 // GET /api/reminders — list, with legacy notificationTimes auto-convert on first access
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -23,9 +29,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       });
       if (profile?.notificationTimes) {
         const times = profile.notificationTimes.trim().split(/[\s,]+/).filter(t => /^\d{2}:\d{2}$/.test(t));
-        for (let i = 0; i < Math.min(times.length, VALID_TYPES.length); i++) {
+        const types: string[] = ['breakfast', 'lunch', 'snack', 'dinner', 'snack'];
+        for (let i = 0; i < Math.min(times.length, types.length); i++) {
           await prisma.mealReminder.create({
-            data: { chatId, mealType: VALID_TYPES[i], time: times[i], enabled: true },
+            data: { chatId, mealType: types[i], time: times[i], enabled: true },
           }).catch(() => {});
         }
         reminders = await prisma.mealReminder.findMany({ where: { chatId }, orderBy: { createdAt: 'asc' } });
@@ -43,7 +50,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const { mealType, time, enabled } = req.body as { mealType: string; time: string; enabled?: boolean };
 
-  if (!VALID_TYPES.includes(mealType as MealType)) {
+  if (!VALID_TYPES.includes(mealType)) {
     res.status(400).json({ error: 'Invalid mealType' });
     return;
   }
@@ -53,15 +60,25 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    const existing = await prisma.mealReminder.findMany({ where: { chatId } });
+
+    if (existing.length >= MAX_REMINDERS) {
+      res.status(409).json({ error: `Максимум ${MAX_REMINDERS} напоминаний` });
+      return;
+    }
+
+    const typeCount = existing.filter(r => r.mealType === mealType).length;
+    const maxForType = MAX_PER_TYPE[mealType] ?? 1;
+    if (typeCount >= maxForType) {
+      res.status(409).json({ error: 'Достигнут лимит для этого типа напоминания' });
+      return;
+    }
+
     const reminder = await prisma.mealReminder.create({
       data: { chatId, mealType, time, enabled: enabled ?? true },
     });
     res.json({ reminder });
-  } catch (err: unknown) {
-    if ((err as { code?: string }).code === 'P2002') {
-      res.status(409).json({ error: 'Напоминание для этого типа уже существует' });
-      return;
-    }
+  } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
