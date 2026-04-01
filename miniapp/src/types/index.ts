@@ -34,6 +34,7 @@ export interface UserProfile {
   city: string | null;
   timezone: string | null;
   preferredName: string | null;
+  referralCode: string | null;
   sex: string | null;
   birthDate: string | null;
   activityLevel: number | null;

@@ -3,7 +3,7 @@ declare global {
     Telegram?: {
       WebApp?: {
         initData: string;
-        initDataUnsafe: { user?: { id: number; first_name: string; last_name?: string; username?: string } };
+        initDataUnsafe: { user?: { id: number; first_name: string; last_name?: string; username?: string }; start_param?: string };
         ready(): void;
         expand(): void;
         close(): void;
@@ -66,4 +66,8 @@ export const api = {
   disconnectTrainer: () => request<{ ok: boolean }>('/api/client/trainer', { method: 'DELETE' }),
   setTrainerHistoryAccess: (fullAccess: boolean) =>
     request<{ ok: boolean; fullHistoryAccess: boolean }>('/api/client/trainer/history-access', { method: 'PATCH', body: JSON.stringify({ fullAccess }) }),
+  referralMe: () =>
+    request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
+  referralApply: (code: string) =>
+    request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
 };

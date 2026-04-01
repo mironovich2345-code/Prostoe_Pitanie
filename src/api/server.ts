@@ -10,6 +10,7 @@ import subscriptionRouter from './routes/subscription';
 import clientRouter from './routes/client';
 import expertApplyRouter from './routes/expertApply';
 import remindersRouter from './routes/reminders';
+import referralRouter from './routes/referral';
 
 export function createApiServer() {
   const app = express();
@@ -33,6 +34,7 @@ export function createApiServer() {
   app.use('/api/client', clientRouter);
   app.use('/api/expert', expertApplyRouter);
   app.use('/api/reminders', remindersRouter);
+  app.use('/api/referral', referralRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');

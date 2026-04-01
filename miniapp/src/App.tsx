@@ -28,6 +28,7 @@ import EditProfileDataScreen from './screens/client/EditProfileDataScreen';
 import ValuePickerScreen from './screens/client/ValuePickerScreen';
 import CityPickerScreen from './screens/client/CityPickerScreen';
 import AddMealScreen from './screens/client/AddMealScreen';
+import { api } from './api/client';
 import type { AppMode } from './types';
 
 export default function App() {
@@ -37,6 +38,12 @@ export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
+
+    const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (startParam?.startsWith('ref_')) {
+      const code = startParam.slice(4);
+      api.referralApply(code).catch(() => null);
+    }
   }, []);
 
   if (isLoading) return <LoadingScreen />;

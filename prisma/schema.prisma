@@ -28,6 +28,10 @@ model UserProfile {
   city                 String?
   timezone             String?
   preferredName        String?
+  referralCode         String?  @unique
+  referredBy           String?
+  referredByRole       String?
+  referralLockedAt     DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

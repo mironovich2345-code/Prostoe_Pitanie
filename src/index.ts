@@ -14,6 +14,7 @@ import { analyzeFood, analyzeFoodPhoto, NotFoodError } from './ai/analyzeFood';
 import { calcAge, deriveGoal, tryAutoCalcNorms } from './utils/normsCalc';
 import { resolveTimezone } from './utils/timezone';
 import { pickReminderMessage } from './utils/reminderMessages';
+import { ensureReferralCode, applyReferral } from './utils/referral';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -467,6 +468,17 @@ bot.use(async (ctx, next) => {
 bot.start(async (ctx) => {
   const chatId = ctx.message.chat.id;
   clearPending(chatId);
+
+  // Ensure every user has a referral code
+  await ensureReferralCode(String(chatId)).catch(() => null);
+
+  // Apply referral from deep link: /start ref_XXXXXXXX
+  const payload = ctx.args?.[0];
+  if (payload?.startsWith('ref_')) {
+    const code = payload.slice(4);
+    await applyReferral(String(chatId), code).catch(() => null);
+  }
+
   const profile = await getProfile(chatId);
   if (isOnboardingComplete(profile)) {
     return ctx.reply('👋 Привет! Выбери действие:', mainMenu);

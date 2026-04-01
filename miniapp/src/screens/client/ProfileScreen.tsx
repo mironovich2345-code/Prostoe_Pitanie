@@ -546,6 +546,82 @@ function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
   );
 }
 
+// ─── Referral Section ──────────────────────────────────────────────────────
+
+function ReferralSection() {
+  const [copied, setCopied] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['referral-me'],
+    queryFn: api.referralMe,
+  });
+
+  function handleCopy() {
+    if (!data?.link) return;
+    navigator.clipboard.writeText(data.link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => null);
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
+        Реферальная программа
+      </div>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '16px' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12, lineHeight: 1.5 }}>
+          Приглашай друзей по своей ссылке — ты получишь бонусы, когда они подключатся.
+        </div>
+
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+            <div className="spinner" />
+          </div>
+        ) : data ? (
+          <>
+            {/* Link display */}
+            <div style={{
+              background: 'var(--surface-2)', borderRadius: 10, padding: '10px 14px',
+              border: '1px solid var(--border)', marginBottom: 10,
+              fontFamily: 'monospace', fontSize: 12, color: 'var(--text-2)',
+              wordBreak: 'break-all', lineHeight: 1.5,
+            }}>
+              {data.link}
+            </div>
+
+            {/* Copy button + invited count */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={handleCopy}
+                className="btn"
+                style={{ flex: 1, fontSize: 14, padding: '11px 16px' }}
+              >
+                {copied ? '✓ Скопировано' : '📋 Скопировать ссылку'}
+              </button>
+              {data.invitedCount > 0 && (
+                <div style={{
+                  flexShrink: 0, background: 'var(--accent-soft)', borderRadius: 10,
+                  padding: '10px 14px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{data.invitedCount}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
+                    {data.invitedCount === 1 ? 'друг' : data.invitedCount < 5 ? 'друга' : 'друзей'}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>
+            Не удалось загрузить ссылку
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
@@ -602,6 +678,8 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
           </div>
         </div>
       )}
+
+      <ReferralSection />
 
     </div>
   );
