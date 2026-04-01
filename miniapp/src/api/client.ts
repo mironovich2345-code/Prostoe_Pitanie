@@ -70,4 +70,6 @@ export const api = {
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
+  trainerOfferLinks: () =>
+    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number }> }>('/api/referral/trainer-offers'),
 };

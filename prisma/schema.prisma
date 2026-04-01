@@ -31,6 +31,7 @@ model UserProfile {
   referralCode         String?  @unique
   referredBy           String?
   referredByRole       String?
+  trainerOfferType     String?
   referralLockedAt     DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

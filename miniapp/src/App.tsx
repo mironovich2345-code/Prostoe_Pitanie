@@ -40,7 +40,9 @@ export default function App() {
     window.Telegram?.WebApp?.expand();
 
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (startParam?.startsWith('ref_')) {
+    if (startParam?.startsWith('trf_')) {
+      api.referralApply(startParam).catch(() => null);
+    } else if (startParam?.startsWith('ref_')) {
       const code = startParam.slice(4);
       api.referralApply(code).catch(() => null);
     }
