@@ -18,6 +18,7 @@ export interface UpdateProfileData {
   desiredWeightKg?: number;
   city?: string;
   timezone?: string;
+  preferredName?: string;
 }
 
 export async function getProfile(chatId: number) {

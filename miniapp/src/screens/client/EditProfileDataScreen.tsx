@@ -57,12 +57,14 @@ export default function EditProfileDataScreen() {
 
   const p = data?.profile;
 
+  const [preferredName, setPreferredName] = useState('');
   const [sex, setSex] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [activityLevel, setActivityLevel] = useState('');
 
   // Pre-fill once data loads (only if state is still empty)
   if (p && sex === '' && birthDate === '') {
+    if (p.preferredName) setPreferredName(p.preferredName);
     if (p.sex) setSex(p.sex);
     if (p.birthDate) setBirthDate(p.birthDate.split('T')[0]);
     if (p.activityLevel) setActivityLevel(String(p.activityLevel));
@@ -77,6 +79,7 @@ export default function EditProfileDataScreen() {
     try {
       const body: Parameters<typeof api.patchProfileData>[0] = {};
       const al = parseFloat(activityLevel);
+      if (preferredName.trim()) body.preferredName = preferredName.trim();
       if (sex) body.sex = sex;
       if (birthDate) body.birthDate = birthDate;
       if (!isNaN(al) && al > 0) body.activityLevel = al;
@@ -127,6 +130,36 @@ export default function EditProfileDataScreen() {
       {/* Personal info */}
       <GroupCard>
         <GroupLabel>О себе</GroupLabel>
+
+        {/* Preferred name with gender-based hint */}
+        <FieldRow label="Как к вам обращаться">
+          <input
+            value={preferredName}
+            onChange={e => setPreferredName(e.target.value)}
+            placeholder="Введите имя или прозвище"
+            maxLength={40}
+            style={inputStyle}
+          />
+          {/* Gender-based hint — shown when field is empty and sex is selected */}
+          {!preferredName && sex && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                {sex === 'male' ? 'Например: Крутой перец' : 'Например: Крутая леди'}
+              </span>
+              <button
+                onClick={() => setPreferredName(sex === 'male' ? 'Крутой перец' : 'Крутая леди')}
+                style={{
+                  background: 'var(--accent-soft)', border: 'none', borderRadius: 6,
+                  padding: '3px 10px', fontSize: 11, fontWeight: 600,
+                  color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                Использовать
+              </button>
+            </div>
+          )}
+        </FieldRow>
+
         <FieldRow label="Пол">
           <div style={{ display: 'flex', gap: 8 }}>
             {[{ v: 'male', l: 'Мужской' }, { v: 'female', l: 'Женский' }].map(opt => (

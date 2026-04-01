@@ -56,7 +56,11 @@ const FALLBACK_POOL: readonly string[] = [
 /** Tracks last 3 used indices per "chatId:mealType" key to avoid repeats. */
 const recentHistory = new Map<string, number[]>();
 
-export function pickReminderMessage(chatId: string, mealType: string): string {
+export function pickReminderMessage(
+  chatId: string,
+  mealType: string,
+  preferredName?: string | null,
+): string {
   const pool: readonly string[] = MESSAGES[mealType as MealType] ?? FALLBACK_POOL;
   const key = `${chatId}:${mealType}`;
   const used = recentHistory.get(key) ?? [];
@@ -70,5 +74,14 @@ export function pickReminderMessage(chatId: string, mealType: string): string {
   const next = [...used, idx].slice(-3);
   recentHistory.set(key, next);
 
-  return pool[idx];
+  const message = pool[idx];
+
+  // Personalise with preferredName when available
+  if (preferredName && preferredName.trim()) {
+    const name = preferredName.trim();
+    const lowered = message.charAt(0).toLowerCase() + message.slice(1);
+    return `${name}, ${lowered}`;
+  }
+
+  return message;
 }

@@ -1312,7 +1312,7 @@ async function sendReminders(): Promise<void> {
   // Fetch profiles for timezone + notificationsEnabled
   const profiles = await prisma.userProfile.findMany({
     where: { chatId: { in: chatIds }, notificationsEnabled: { not: false } },
-    select: { chatId: true, timezone: true },
+    select: { chatId: true, timezone: true, preferredName: true },
   });
   const profileMap = new Map(profiles.map(p => [p.chatId, p]));
 

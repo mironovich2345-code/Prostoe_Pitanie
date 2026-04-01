@@ -27,6 +27,7 @@ model UserProfile {
   desiredWeightKg      Float?
   city                 String?
   timezone             String?
+  preferredName        String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

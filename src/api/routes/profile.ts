@@ -29,6 +29,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         notificationTimes: profile.notificationTimes,
         city: profile.city,
         timezone: profile.timezone,
+        preferredName: profile.preferredName,
         sex: profile.sex,
         birthDate: profile.birthDate,
         activityLevel: profile.activityLevel,
@@ -43,7 +44,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // PATCH /api/profile/data — update physical profile fields, recalculate norms
 router.patch('/data', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { heightCm, currentWeightKg, desiredWeightKg, sex, birthDate, activityLevel, city, timezone } = req.body as {
+  const { heightCm, currentWeightKg, desiredWeightKg, sex, birthDate, activityLevel, city, timezone, preferredName } = req.body as {
     heightCm?: number;
     currentWeightKg?: number;
     desiredWeightKg?: number;
@@ -52,6 +53,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     activityLevel?: number;
     city?: string;
     timezone?: string;
+    preferredName?: string;
   };
 
   try {
@@ -72,6 +74,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
       // Allow updating timezone standalone (e.g., manual override)
       data.timezone = timezone;
     }
+    if (preferredName !== undefined) data.preferredName = preferredName.trim() || undefined;
 
     const chatIdNum = parseInt(chatId, 10);
     await upsertProfile(chatIdNum, data);

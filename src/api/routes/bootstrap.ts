@@ -42,6 +42,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         notificationTimes: profile.notificationTimes,
         city: profile.city,
         timezone: profile.timezone,
+        preferredName: profile.preferredName,
       } : null,
       trainerProfile: trainerProfile ? {
         verificationStatus: trainerProfile.verificationStatus,

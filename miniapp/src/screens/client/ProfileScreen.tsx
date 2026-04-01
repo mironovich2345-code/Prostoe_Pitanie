@@ -55,7 +55,9 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   const firstName = user?.first_name ?? '';
   const lastName = user?.last_name ?? '';
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Пользователь';
-  const initial = fullName.charAt(0).toUpperCase();
+  // Use preferredName as display name when set; fall back to Telegram name
+  const displayName = p?.preferredName?.trim() || fullName;
+  const initial = fullName.charAt(0).toUpperCase() || displayName.charAt(0).toUpperCase();
 
   const age = p?.birthDate
     ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
@@ -86,11 +88,14 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
         {/* Name + meta */}
         <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', lineHeight: 1.15, marginBottom: 4 }}>
-            {fullName}
+            {displayName}
           </div>
-          {user?.username && (
+          {/* Show Telegram username or full name as subtitle when preferredName is set */}
+          {user?.username ? (
             <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>@{user.username}</div>
-          )}
+          ) : p?.preferredName && fullName !== displayName ? (
+            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>{fullName}</div>
+          ) : null}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {p?.city && (
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>📍 {p.city}</span>
