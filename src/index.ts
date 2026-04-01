@@ -1538,12 +1538,13 @@ bot.on('message', async (ctx) => {
   }
 });
 
+createApiServer();
+
 bot.launch()
   .then(() => {
     const username = bot.botInfo?.username;
     if (username && !process.env.BOT_USERNAME) process.env.BOT_USERNAME = username;
     console.log(`Бот @${username ?? process.env.BOT_USERNAME} запущен (polling)`);
-    createApiServer();
   })
   .catch((err: Error) => {
     console.error('Ошибка запуска бота:', err.message);
