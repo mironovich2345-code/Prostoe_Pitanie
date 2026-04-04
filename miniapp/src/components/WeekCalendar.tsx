@@ -217,17 +217,19 @@ function MonthView({ selected, onSelect, dotsByDate, onCollapse, style }: WeekCa
   const year = d.getFullYear();
   const month = d.getMonth();
 
+  const toMonthAnchor = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
   const goBack = () => {
-    const prev = new Date(year, month - 1, 1);
-    setAnchor(prev.toISOString().split('T')[0]);
+    setAnchor(toMonthAnchor(new Date(year, month - 1, 1)));
   };
 
   const goForward = () => {
-    const next = new Date(year, month + 1, 1);
-    const nextStr = next.toISOString().split('T')[0];
-    // Don't go past current month
-    const todayMonth = TODAY.slice(0, 7);
-    if (nextStr.slice(0, 7) <= todayMonth) {
+    const nextStr = toMonthAnchor(new Date(year, month + 1, 1));
+    if (nextStr.slice(0, 7) <= TODAY.slice(0, 7)) {
       setAnchor(nextStr);
     }
   };
