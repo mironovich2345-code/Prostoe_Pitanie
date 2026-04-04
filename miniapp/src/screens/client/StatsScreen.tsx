@@ -157,20 +157,38 @@ function CompactDaySummary({ cal, p, f, c }: { cal: number; p: number; f: number
 
 function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  // Mini-app photos: photoData is already in the meal object (returned by Prisma findMany).
+  // Bot photos: only have photoFileId — need a separate API call.
+  const [mediaUrl, setMediaUrl] = useState<string | null>(meal.photoData ?? null);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState(false);
 
   const srcIcon = SOURCE_ICONS[meal.sourceType] ?? '📝';
   const isMediaType = meal.sourceType === 'photo' || meal.sourceType === 'voice';
+  // Whether a Telegram file ID exists (bot-originated media)
+  const hasTelegramFile = meal.sourceType === 'photo' ? !!meal.photoFileId
+                        : meal.sourceType === 'voice' ? !!meal.voiceFileId
+                        : false;
 
   async function loadMedia() {
     if (mediaUrl || mediaLoading || mediaError) return;
+    if (!hasTelegramFile) {
+      // No Telegram file and no photoData — nothing to show
+      console.warn('[MealCard] no media source for meal', meal.id,
+        '| sourceType:', meal.sourceType,
+        '| photoFileId:', meal.photoFileId,
+        '| photoData present:', !!meal.photoData);
+      setMediaError(true);
+      return;
+    }
+    console.log('[MealCard] fetching Telegram media for meal', meal.id);
     setMediaLoading(true);
     try {
       const result = await api.nutritionMealMedia(meal.id);
+      console.log('[MealCard] media fetched ok, type:', result.type, 'url length:', result.url?.length);
       setMediaUrl(result.url);
-    } catch {
+    } catch (e) {
+      console.error('[MealCard] media fetch failed for meal', meal.id, e);
       setMediaError(true);
     } finally {
       setMediaLoading(false);
@@ -178,7 +196,13 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   }
 
   function toggle() {
-    if (!expanded) loadMedia();
+    console.log('[MealCard] toggle', meal.id,
+      '| sourceType:', meal.sourceType,
+      '| photoData:', !!meal.photoData,
+      '| photoFileId:', !!meal.photoFileId,
+      '| mediaUrl already set:', !!mediaUrl,
+      '| expanded →', !expanded);
+    if (!expanded && !mediaUrl) loadMedia();
     setExpanded(v => !v);
   }
 

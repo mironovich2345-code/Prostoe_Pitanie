@@ -107,6 +107,7 @@ export interface MealEntry {
   sourceType: string;
   photoFileId: string | null;
   voiceFileId: string | null;
+  photoData: string | null; // base64 data URL for mini-app photos (already in API response)
   caloriesKcal: number | null;
   proteinG: number | null;
   fatG: number | null;
