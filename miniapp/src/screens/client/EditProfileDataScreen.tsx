@@ -180,11 +180,32 @@ export default function EditProfileDataScreen() {
           </div>
         </FieldRow>
         <FieldRow label="Дата рождения">
-          <input
-            type="date" value={birthDate}
-            onChange={e => setBirthDate(e.target.value)}
-            style={inputStyle}
-          />
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'var(--surface-2)', border: '1px solid var(--border-2)',
+              borderRadius: 8, padding: '10px 12px',
+              fontSize: 15, color: birthDate ? 'var(--text)' : 'var(--text-3)',
+              fontWeight: birthDate ? 600 : 400,
+              pointerEvents: 'none',
+            }}>
+              <span>
+                {birthDate
+                  ? new Date(birthDate + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Не задана'}
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--text-3)' }}>›</span>
+            </div>
+            <input
+              type="date"
+              value={birthDate}
+              onChange={e => setBirthDate(e.target.value)}
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                opacity: 0, cursor: 'pointer',
+              }}
+            />
+          </div>
         </FieldRow>
         <FieldRow label="Город" isLast>
           {/* City is edited via a separate screen to ensure correct timezone resolution */}

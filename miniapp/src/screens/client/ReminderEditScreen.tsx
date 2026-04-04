@@ -144,40 +144,49 @@ export default function ReminderEditScreen() {
       {/* Meal type selector */}
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
-        overflow: 'hidden', marginBottom: 10,
+        padding: '16px 18px', marginBottom: 10,
       }}>
-        <div style={{ padding: '14px 18px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 12 }}>
           Тип
         </div>
-        {MEAL_OPTIONS.map((opt, i) => {
-          const blocked = isTypeBlocked(opt.value);
-          const selected = mealType === opt.value;
-          // In edit mode: type is fixed, only show selected row
-          const clickable = isNew && !blocked;
-          const isLast = i === MEAL_OPTIONS.length - 1;
-          return (
-            <button
-              key={opt.value}
-              onClick={() => clickable && setMealType(opt.value)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                width: '100%', padding: '13px 18px',
-                borderTop: '1px solid var(--border)',
-                background: selected ? 'var(--accent-soft)' : 'transparent',
-                color: blocked && !selected ? 'var(--text-3)' : 'var(--text)',
-                fontSize: 15, fontWeight: selected ? 600 : 400,
-                cursor: clickable ? 'pointer' : 'default',
-                borderBottom: isLast ? 'none' : undefined,
-              }}
-            >
-              <span>{opt.label}</span>
-              <span style={{ fontSize: 13 }}>
-                {selected && <span style={{ color: 'var(--accent)', fontWeight: 700 }}>✓</span>}
-                {!selected && blocked && isNew && <span style={{ color: 'var(--text-3)', fontSize: 12 }}>уже добавлен</span>}
-              </span>
-            </button>
-          );
-        })}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {MEAL_OPTIONS.map((opt) => {
+            const blocked = isTypeBlocked(opt.value);
+            const selected = mealType === opt.value;
+            const clickable = isNew && !blocked;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => clickable && setMealType(opt.value)}
+                style={{
+                  padding: '13px 10px 11px',
+                  borderRadius: 12,
+                  border: selected
+                    ? '1.5px solid rgba(215,255,63,0.35)'
+                    : '1px solid var(--border)',
+                  background: selected ? 'var(--accent-soft)' : 'var(--surface-2)',
+                  cursor: clickable ? 'pointer' : 'default',
+                  textAlign: 'center',
+                  transition: 'background 0.15s, border-color 0.15s',
+                  opacity: blocked && !selected ? 0.38 : 1,
+                }}
+              >
+                <div style={{
+                  fontSize: 14, fontWeight: selected ? 700 : 500,
+                  color: selected ? 'var(--accent)' : blocked ? 'var(--text-3)' : 'var(--text-2)',
+                  marginBottom: blocked && !selected && isNew ? 4 : 0,
+                }}>
+                  {opt.label}
+                </div>
+                {blocked && !selected && isNew && (
+                  <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>
+                    уже добавлен
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {error && (
