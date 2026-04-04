@@ -350,7 +350,7 @@ function GoalForecastCardInner({ profile, meals30, onInfoClick }: { profile: Use
   if (!directionMatch) {
     const paceSign = expectedKgPerWeek > 0 ? '+' : '−';
     const abs = Math.abs(expectedKgPerWeek).toFixed(2);
-    const goalWord = effectiveGoal === 'lose' ? 'снижения' : 'набора';
+    const goalWord = effectiveGoal === 'lose' ? 'снижению' : 'набору';
     return (
       <div style={cardStyle}>
         {accentLabel('Прогноз', periodLabel(period))}

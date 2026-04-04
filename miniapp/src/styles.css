@@ -63,6 +63,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
@@ -73,8 +74,9 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 
 /* ── Screen container ───────────────────────────────────────────────── */
 .screen {
-  padding: 20px 16px 106px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(106px + env(safe-area-inset-bottom, 0px));
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
 }
 
@@ -212,8 +214,9 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
   -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--border);
   display: flex;
-  height: 68px;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  align-items: flex-start;
+  min-height: 68px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 100;
 }
 .bottom-nav-item {
