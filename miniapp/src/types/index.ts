@@ -136,6 +136,17 @@ export interface NutritionTotals {
   fiber: number;
 }
 
+export interface TrainerReview {
+  id: number;
+  clientId: string;
+  trainerId: string;
+  rating: number;
+  reviewText: string | null;
+  allowTrainerComment: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface NutritionInsight {
   bannerTitle: string;
   bannerText: string;

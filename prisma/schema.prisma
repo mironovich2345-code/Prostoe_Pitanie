@@ -130,6 +130,18 @@ model MealReminder {
   updatedAt DateTime @updatedAt
 }
 
+model TrainerReview {
+  id                  Int      @id @default(autoincrement())
+  clientId            String
+  trainerId           String
+  rating              Int
+  reviewText          String?
+  allowTrainerComment Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  @@unique([clientId, trainerId])
+}
+
 model TrainerReward {
   id             Int      @id @default(autoincrement())
   trainerId      String

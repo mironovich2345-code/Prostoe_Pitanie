@@ -122,6 +122,15 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </button>
       </div>
 
+      {/* Review button */}
+      <button
+        className="btn btn-secondary"
+        style={{ fontSize: 14, marginBottom: 12 }}
+        onClick={() => navigate('/trainer/review')}
+      >
+        Оставить отзыв о специалисте
+      </button>
+
       {/* Recent ratings */}
       {recentRatings.length > 0 && (
         <>

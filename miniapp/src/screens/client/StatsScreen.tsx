@@ -464,6 +464,12 @@ function toLocalIso(d: Date): string {
 
 // ─── Week View ─────────────────────────────────────────────────────────────
 
+const DAY_RATING_CHIP: Record<string, { label: string; color: string; bg: string }> = {
+  excellent: { label: 'Отлично',  color: 'var(--accent)',                bg: 'var(--accent-soft)' },
+  good:      { label: 'Хорошо',   color: '#7EB8F0',                      bg: 'rgba(126,184,240,0.12)' },
+  improve:   { label: 'Улучшить', color: 'var(--warn, #F0A07A)',          bg: 'rgba(240,160,122,0.12)' },
+};
+
 function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f: number | null; c: number | null } }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -489,6 +495,19 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
     queryKey: ['nutrition-stats-range', fromStr, toStr],
     queryFn: () => api.nutritionStatsRange(fromStr, toStr),
   });
+
+  const { data: ratingsData } = useQuery({
+    queryKey: ['my-ratings'],
+    queryFn: api.myRatings,
+  });
+
+  const dayRatingMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of ratingsData?.ratings ?? []) {
+      if (r.targetType === 'day') map[r.targetId] = r.rating;
+    }
+    return map;
+  }, [ratingsData]);
 
   const meals: MealEntry[] = data?.meals ?? [];
 
@@ -640,6 +659,19 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
                       ) : (
                         <span style={{ fontSize: 13, color: 'var(--text-3)' }}>—</span>
                       )}
+                      {dayRatingMap[day] && (() => {
+                        const chip = DAY_RATING_CHIP[dayRatingMap[day]];
+                        return chip ? (
+                          <span style={{
+                            fontSize: 10, fontWeight: 700,
+                            padding: '2px 7px', borderRadius: 20,
+                            background: chip.bg, color: chip.color,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {chip.label}
+                          </span>
+                        ) : null;
+                      })()}
                       {hasData && (
                         <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 2 }}>
                           {isExpanded ? '▲' : '▼'}
