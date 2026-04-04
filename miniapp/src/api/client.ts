@@ -87,6 +87,12 @@ export const api = {
     request<{ ratings: import('../types').TrainerRating[] }>('/api/ratings/my'),
   nutritionMealMedia: (mealId: number) =>
     request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`),
+  nutritionAnalyze: (text: string) =>
+    request<import('../types').FoodAnalysis>('/api/nutrition/analyze', { method: 'POST', body: JSON.stringify({ text }) }),
+  nutritionAnalyzePhoto: (imageData: string) =>
+    request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo', { method: 'POST', body: JSON.stringify({ imageData }) }),
+  nutritionAdd: (data: { text: string; mealType: string; sourceType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null }) =>
+    request<{ ok: boolean; meal: import('../types').MealEntry }>('/api/nutrition/add', { method: 'POST', body: JSON.stringify(data) }),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralApply: (code: string) =>

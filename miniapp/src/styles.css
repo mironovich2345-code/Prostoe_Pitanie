@@ -67,8 +67,8 @@ body {
   overscroll-behavior-y: none;
 }
 a { color: var(--accent); text-decoration: none; }
-button { cursor: pointer; font-family: inherit; }
-input, textarea, select { font-family: inherit; }
+button { cursor: pointer; font-family: inherit; touch-action: manipulation; }
+input, textarea, select { font-family: inherit; font-size: 16px; } /* 16px prevents iOS auto-zoom on focus */
 input[type="date"], input[type="time"] { color-scheme: dark; }
 
 /* ── Screen container ───────────────────────────────────────────────── */

@@ -115,6 +115,17 @@ export interface MealEntry {
   createdAt: string;
 }
 
+export interface FoodAnalysis {
+  name: string;
+  composition?: string;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
+  fiberG: number | null;
+  weightG: number | null;
+}
+
 export interface NutritionTotals {
   calories: number;
   protein: number;

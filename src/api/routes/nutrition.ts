@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
 
 const router = Router();
 
@@ -73,6 +74,70 @@ router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
     res.json({ url: `https://api.telegram.org/file/bot${botToken}/${tgData.result.file_path}`, type: meal.sourceType });
   } catch (err) {
     console.error('[nutrition/meals/:id/media]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/nutrition/analyze — analyze meal text via AI
+router.post('/analyze', async (req: AuthRequest, res: Response) => {
+  const { text } = req.body as { text?: string };
+  if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+  try {
+    const result = await analyzeFood(text.trim());
+    res.json(result);
+  } catch (err) {
+    console.error('[nutrition/analyze]', err);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
+// POST /api/nutrition/analyze-photo — analyze meal photo (base64 data URL) via AI
+router.post('/analyze-photo', async (req: AuthRequest, res: Response) => {
+  const { imageData } = req.body as { imageData?: string };
+  if (!imageData) { res.status(400).json({ error: 'Missing imageData' }); return; }
+  try {
+    const result = await analyzeFoodPhoto(imageData);
+    res.json(result);
+  } catch (err) {
+    if (err instanceof NotFoodError) {
+      res.status(422).json({ error: 'NOT_FOOD' }); return;
+    }
+    console.error('[nutrition/analyze-photo]', err);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
+// POST /api/nutrition/add — save a meal entry created via mini app
+router.post('/add', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { text, mealType, sourceType, caloriesKcal, proteinG, fatG, carbsG, fiberG } = req.body as {
+    text?: string;
+    mealType?: string;
+    sourceType?: string;
+    caloriesKcal?: number | null;
+    proteinG?: number | null;
+    fatG?: number | null;
+    carbsG?: number | null;
+    fiberG?: number | null;
+  };
+  if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+  try {
+    const meal = await prisma.mealEntry.create({
+      data: {
+        chatId,
+        text: text.trim(),
+        mealType: mealType ?? 'unknown',
+        sourceType: sourceType ?? 'text',
+        caloriesKcal: caloriesKcal ?? null,
+        proteinG: proteinG ?? null,
+        fatG: fatG ?? null,
+        carbsG: carbsG ?? null,
+        fiberG: fiberG ?? null,
+      },
+    });
+    res.json({ ok: true, meal });
+  } catch (err) {
+    console.error('[nutrition/add]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
