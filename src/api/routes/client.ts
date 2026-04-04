@@ -117,7 +117,7 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
         fullHistoryAccess: fullHistoryAccess ?? false,
         canViewPhotos: canViewPhotos ?? true,
         connectedAt: new Date(),
-        disconnectedAt: null,
+        disconnectedAt: { set: null },
       },
       create: {
         trainerId: tp.chatId,
@@ -140,7 +140,8 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
     });
   } catch (err) {
     console.error('[client/trainer/connect]', err);
-    res.status(500).json({ error: 'Internal server error' });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
   }
 });
 

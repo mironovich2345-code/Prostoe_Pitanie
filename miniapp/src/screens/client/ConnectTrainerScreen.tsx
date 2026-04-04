@@ -236,7 +236,7 @@ export default function ConnectTrainerScreen() {
             <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
               {(connectMutation.error as Error).message.includes('active trainer')
                 ? 'У вас уже есть активный тренер. Сначала отключите его.'
-                : 'Ошибка подключения. Попробуйте ещё раз.'}
+                : (connectMutation.error as Error).message || 'Ошибка подключения. Попробуйте ещё раз.'}
             </div>
           )}
 
