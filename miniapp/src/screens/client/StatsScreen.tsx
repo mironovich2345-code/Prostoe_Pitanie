@@ -8,9 +8,16 @@ import type { MealEntry } from '../../types';
 
 function weightDeltaColor(delta: number, goalType: string | null | undefined): string {
   if (Math.abs(delta) < 0.01) return 'var(--text-3)';
-  if (goalType === 'maintain' || goalType === 'track') return 'var(--text-2)';
+  if (!goalType || goalType === 'maintain' || goalType === 'track') return 'var(--text-2)';
   if (goalType === 'gain') return delta > 0 ? 'var(--accent)' : 'var(--danger)';
-  return delta < 0 ? 'var(--accent)' : 'var(--danger)'; // 'lose' or unknown
+  return delta < 0 ? 'var(--accent)' : 'var(--danger)'; // 'lose'
+}
+
+function deriveGoal(current: number | null | undefined, target: number | null | undefined): 'lose' | 'gain' | 'maintain' | null {
+  if (!current || !target) return null;
+  if (current > target + 0.05) return 'lose';
+  if (current < target - 0.05) return 'gain';
+  return 'maintain';
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -593,10 +600,13 @@ function WeightView() {
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-          {[...history].reverse().map((entry, i, arr) => {
-            const prev = arr[i + 1];
+          {/* API returns DESC (newest first) — no reverse needed.
+              arr[i+1] is the older entry → delta = newer − older = correct sign. */}
+          {[...history].map((entry, i, arr) => {
+            const prev = arr[i + 1]; // older entry (DESC order)
             const delta = prev ? entry.weightKg - prev.weightKg : null;
             const dateLabel = new Date(entry.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+            const goal = deriveGoal(profile?.currentWeightKg, profile?.desiredWeightKg);
             return (
               <div
                 key={entry.id}
@@ -615,7 +625,7 @@ function WeightView() {
                 {delta !== null && (
                   <span style={{
                     fontSize: 12, fontWeight: 600,
-                    color: weightDeltaColor(delta, profile?.goalType),
+                    color: weightDeltaColor(delta, goal),
                   }}>
                     {delta > 0 ? '+' : ''}{delta.toFixed(1)} кг
                   </span>
