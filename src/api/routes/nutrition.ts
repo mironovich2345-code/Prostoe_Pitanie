@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
+import { generateNutritionInsight, InsightInput } from '../../ai/nutritionInsight';
 
 const router = Router();
 
@@ -148,6 +149,71 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('[nutrition/add]', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/nutrition/insight?date=YYYY-MM-DD
+router.get('/insight', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const dateStr = req.query.date as string | undefined;
+  try {
+    const date = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+    const start = new Date(date); start.setHours(0, 0, 0, 0);
+    const end   = new Date(date); end.setHours(23, 59, 59, 999);
+
+    const [profile, meals] = await Promise.all([
+      prisma.userProfile.findUnique({ where: { chatId } }),
+      prisma.mealEntry.findMany({
+        where: { chatId, createdAt: { gte: start, lte: end } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    let consumedCal = 0, consumedProtein = 0, consumedFat = 0, consumedCarbs = 0, consumedFiber = 0;
+    for (const m of meals) {
+      consumedCal     += m.caloriesKcal ?? 0;
+      consumedProtein += m.proteinG     ?? 0;
+      consumedFat     += m.fatG         ?? 0;
+      consumedCarbs   += m.carbsG       ?? 0;
+      consumedFiber   += m.fiberG       ?? 0;
+    }
+
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const currentDate = dateStr ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const input: InsightInput = {
+      currentWeight: profile?.currentWeightKg ?? null,
+      targetWeight:  profile?.desiredWeightKg ?? null,
+      normCal:       profile?.dailyCaloriesKcal ?? null,
+      normProtein:   profile?.dailyProteinG     ?? null,
+      normFat:       profile?.dailyFatG         ?? null,
+      normCarbs:     profile?.dailyCarbsG       ?? null,
+      normFiber:     profile?.dailyFiberG       ?? null,
+      consumedCal:     Math.round(consumedCal),
+      consumedProtein,
+      consumedFat,
+      consumedCarbs,
+      consumedFiber,
+      currentDate,
+      currentTime,
+      meals: meals.map(m => ({
+        mealType:   m.mealType,
+        title:      m.text,
+        kcal:       m.caloriesKcal,
+        protein:    m.proteinG,
+        fat:        m.fatG,
+        carbs:      m.carbsG,
+        fiber:      m.fiberG,
+        sourceType: m.sourceType,
+      })),
+    };
+
+    const insight = await generateNutritionInsight(input);
+    res.json(insight);
+  } catch (err) {
+    console.error('[nutrition/insight]', err);
+    res.status(500).json({ error: 'Insight generation failed' });
   }
 });
 
