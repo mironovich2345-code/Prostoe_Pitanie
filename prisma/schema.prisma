@@ -124,6 +124,7 @@ model MealReminder {
   chatId    String
   mealType  String
   time      String
+  dayOfWeek String?
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -43,11 +43,13 @@ export const api = {
   nutritionToday: () => request<import('../types').TodayNutritionData>('/api/nutrition/today'),
   nutritionDiary: (date?: string) => request<{ date: string; meals: import('../types').MealEntry[] }>(`/api/nutrition/diary${date ? `?date=${date}` : ''}`),
   nutritionStats: (days?: number) => request<{ days: number; meals: import('../types').MealEntry[] }>(`/api/nutrition/stats${days ? `?days=${days}` : ''}`),
+  nutritionStatsRange: (from: string, to: string) =>
+    request<{ days: number; meals: import('../types').MealEntry[] }>(`/api/nutrition/stats?from=${from}&to=${to}`),
   profile: () => request<{ profile: import('../types').UserProfile | null; weightHistory: Array<{ id: number; weightKg: number; createdAt: string }> }>('/api/profile'),
   reminders: () => request<{ reminders: import('../types').MealReminder[] }>('/api/reminders'),
-  createReminder: (data: { mealType: string; time: string; enabled?: boolean }) =>
+  createReminder: (data: { mealType: string; time: string; dayOfWeek?: string; enabled?: boolean }) =>
     request<{ reminder: import('../types').MealReminder }>('/api/reminders', { method: 'POST', body: JSON.stringify(data) }),
-  patchReminder: (id: number, data: { time?: string; enabled?: boolean }) =>
+  patchReminder: (id: number, data: { time?: string; enabled?: boolean; dayOfWeek?: string }) =>
     request<{ reminder: import('../types').MealReminder }>(`/api/reminders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteReminder: (id: number) =>
     request<{ ok: boolean }>(`/api/reminders/${id}`, { method: 'DELETE' }),

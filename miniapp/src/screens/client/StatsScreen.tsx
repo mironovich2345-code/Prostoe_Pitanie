@@ -358,14 +358,36 @@ function DayView({ norms }: { norms: { cal: number | null; p: number | null; f: 
   );
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function toLocalIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // ─── Week View ─────────────────────────────────────────────────────────────
 
 function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f: number | null; c: number | null } }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const endDate = new Date(TODAY + 'T12:00:00');
+  endDate.setDate(endDate.getDate() + weekOffset * 7);
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - 6);
+  const fromStr = toLocalIso(startDate);
+  const toStr = toLocalIso(endDate);
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return toLocalIso(d);
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['nutrition-stats', 7],
-    queryFn: () => api.nutritionStats(7),
+    queryKey: ['nutrition-stats-range', fromStr, toStr],
+    queryFn: () => api.nutritionStatsRange(fromStr, toStr),
   });
 
   const meals: MealEntry[] = data?.meals ?? [];
@@ -387,12 +409,6 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
 
   const avg = (v: number) => activeDays > 0 ? Math.round(v / activeDays) : 0;
 
-  const last7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(TODAY + 'T12:00:00');
-    d.setDate(d.getDate() - 6 + i);
-    return d.toISOString().split('T')[0];
-  });
-
   if (isLoading) {
     return (
       <div className="card" style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
@@ -401,124 +417,155 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
     );
   }
 
-  if (activeDays === 0) {
-    return (
-      <div style={{ textAlign: 'center', padding: '52px 16px' }}>
-        <div style={{ fontSize: 40, opacity: 0.2, marginBottom: 12 }}>📊</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет данных за неделю</div>
-        <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Начни записывать питание, чтобы увидеть статистику</div>
-      </div>
-    );
-  }
-
   return (
     <>
-      {/* Period label */}
+      {/* Week navigation */}
       <div style={{
-        background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 16px',
-        border: '1px solid var(--border)', marginBottom: 12,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '10px 14px',
+        border: '1px solid var(--border)', marginBottom: 8,
       }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 3 }}>
-            Последние 7 дней
+        <button
+          onClick={() => setWeekOffset(o => o - 1)}
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'var(--surface-2)', border: '1px solid var(--border)',
+            color: 'var(--text-2)', fontSize: 18, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}
+        >‹</button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
+            {weekOffset === 0 ? 'Текущая неделя' : `${weekOffset === -1 ? 'Прошлая неделя' : `${Math.abs(weekOffset)} нед. назад`}`}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-            {activeDays} {activeDays === 1 ? 'активный день' : activeDays < 5 ? 'активных дня' : 'активных дней'}
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+            {startDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} — {endDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 2 }}>Всего</div>
-          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)' }}>
-            {totals.cal.toLocaleString('ru')} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>ккал</span>
-          </div>
+        <button
+          onClick={() => setWeekOffset(o => o + 1)}
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: weekOffset >= 0 ? 'transparent' : 'var(--surface-2)',
+            border: weekOffset >= 0 ? 'none' : '1px solid var(--border)',
+            color: 'var(--text-2)', fontSize: 18, cursor: weekOffset >= 0 ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            visibility: weekOffset >= 0 ? 'hidden' : 'visible',
+          } as React.CSSProperties}
+        >›</button>
+      </div>
+
+      {activeDays === 0 ? (
+        <div style={{ textAlign: 'center', padding: '52px 16px' }}>
+          <div style={{ fontSize: 40, opacity: 0.2, marginBottom: 12 }}>📊</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет данных за неделю</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Начни записывать питание, чтобы увидеть статистику</div>
         </div>
-      </div>
-
-      {/* Avg per day metric grid */}
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
-        Среднее в день
-      </div>
-      <MetricGrid
-        cal={avg(totals.cal)} p={avg(totals.p)} f={avg(totals.f)} c={avg(totals.c)}
-        normCal={norms.cal} normP={norms.p} normF={norms.f} normC={norms.c}
-      />
-
-      {/* Day-by-day breakdown with expandable detail */}
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
-        По дням
-      </div>
-      <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 10 }}>
-        {last7.map((day, i) => {
-          const dayMeals = byDate[day] ?? [];
-          const dayCal = dayMeals.reduce((s, m) => s + (m.caloriesKcal ?? 0), 0);
-          const hasData = dayMeals.length > 0;
-          const isToday = day === TODAY;
-          const isExpanded = expandedDay === day;
-          const isLast = i === 6;
-
-          return (
-            <div key={day}>
-              {/* Day row */}
-              <div
-                onClick={hasData ? () => setExpandedDay(isExpanded ? null : day) : undefined}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '13px 16px',
-                  borderBottom: (!isLast || isExpanded) ? '1px solid var(--border)' : 'none',
-                  cursor: hasData ? 'pointer' : 'default',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: hasData ? 'var(--accent)' : 'var(--surface-3)',
-                    flexShrink: 0,
-                  }} />
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: isToday ? 'var(--accent)' : 'var(--text)' }}>
-                      {fmtDateShort(day)}{isToday ? ' · сегодня' : ''}
-                    </div>
-                    {hasData && (
-                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-                        {dayMeals.length} {dayMeals.length === 1 ? 'запись' : dayMeals.length < 5 ? 'записи' : 'записей'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {hasData ? (
-                    <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                      {Math.round(dayCal).toLocaleString('ru')}
-                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> ккал</span>
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 13, color: 'var(--text-3)' }}>—</span>
-                  )}
-                  {hasData && (
-                    <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 2 }}>
-                      {isExpanded ? '▲' : '▼'}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Expanded day detail */}
-              {isExpanded && (
-                <div style={{
-                  background: 'var(--surface-2)',
-                  borderBottom: !isLast ? '1px solid var(--border)' : 'none',
-                }}>
-                  <CompactDaySummary {...computeTotals(dayMeals)} />
-                  <div style={{ padding: '12px' }}>
-                    <RecordsSection meals={dayMeals} />
-                  </div>
-                </div>
-              )}
+      ) : (
+        <>
+          {/* Period summary */}
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 16px',
+            border: '1px solid var(--border)', marginBottom: 12,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+              {activeDays} {activeDays === 1 ? 'активный день' : activeDays < 5 ? 'активных дня' : 'активных дней'}
             </div>
-          );
-        })}
-      </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 2 }}>Всего</div>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)' }}>
+                {totals.cal.toLocaleString('ru')} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>ккал</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Avg per day metric grid */}
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
+            Среднее в день
+          </div>
+          <MetricGrid
+            cal={avg(totals.cal)} p={avg(totals.p)} f={avg(totals.f)} c={avg(totals.c)}
+            normCal={norms.cal} normP={norms.p} normF={norms.f} normC={norms.c}
+          />
+
+          {/* Day-by-day breakdown with expandable detail */}
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
+            По дням
+          </div>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 10 }}>
+            {last7.map((day, i) => {
+              const dayMeals = byDate[day] ?? [];
+              const dayCal = dayMeals.reduce((s, m) => s + (m.caloriesKcal ?? 0), 0);
+              const hasData = dayMeals.length > 0;
+              const isToday = day === TODAY;
+              const isExpanded = expandedDay === day;
+              const isLast = i === 6;
+
+              return (
+                <div key={day}>
+                  {/* Day row */}
+                  <div
+                    onClick={hasData ? () => setExpandedDay(isExpanded ? null : day) : undefined}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '13px 16px',
+                      borderBottom: (!isLast || isExpanded) ? '1px solid var(--border)' : 'none',
+                      cursor: hasData ? 'pointer' : 'default',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: hasData ? 'var(--accent)' : 'var(--surface-3)',
+                        flexShrink: 0,
+                      }} />
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: isToday ? 'var(--accent)' : 'var(--text)' }}>
+                          {fmtDateShort(day)}{isToday ? ' · сегодня' : ''}
+                        </div>
+                        {hasData && (
+                          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
+                            {dayMeals.length} {dayMeals.length === 1 ? 'запись' : dayMeals.length < 5 ? 'записи' : 'записей'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {hasData ? (
+                        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                          {Math.round(dayCal).toLocaleString('ru')}
+                          <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> ккал</span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>—</span>
+                      )}
+                      {hasData && (
+                        <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 2 }}>
+                          {isExpanded ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded day detail */}
+                  {isExpanded && (
+                    <div style={{
+                      background: 'var(--surface-2)',
+                      borderBottom: !isLast ? '1px solid var(--border)' : 'none',
+                    }}>
+                      <CompactDaySummary {...computeTotals(dayMeals)} />
+                      <div style={{ padding: '12px' }}>
+                        <RecordsSection meals={dayMeals} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </>
   );
 }

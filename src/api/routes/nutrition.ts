@@ -151,17 +151,27 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/nutrition/stats?days=7
+// GET /api/nutrition/stats?days=7 (or ?from=YYYY-MM-DD&to=YYYY-MM-DD)
 router.get('/stats', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const days = parseInt(req.query.days as string) || 7;
+  const fromStr = req.query.from as string | undefined;
+  const toStr = req.query.to as string | undefined;
   try {
-    const since = new Date(); since.setDate(since.getDate() - days); since.setHours(0,0,0,0);
+    let since: Date;
+    let until: Date;
+    if (fromStr && toStr) {
+      since = new Date(fromStr + 'T00:00:00');
+      until = new Date(toStr + 'T23:59:59');
+    } else {
+      const days = parseInt(req.query.days as string) || 7;
+      since = new Date(); since.setDate(since.getDate() - days); since.setHours(0,0,0,0);
+      until = new Date(); until.setHours(23,59,59,999);
+    }
     const meals = await prisma.mealEntry.findMany({
-      where: { chatId, createdAt: { gte: since } },
+      where: { chatId, createdAt: { gte: since, lte: until } },
       orderBy: { createdAt: 'asc' },
     });
-    res.json({ days, meals });
+    res.json({ days: 7, meals });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

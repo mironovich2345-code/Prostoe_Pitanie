@@ -12,6 +12,7 @@ import SubscriptionScreen from './screens/client/SubscriptionScreen';
 import MyTrainerScreen from './screens/client/MyTrainerScreen';
 import NotificationSettingsScreen from './screens/client/NotificationSettingsScreen';
 import ReminderEditScreen from './screens/client/ReminderEditScreen';
+import WeightReminderEditScreen from './screens/client/WeightReminderEditScreen';
 import CoachClientsScreen from './screens/coach/CoachClientsScreen';
 import CoachClientCardScreen from './screens/coach/CoachClientCardScreen';
 import CoachClientStatsScreen from './screens/coach/CoachClientStatsScreen';
@@ -95,6 +96,8 @@ export default function App() {
             <Route path="/subscription" element={<SubscriptionScreen bootstrap={bootstrap} />} />
             <Route path="/trainer" element={<MyTrainerScreen bootstrap={bootstrap} />} />
             <Route path="/notifications" element={<NotificationSettingsScreen />} />
+            <Route path="/notifications/weight/new" element={<WeightReminderEditScreen />} />
+            <Route path="/notifications/weight/:id" element={<WeightReminderEditScreen />} />
             <Route path="/notifications/:id" element={<ReminderEditScreen />} />
             <Route path="/add" element={<AddMealScreen />} />
             <Route path="/expert/apply" element={<ExpertApplicationScreen />} />

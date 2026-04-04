@@ -10,6 +10,7 @@ const MAX_PER_TYPE: Record<string, number> = {
   lunch: 1,
   dinner: 1,
   snack: 2,
+  weight: 2,
 };
 const VALID_TYPES = Object.keys(MAX_PER_TYPE);
 
@@ -48,7 +49,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // POST /api/reminders
 router.post('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { mealType, time, enabled } = req.body as { mealType: string; time: string; enabled?: boolean };
+  const { mealType, time, dayOfWeek, enabled } = req.body as { mealType: string; time: string; dayOfWeek?: string; enabled?: boolean };
 
   if (!VALID_TYPES.includes(mealType)) {
     res.status(400).json({ error: 'Invalid mealType' });
@@ -56,6 +57,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
   if (!time || !/^\d{2}:\d{2}$/.test(time)) {
     res.status(400).json({ error: 'Invalid time (HH:MM required)' });
+    return;
+  }
+
+  const VALID_DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+  if (mealType === 'weight' && (!dayOfWeek || !VALID_DAYS.includes(dayOfWeek))) {
+    res.status(400).json({ error: 'dayOfWeek required for weight reminders (mon-sun)' });
     return;
   }
 
@@ -75,7 +82,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     const reminder = await prisma.mealReminder.create({
-      data: { chatId, mealType, time, enabled: enabled ?? true },
+      data: { chatId, mealType, time, dayOfWeek: dayOfWeek ?? null, enabled: enabled ?? true },
     });
     res.json({ reminder });
   } catch {
@@ -87,7 +94,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 router.patch('/:id', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const id = parseInt(String(req.params.id), 10);
-  const { time, enabled } = req.body as { time?: string; enabled?: boolean };
+  const { time, enabled, dayOfWeek } = req.body as { time?: string; enabled?: boolean; dayOfWeek?: string };
 
   if (time !== undefined && !/^\d{2}:\d{2}$/.test(time)) {
     res.status(400).json({ error: 'Invalid time (HH:MM required)' });
@@ -98,9 +105,10 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
     const existing = await prisma.mealReminder.findFirst({ where: { id, chatId } });
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
 
-    const data: { time?: string; enabled?: boolean } = {};
+    const data: { time?: string; enabled?: boolean; dayOfWeek?: string } = {};
     if (time !== undefined) data.time = time;
     if (enabled !== undefined) data.enabled = enabled;
+    if (dayOfWeek !== undefined) data.dayOfWeek = dayOfWeek;
 
     const reminder = await prisma.mealReminder.update({ where: { id }, data });
     res.json({ reminder });

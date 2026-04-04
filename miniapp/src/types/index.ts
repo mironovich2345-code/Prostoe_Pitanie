@@ -3,8 +3,9 @@ export type ReminderMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealReminder {
   id: number;
-  mealType: ReminderMealType;
+  mealType: ReminderMealType | 'weight';
   time: string;
+  dayOfWeek?: string | null;
   enabled: boolean;
 }
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'past_due' | 'canceled';
