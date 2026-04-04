@@ -424,19 +424,19 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
       {/* Feature list */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         {[
-          { icon: '📊', label: 'Тренер видит твою статистику питания' },
-          { icon: '🎯', label: 'Персональные рекомендации по рациону' },
-          { icon: '💬', label: 'Обратная связь и корректировка целей' },
-        ].map((item, i, arr) => (
+          'Тренер видит твою статистику питания',
+          'Персональные рекомендации по рациону',
+          'Обратная связь и корректировка целей',
+        ].map((label, i, arr) => (
           <div
-            key={item.label}
+            key={label}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
               borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
             }}
           >
-            <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.label}</span>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{label}</span>
           </div>
         ))}
       </div>
@@ -539,7 +539,7 @@ function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
         className="btn btn-secondary"
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', fontSize: 14, marginTop: 6 }}
       >
-        <span>✏️ Изменить физические данные</span>
+        <span>Изменить физические данные</span>
         <span style={{ color: 'var(--text-3)' }}>›</span>
       </button>
     </div>
@@ -597,7 +597,7 @@ function ReferralSection() {
                 className="btn"
                 style={{ flex: 1, fontSize: 14, padding: '11px 16px' }}
               >
-                {copied ? '✓ Скопировано' : '📋 Скопировать ссылку'}
+                {copied ? 'Скопировано' : 'Скопировать ссылку'}
               </button>
               {data.invitedCount > 0 && (
                 <div style={{
@@ -660,9 +660,9 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
         Настройки
       </div>
       <ListCard>
-        <ListItem label="✏️ Мои физические данные" onClick={() => navigate('/profile/edit-data')} />
-        <ListItem label="💳 Подписка"              onClick={() => navigate('/subscription')} />
-        <ListItem label="🔔 Уведомления"           onClick={() => navigate('/notifications')} />
+        <ListItem label="Мои данные"   onClick={() => navigate('/profile/edit-data')} />
+        <ListItem label="Подписка"     onClick={() => navigate('/subscription')} />
+        <ListItem label="Уведомления"  onClick={() => navigate('/notifications')} />
       </ListCard>
 
       {/* Expert status / apply (only for non-verified trainers) */}
