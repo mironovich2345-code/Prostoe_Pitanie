@@ -139,7 +139,7 @@ function WeekView({ selected, onSelect, dotsByDate, onExpand, style }: WeekCalen
         <button
           onClick={goForward}
           disabled={!canGoForward}
-          style={{ background: 'none', border: 'none', color: canGoForward ? 'var(--text-2)' : 'transparent', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canGoForward ? 'pointer' : 'default', borderRadius: 8, flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, flexShrink: 0, visibility: canGoForward ? 'visible' : 'hidden' }}
         >›</button>
         <button
           onClick={onExpand}
@@ -255,7 +255,7 @@ function MonthView({ selected, onSelect, dotsByDate, onCollapse, style }: WeekCa
         <button
           onClick={goForward}
           disabled={!canGoForward}
-          style={{ background: 'none', border: 'none', color: canGoForward ? 'var(--text-2)' : 'transparent', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canGoForward ? 'pointer' : 'default', borderRadius: 8, flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, flexShrink: 0, visibility: canGoForward ? 'visible' : 'hidden' }}
         >›</button>
         <button
           onClick={onCollapse}
