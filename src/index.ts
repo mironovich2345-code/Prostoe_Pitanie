@@ -41,11 +41,6 @@ const weightActionsMenu = Markup.inlineKeyboard([
   [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
 ]);
 
-const statusActionsMenu = Markup.inlineKeyboard([
-  [Markup.button.callback('❌ Удалить последнюю', 'status_delete_last'), Markup.button.callback('🗑 Очистить день', 'status_clear_today')],
-  [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
-]);
-
 
 const onboardingCancelMenu = Markup.inlineKeyboard([
   [Markup.button.callback('❌ Отмена', 'onboarding_cancel')],
@@ -243,64 +238,6 @@ async function buildWeightText(chatId: number): Promise<string> {
   return lines.join('\n');
 }
 
-async function buildStatsText(chatId: number): Promise<string> {
-  const [entries, profile] = await Promise.all([
-    getTodayMeals(chatId),
-    getProfile(chatId),
-  ]);
-
-  const todayLabel = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-
-  type MealRow = { mealType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null };
-  const counts: Record<string, number> = { breakfast: 0, lunch: 0, dinner: 0, snack: 0 };
-  let totalCal = 0, totalProt = 0, totalFat = 0, totalCarbs = 0, totalFiber = 0;
-  for (const m of entries as MealRow[]) {
-    if (m.mealType in counts) counts[m.mealType]++;
-    totalCal += m.caloriesKcal ?? 0;
-    totalProt += m.proteinG ?? 0;
-    totalFat += m.fatG ?? 0;
-    totalCarbs += m.carbsG ?? 0;
-    totalFiber += m.fiberG ?? 0;
-  }
-
-  const lines: string[] = [`📊 Статистика\n`, `📅 ${todayLabel}\n`];
-
-  lines.push(`${counts.breakfast > 0 ? '✅' : '⬜'} Завтрак`);
-  lines.push(`${counts.lunch > 0 ? '✅' : '⬜'} Обед`);
-  lines.push(`${counts.dinner > 0 ? '✅' : '⬜'} Ужин`);
-  lines.push(`${counts.snack > 0 ? '✅' : '⬜'} Перекус`);
-  lines.push('');
-
-  const hasNorms = profile?.dailyCaloriesKcal != null;
-  if (hasNorms) {
-    const p = profile!;
-    const pct = Math.round((totalCal / p.dailyCaloriesKcal!) * 100);
-    const remCal = Math.max(0, p.dailyCaloriesKcal! - totalCal);
-    lines.push(`🔥 Калории: ${Math.round(totalCal)} из ${p.dailyCaloriesKcal} ккал (${pct}%)`);
-    lines.push(`   Осталось: ${Math.round(remCal)} ккал`);
-    lines.push(`💪 Белки:    ${totalProt.toFixed(1)} / ${p.dailyProteinG} г`);
-    lines.push(`🧈 Жиры:     ${totalFat.toFixed(1)} / ${p.dailyFatG} г`);
-    lines.push(`🌾 Углеводы: ${totalCarbs.toFixed(1)} / ${p.dailyCarbsG} г`);
-    lines.push(`🥦 Клетчатка: ${totalFiber.toFixed(1)} / ${p.dailyFiberG ?? 25} г`);
-  } else {
-    lines.push(`🔥 Калории: ${Math.round(totalCal)} ккал`);
-    lines.push(`💪 Белки:    ${totalProt.toFixed(1)} г`);
-    lines.push(`🧈 Жиры:     ${totalFat.toFixed(1)} г`);
-    lines.push(`🌾 Углеводы: ${totalCarbs.toFixed(1)} г`);
-    lines.push(`🥦 Клетчатка: ${totalFiber.toFixed(1)} г`);
-    lines.push('');
-    lines.push('Нормы не заданы. Добавь данные в Профиле.');
-  }
-
-  lines.push('');
-  if (entries.length === 0) {
-    lines.push('Сегодня записей нет. Нажми «🍽 Добавить приём пищи».');
-  } else {
-    lines.push(buildDayVerdict(counts, entries.length));
-  }
-
-  return lines.join('\n');
-}
 
 function formatEntryShort(e: { text: string; mealType: string; sourceType: string }): string {
   const type = MEAL_TYPE_LABELS[e.mealType] ?? e.mealType;
@@ -309,53 +246,6 @@ function formatEntryShort(e: { text: string; mealType: string; sourceType: strin
   return `${type} — ${e.text}`;
 }
 
-async function buildStatusText(chatId: number): Promise<string> {
-  const [entries, profile] = await Promise.all([
-    getTodayMeals(chatId),
-    getProfile(chatId),
-  ]);
-
-  const goalStr = profile?.goalType ? (GOAL_TYPE_LABELS[profile.goalType] ?? profile.goalType) : 'не указана';
-  const weightStr = profile?.currentWeightKg != null ? `${profile.currentWeightKg} кг` : 'не указан';
-
-  if (entries.length === 0) {
-    return [
-      '📊 Сегодня — записей пока нет.',
-      `\nЦель: ${goalStr}`,
-      `Вес: ${weightStr}`,
-      '\nНажми «🍽 Добавить приём пищи», чтобы начать.',
-    ].join('\n');
-  }
-
-  const counts: Record<string, number> = { breakfast: 0, lunch: 0, dinner: 0, snack: 0 };
-  for (const e of entries as { mealType: string }[]) {
-    if (e.mealType in counts) counts[e.mealType]++;
-  }
-
-  function checkItem(key: string, label: string): string {
-    const n = counts[key];
-    const mark = n > 0 ? '✅' : '⬜';
-    const count = n > 1 ? ` (${n})` : '';
-    return `${mark} ${label}${count}`;
-  }
-
-  const checklist = [
-    checkItem('breakfast', 'Завтрак'),
-    checkItem('lunch', 'Обед'),
-    checkItem('dinner', 'Ужин'),
-    checkItem('snack', 'Перекус'),
-  ].join('\n');
-
-  const last5 = (entries as { text: string; mealType: string; sourceType: string }[]).slice(-5);
-  const list = last5.map((e) => `• ${formatEntryShort(e)}`).join('\n');
-
-  return [
-    `📊 Сегодня — записей: ${entries.length}`,
-    `\n${checklist}`,
-    `\nПоследние:\n${list}`,
-    `\nЦель: ${goalStr} · Вес: ${weightStr}`,
-  ].join('\n');
-}
 
 function buildDayVerdict(counts: Record<string, number>, total: number): string {
   if (total === 0) return 'Сегодня ещё нет записей. Начни с первого приёма пищи.';
@@ -499,7 +389,7 @@ bot.start(async (ctx) => {
 
 bot.help((ctx) => {
   return ctx.reply(
-    '❓ Помощь\n\nИспользуй кнопки меню для навигации.\n\n🍽 Добавить приём пищи — записать еду\n📊 Статистика — прогресс за день\n👤 Профиль — данные и нормы\n⚙️ Настройки — уведомления',
+    '❓ Помощь\n\nИспользуй кнопки меню для навигации.\n\n🍽 Добавить приём пищи — записать еду\n👤 Профиль — данные и нормы\n⚙️ Настройки — уведомления\n\n📊 Статистика и аналитика доступны в приложении.',
     mainMenu
   );
 });
@@ -509,15 +399,6 @@ bot.command('menu', (ctx) => {
   return ctx.reply('Главное меню:', mainMenu);
 });
 
-bot.command('today', async (ctx) => {
-  const text = await buildStatsText(ctx.message.chat.id);
-  return ctx.reply(text, statusActionsMenu);
-});
-
-bot.command('day_summary', async (ctx) => {
-  const text = await buildStatsText(ctx.message.chat.id);
-  return ctx.reply(text, mainMenu);
-});
 
 bot.command('delete_last', async (ctx) => {
   const deleted = await deleteLastTodayMeal(ctx.message.chat.id);
@@ -603,10 +484,6 @@ bot.hears(BUTTONS.ADD_MEAL, (ctx) => {
   );
 });
 
-bot.hears(BUTTONS.STATS, async (ctx) => {
-  const text = await buildStatsText(ctx.message.chat.id);
-  return ctx.reply(text, statusActionsMenu);
-});
 
 
 function buildSettingsText(profile: { notificationsEnabled: boolean | null } | null): string {
@@ -1416,28 +1293,6 @@ bot.action('weight_log', async (ctx) => {
   return ctx.reply('Отправь текущий вес в килограммах.\nПример: 82 или 75.5');
 });
 
-// ── Статус: действия ─────────────────────────────────────────────────
-bot.action('status_delete_last', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  const deleted = await deleteLastTodayMeal(chatId);
-  if (!deleted) {
-    return ctx.reply('На сегодня нет записей для удаления.');
-  }
-  return ctx.reply(`Удалил последнюю запись:\n${formatEntry(deleted)}`);
-});
-
-bot.action('status_clear_today', async (ctx) => {
-  await ctx.answerCbQuery();
-  const chatId = ctx.chat?.id;
-  if (!chatId) return;
-  const count = await clearTodayMeals(chatId);
-  if (count === 0) {
-    return ctx.reply('На сегодня нет записей для очистки.');
-  }
-  return ctx.reply(`Очистил все записи за сегодня. Удалено: ${count}`);
-});
 
 // ── Настройки: действия ──────────────────────────────────────────────
 bot.action('settings_toggle_notifications', async (ctx) => {
