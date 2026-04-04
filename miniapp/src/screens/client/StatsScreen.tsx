@@ -163,7 +163,6 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
 
   const srcIcon = SOURCE_ICONS[meal.sourceType] ?? '📝';
   const isMediaType = meal.sourceType === 'photo' || meal.sourceType === 'voice';
-  const hasFile = meal.sourceType === 'photo' ? !!meal.photoFileId : meal.sourceType === 'voice' ? !!meal.voiceFileId : false;
 
   async function loadMedia() {
     if (mediaUrl || mediaLoading || mediaError) return;
@@ -179,7 +178,7 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   }
 
   function toggle() {
-    if (!expanded && hasFile) loadMedia();
+    if (!expanded) loadMedia();
     setExpanded(v => !v);
   }
 
@@ -221,11 +220,7 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
       {/* Expanded media */}
       {expanded && isMediaType && (
         <div style={{ padding: '0 14px 12px' }}>
-          {!hasFile ? (
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
-              Источник недоступен для этой записи
-            </div>
-          ) : mediaLoading ? (
+          {mediaLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div className="spinner" style={{ width: 16, height: 16 }} />
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Загрузка...</span>
