@@ -128,25 +128,35 @@ function WeekView({ selected, onSelect, dotsByDate, onExpand, style }: WeekCalen
       ...style,
     }}>
       {/* Month + arrows + expand toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingInline: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, paddingInline: 2, gap: 4 }}>
         <button
           onClick={goBack}
           style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, flexShrink: 0 }}
         >‹</button>
-        <button
-          onClick={onExpand}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '2px 6px', borderRadius: 8 }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', letterSpacing: -0.1, textTransform: 'capitalize' }}>
-            {monthLabel(selected)}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1 }}>▾</span>
-        </button>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', letterSpacing: -0.1, textTransform: 'capitalize' }}>
+          {monthLabel(selected)}
+        </span>
         <button
           onClick={goForward}
           disabled={!canGoForward}
           style={{ background: 'none', border: 'none', color: canGoForward ? 'var(--text-2)' : 'transparent', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canGoForward ? 'pointer' : 'default', borderRadius: 8, flexShrink: 0 }}
         >›</button>
+        <button
+          onClick={onExpand}
+          aria-label="Показать месяц"
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 7,
+            width: 26, height: 26,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            flexShrink: 0,
+            color: 'var(--text-3)',
+            fontSize: 11,
+            lineHeight: 1,
+          }}
+        >▾</button>
       </div>
 
       {/* Day buttons */}
@@ -234,25 +244,35 @@ function MonthView({ selected, onSelect, dotsByDate, onCollapse, style }: WeekCa
       ...style,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingInline: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, paddingInline: 2, gap: 4 }}>
         <button
           onClick={goBack}
           style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRadius: 8, flexShrink: 0 }}
         >‹</button>
-        <button
-          onClick={onCollapse}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '2px 6px', borderRadius: 8 }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', letterSpacing: -0.1, textTransform: 'capitalize' }}>
-            {monthLabel(anchor)}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--text-3)', lineHeight: 1 }}>▴</span>
-        </button>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', letterSpacing: -0.1, textTransform: 'capitalize' }}>
+          {monthLabel(anchor)}
+        </span>
         <button
           onClick={goForward}
           disabled={!canGoForward}
           style={{ background: 'none', border: 'none', color: canGoForward ? 'var(--text-2)' : 'transparent', fontSize: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: canGoForward ? 'pointer' : 'default', borderRadius: 8, flexShrink: 0 }}
         >›</button>
+        <button
+          onClick={onCollapse}
+          aria-label="Свернуть до недели"
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 7,
+            width: 26, height: 26,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            flexShrink: 0,
+            color: 'var(--text-3)',
+            fontSize: 11,
+            lineHeight: 1,
+          }}
+        >▴</button>
       </div>
 
       {/* DOW headers */}
