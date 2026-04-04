@@ -96,7 +96,6 @@ export default function App() {
             <Route path="/subscription" element={<SubscriptionScreen bootstrap={bootstrap} />} />
             <Route path="/trainer" element={<MyTrainerScreen bootstrap={bootstrap} />} />
             <Route path="/notifications" element={<NotificationSettingsScreen />} />
-            <Route path="/notifications/weight/new" element={<WeightReminderEditScreen />} />
             <Route path="/notifications/weight/:id" element={<WeightReminderEditScreen />} />
             <Route path="/notifications/:id" element={<ReminderEditScreen />} />
             <Route path="/add" element={<AddMealScreen />} />

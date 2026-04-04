@@ -373,10 +373,15 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const endDate = new Date(TODAY + 'T12:00:00');
-  endDate.setDate(endDate.getDate() + weekOffset * 7);
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 6);
+  const today = new Date(TODAY + 'T12:00:00');
+  const dow = today.getDay(); // 0=Sun,1=Mon..6=Sat
+  const daysToMonday = dow === 0 ? -6 : 1 - dow;
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() + daysToMonday);
+  const startDate = new Date(thisMonday);
+  startDate.setDate(thisMonday.getDate() + weekOffset * 7);
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 6);
   const fromStr = toLocalIso(startDate);
   const toStr = toLocalIso(endDate);
   const last7 = Array.from({ length: 7 }, (_, i) => {
