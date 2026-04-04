@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import StatusBadge from '../../components/StatusBadge';
 import WeekCalendar, { TODAY } from '../../components/WeekCalendar';
+import type { DotSet } from '../../components/WeekCalendar';
 import type { BootstrapData, MealEntry, UserProfile } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
@@ -641,6 +642,18 @@ export default function HomeScreen({ bootstrap }: Props) {
     return g;
   }, [meals]);
 
+  const dotsByDate = useMemo(() => {
+    const map: Record<string, DotSet> = {};
+    for (const m of (stats30?.meals ?? [])) {
+      const date = m.createdAt.slice(0, 10);
+      if (!map[date]) map[date] = { breakfast: false, lunch: false, dinner: false };
+      if (m.mealType === 'breakfast') map[date].breakfast = true;
+      else if (m.mealType === 'lunch') map[date].lunch = true;
+      else if (m.mealType === 'dinner') map[date].dinner = true;
+    }
+    return map;
+  }, [stats30]);
+
   return (
     <div className="screen">
 
@@ -650,7 +663,7 @@ export default function HomeScreen({ bootstrap }: Props) {
         </h1>
       </div>
 
-      <WeekCalendar selected={selectedDate} onSelect={setSelectedDate} />
+      <WeekCalendar selected={selectedDate} onSelect={setSelectedDate} dotsByDate={dotsByDate} />
 
       {isLoading ? (
         <div className="card" style={{ padding: '28px 18px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
