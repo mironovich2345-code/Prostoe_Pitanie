@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
@@ -5,68 +6,218 @@ import type { BootstrapData, SubscriptionStatus } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
 
-// ─── Plan metadata ─────────────────────────────────────────────────────────
+// ─── Plan definitions ──────────────────────────────────────────────────────
 
-const PLAN_LABELS: Record<string, string> = {
-  free: 'Бесплатный',
-  basic: 'Базовый',
-  pro: 'Про',
-};
+interface PlanDef {
+  id: 'pro' | 'optimal';
+  label: string;
+  price: string;
+  tagline: string;
+  features: string[];
+  popular?: boolean;
+}
 
-const PLAN_FEATURES: Record<string, string[]> = {
-  free: [
-    'Запись приёмов пищи',
-    'Дневник питания',
-    'AI-анализ блюд',
-  ],
-  basic: [
-    'Запись приёмов пищи',
-    'Дневник питания',
-    'AI-анализ блюд и фото',
-    'Умные напоминания о приёмах пищи',
-    'Статистика и аналитика питания',
-    'Прогноз по достижению цели',
-  ],
-  pro: [
-    'Всё из тарифа Базовый',
-    'Подключение персонального тренера',
-    'История питания для тренера',
-    'Приоритетная поддержка',
-  ],
-};
+const PLANS: PlanDef[] = [
+  {
+    id: 'pro',
+    label: 'Pro',
+    price: '499 ₽',
+    tagline: 'Для результата с поддержкой тренера',
+    popular: true,
+    features: [
+      'Всё, что входит в Optimal',
+      'Подключение тренера',
+      'Гибкие права доступа для тренера',
+      'Просмотр рациона тренером',
+      'Оценка приёмов пищи и дней тренером',
+      'Совместный контроль прогресса',
+      'Расширенная реферальная программа',
+    ],
+  },
+  {
+    id: 'optimal',
+    label: 'Optimal',
+    price: '399 ₽',
+    tagline: 'Для самостоятельного контроля питания',
+    features: [
+      'Анализ приёма пищи по фото / голосу / тексту',
+      'Автоматический подсчёт калорий и БЖУ',
+      'Сохранение приёмов пищи в дневник',
+      'Статистика по дням и неделям',
+      'Календарь питания с отмеченными приёмами',
+      'Редактирование уведомлений',
+      'История веса и прогресса',
+      'Прогноз достижения цели',
+    ],
+  },
+];
 
-function statusAccentColor(status: SubscriptionStatus | 'free'): string {
+// ─── Status bar color ──────────────────────────────────────────────────────
+
+function statusBarColor(status: SubscriptionStatus | 'free'): string {
   if (status === 'active') return 'var(--accent)';
   if (status === 'trial')  return 'var(--warn)';
   if (status === 'expired' || status === 'past_due') return 'var(--danger)';
   return 'var(--border-2, rgba(255,255,255,0.13))';
 }
 
-// ─── Feature dot row ───────────────────────────────────────────────────────
+// ─── Current plan card ─────────────────────────────────────────────────────
 
-function FeatureRow({ text, last }: { text: string; last: boolean }) {
+function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
+  const sub = bootstrap.subscription;
+  const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
+
+  const PLAN_LABELS: Record<string, string> = {
+    free: 'Бесплатный', basic: 'Базовый', optimal: 'Optimal', pro: 'Pro',
+  };
+  const planLabel = sub ? (PLAN_LABELS[sub.planId] ?? sub.planId) : 'Бесплатный';
+
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
-      borderBottom: last ? 'none' : '1px solid var(--border)',
+      background: 'var(--surface)',
+      borderRadius: 'var(--r-xl)',
+      border: '1px solid var(--border)',
+      marginBottom: 20,
+      overflow: 'hidden',
     }}>
-      <div style={{
-        width: 7, height: 7, borderRadius: '50%',
-        background: 'var(--accent)', flexShrink: 0,
-      }} />
-      <span style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.4 }}>{text}</span>
+      <div style={{ height: 3, background: statusBarColor(statusKey) }} />
+
+      <div style={{ padding: '18px 18px 20px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 10 }}>
+          Текущий тариф
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: sub?.trialEndsAt || sub?.currentPeriodEnd ? 14 : 0 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>
+            {planLabel}
+          </div>
+          <StatusBadge status={statusKey} />
+        </div>
+
+        {sub?.trialEndsAt && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Пробный период до</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+              {new Date(sub.trialEndsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+            </span>
+          </div>
+        )}
+        {sub?.currentPeriodEnd && !sub?.trialEndsAt && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sub.autoRenew ? 6 : 0 }}>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Действует до</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+              {new Date(sub.currentPeriodEnd).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+        )}
+        {sub?.autoRenew && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Автопродление</span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+              Включено
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Date row ──────────────────────────────────────────────────────────────
+// ─── Plan card ─────────────────────────────────────────────────────────────
 
-function DateRow({ label, date }: { label: string; date: string }) {
+function PlanCard({ plan, onSubscribe }: { plan: PlanDef; onSubscribe: (id: PlanDef['id']) => void }) {
+  const isPro = plan.popular;
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-        {new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+    <div style={{
+      background: 'var(--surface)',
+      borderRadius: 'var(--r-xl)',
+      border: isPro ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+      marginBottom: 10,
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+
+      {/* Popular badge */}
+      {isPro && (
+        <div style={{
+          position: 'absolute', top: 14, right: 14,
+          background: 'var(--accent)', color: '#000',
+          fontSize: 10, fontWeight: 800, letterSpacing: 0.6,
+          padding: '3px 10px', borderRadius: 20,
+          textTransform: 'uppercase',
+        }}>
+          Популярно
+        </div>
+      )}
+
+      <div style={{ padding: '20px 18px 18px' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 4, paddingRight: isPro ? 80 : 0 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, color: isPro ? 'var(--accent)' : 'var(--text)', lineHeight: 1, marginBottom: 4 }}>
+            {plan.label}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>
+            {plan.tagline}
+          </div>
+        </div>
+
+        {/* Price */}
+        <div style={{ marginTop: 14, marginBottom: 18, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
+            {plan.price}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}> / месяц</span>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: 'var(--border)', marginBottom: 14 }} />
+
+        {/* Features */}
+        <div style={{ marginBottom: 18 }}>
+          {plan.features.map((f) => (
+            <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 9 }}>
+              <div style={{
+                width: 5, height: 5, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+                background: isPro ? 'var(--accent)' : 'var(--text-3)',
+              }} />
+              <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>{f}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={() => onSubscribe(plan.id)}
+          className={isPro ? 'btn' : 'btn btn-secondary'}
+          style={{ fontSize: 15, fontWeight: 600 }}
+        >
+          Подключить
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Subscribe toast ───────────────────────────────────────────────────────
+
+function SubscribeToast({ onDone }: { onDone: () => void }) {
+  // auto-dismiss
+  setTimeout(onDone, 2200);
+  return (
+    <div style={{
+      position: 'fixed', bottom: 88, left: 16, right: 16, zIndex: 300,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--r-md)',
+      padding: '14px 18px',
+      display: 'flex', alignItems: 'center', gap: 12,
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flexShrink: 0 }} />
+      <span style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.4 }}>
+        Оплата будет доступна в ближайшее время
       </span>
     </div>
   );
@@ -76,113 +227,35 @@ function DateRow({ label, date }: { label: string; date: string }) {
 
 export default function SubscriptionScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
-  const sub = bootstrap.subscription;
+  const [toastVisible, setToastVisible] = useState(false);
 
-  const planId     = sub?.planId ?? 'free';
-  const statusKey  = sub?.status ?? 'free';
-  const planLabel  = PLAN_LABELS[planId] ?? planId;
-  const features   = PLAN_FEATURES[planId] ?? PLAN_FEATURES.free;
-  const accentBar  = statusAccentColor(statusKey as SubscriptionStatus | 'free');
-
-  const hasDates = sub?.trialEndsAt || sub?.currentPeriodEnd;
-
-  function openBot() {
-    window.Telegram?.WebApp?.close();
+  function handleSubscribe(_planId: PlanDef['id']) {
+    // TODO: integrate payment when ready
+    setToastVisible(true);
   }
 
   return (
     <div className="screen">
       <PageHeader title="Подписка" onBack={() => navigate('/profile')} />
 
-      {/* ── Hero plan card ─────────────────────────────────────────────── */}
-      <div style={{
-        background: 'var(--surface)',
-        borderRadius: 'var(--r-xl)',
-        border: '1px solid var(--border)',
-        marginBottom: 12,
-        overflow: 'hidden',
-      }}>
-        {/* Status accent bar */}
-        <div style={{ height: 3, background: accentBar }} />
+      {/* Current plan status */}
+      <CurrentPlanCard bootstrap={bootstrap} />
 
-        <div style={{ padding: '20px' }}>
-          {/* Plan name + badge */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: hasDates ? 16 : 0 }}>
-            <div>
-              <div style={{
-                fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: 1, color: 'var(--text-3)', marginBottom: 6,
-              }}>
-                Тариф
-              </div>
-              <div style={{
-                fontSize: 30, fontWeight: 700, letterSpacing: -0.8,
-                color: 'var(--text)', lineHeight: 1,
-              }}>
-                {planLabel}
-              </div>
-            </div>
-            <StatusBadge status={statusKey} />
-          </div>
-
-          {/* Dates */}
-          {sub?.trialEndsAt && (
-            <DateRow label="Пробный период до" date={sub.trialEndsAt} />
-          )}
-          {sub?.currentPeriodEnd && !sub?.trialEndsAt && (
-            <DateRow label="Действует до" date={sub.currentPeriodEnd} />
-          )}
-          {sub?.autoRenew && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Автопродление</span>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '3px 10px',
-                borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent)',
-              }}>
-                Включено
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Features ───────────────────────────────────────────────────── */}
+      {/* Plans section label */}
       <div style={{
         fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: 1, color: 'var(--text-3)', padding: '4px 2px 10px',
+        letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 12px',
       }}>
-        Включено в тариф
-      </div>
-      <div style={{
-        background: 'var(--surface)',
-        borderRadius: 'var(--r-lg)',
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        marginBottom: 12,
-      }}>
-        {features.map((f, i) => (
-          <FeatureRow key={f} text={f} last={i === features.length - 1} />
-        ))}
+        Выбери тариф
       </div>
 
-      {/* ── Management note ────────────────────────────────────────────── */}
-      <div style={{
-        background: 'var(--surface)',
-        borderRadius: 'var(--r-lg)',
-        border: '1px solid var(--border)',
-        padding: '18px 16px',
-      }}>
-        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 14 }}>
-          Продление, изменение тарифа и отмена подписки доступны в чате с ботом.
-        </div>
-        <button
-          onClick={openBot}
-          className="btn btn-secondary"
-          style={{ fontSize: 14 }}
-        >
-          Перейти в бот
-        </button>
-      </div>
+      {/* Pro first, then Optimal */}
+      {PLANS.map(plan => (
+        <PlanCard key={plan.id} plan={plan} onSubscribe={handleSubscribe} />
+      ))}
+
+      {/* Toast */}
+      {toastVisible && <SubscribeToast onDone={() => setToastVisible(false)} />}
     </div>
   );
 }
