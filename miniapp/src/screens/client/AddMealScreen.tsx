@@ -156,6 +156,7 @@ export default function AddMealScreen() {
         fatG: result.fatG,
         carbsG: result.carbsG,
         fiberG: result.fiberG,
+        imageData: sourceType === 'photo' && photoPreview ? photoPreview : undefined,
       });
       qc.invalidateQueries({ queryKey: ['diary'] });
       qc.invalidateQueries({ queryKey: ['nutrition-stats'] });

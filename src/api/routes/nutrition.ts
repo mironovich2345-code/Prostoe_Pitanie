@@ -57,9 +57,16 @@ router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
   try {
     const meal = await prisma.mealEntry.findFirst({
       where: { id, chatId },
-      select: { sourceType: true, photoFileId: true, voiceFileId: true },
+      select: { sourceType: true, photoFileId: true, voiceFileId: true, photoData: true },
     });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
+
+    // Mini-app photo: stored as base64 data URL in photoData
+    if (meal.sourceType === 'photo' && meal.photoData) {
+      res.json({ url: meal.photoData, type: 'photo' }); return;
+    }
+
+    // Bot photo/voice: stored as Telegram file ID
     const fileId = meal.sourceType === 'photo' ? meal.photoFileId
                  : meal.sourceType === 'voice' ? meal.voiceFileId
                  : null;
@@ -110,7 +117,7 @@ router.post('/analyze-photo', async (req: AuthRequest, res: Response) => {
 // POST /api/nutrition/add — save a meal entry created via mini app
 router.post('/add', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { text, mealType, sourceType, caloriesKcal, proteinG, fatG, carbsG, fiberG } = req.body as {
+  const { text, mealType, sourceType, caloriesKcal, proteinG, fatG, carbsG, fiberG, imageData } = req.body as {
     text?: string;
     mealType?: string;
     sourceType?: string;
@@ -119,6 +126,7 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
     fatG?: number | null;
     carbsG?: number | null;
     fiberG?: number | null;
+    imageData?: string; // base64 data URL for photo entries from mini app
   };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   try {
@@ -128,6 +136,7 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         text: text.trim(),
         mealType: mealType ?? 'unknown',
         sourceType: sourceType ?? 'text',
+        photoData: (sourceType === 'photo' && imageData) ? imageData : null,
         caloriesKcal: caloriesKcal ?? null,
         proteinG: proteinG ?? null,
         fatG: fatG ?? null,

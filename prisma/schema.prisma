@@ -45,6 +45,7 @@ model MealEntry {
   sourceType    String   @default("text")
   photoFileId   String?
   voiceFileId   String?
+  photoData     String?  // base64 data URL for photos uploaded via mini app
   caloriesKcal  Float?
   proteinG      Float?
   fatG          Float?
