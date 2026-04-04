@@ -105,6 +105,8 @@ export interface MealEntry {
   text: string;
   mealType: string;
   sourceType: string;
+  photoFileId: string | null;
+  voiceFileId: string | null;
   caloriesKcal: number | null;
   proteinG: number | null;
   fatG: number | null;

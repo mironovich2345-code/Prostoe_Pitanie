@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import WeekCalendar, { TODAY, getWeekDays, isoToLocalDate } from '../../components/WeekCalendar';
+import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
 import type { MealEntry } from '../../types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -20,6 +20,12 @@ const SOURCE_ICONS: Record<string, string> = {
   text:  '📝',
   photo: '📷',
   voice: '🎤',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  text:  'Текст',
+  photo: 'Фото',
+  voice: 'Голос',
 };
 
 const MEAL_LABELS: Record<string, string> = {
@@ -69,7 +75,6 @@ function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardP
       border: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', gap: 0,
     }}>
-      {/* Label + pct badge */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
           {label}
@@ -84,16 +89,12 @@ function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardP
           </span>
         )}
       </div>
-
-      {/* Value */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 10 }}>
         <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
           {value.toLocaleString('ru')}
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>{unit}</span>
       </div>
-
-      {/* Progress bar */}
       {pct !== null && (
         <div style={{ height: 4, borderRadius: 4, background: 'var(--surface-2)', overflow: 'hidden', marginBottom: 6 }}>
           <div style={{
@@ -104,8 +105,6 @@ function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardP
           }} />
         </div>
       )}
-
-      {/* Norm */}
       {norm && (
         <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
           цель {norm.toLocaleString('ru')} {unit}
@@ -131,34 +130,128 @@ function MetricGrid({ cal, p, f, c, normCal, normP, normF, normC }: {
   );
 }
 
-// ─── Entry Row (records) ───────────────────────────────────────────────────
+// ─── Compact Day Summary ────────────────────────────────────────────────────
 
-function EntryRow({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
-  const srcIcon = SOURCE_ICONS[meal.sourceType] ?? '📝';
+function CompactDaySummary({ cal, p, f, c }: { cal: number; p: number; f: number; c: number }) {
   return (
-    <div style={{
-      padding: '10px 14px',
-      borderBottom: isLast ? 'none' : '1px solid var(--border)',
-      display: 'flex', alignItems: 'flex-start', gap: 10,
-    }}>
-      <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1, opacity: 0.65 }}>{srcIcon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{meal.text || '—'}</div>
-        {meal.caloriesKcal != null && (
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            {meal.caloriesKcal} ккал
-            {meal.proteinG != null && ` · Б${meal.proteinG.toFixed(0)} Ж${meal.fatG?.toFixed(0)} У${meal.carbsG?.toFixed(0)}`}
-          </div>
-        )}
-      </div>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: '10px 16px', fontSize: 12, borderBottom: '1px solid var(--border)' }}>
+      <span>
+        <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{cal.toLocaleString('ru')}</span>{' '}
+        <span style={{ color: 'var(--text-3)' }}>ккал</span>
+      </span>
+      <span style={{ color: 'var(--text-3)' }}>·</span>
+      <span style={{ color: 'var(--text-2)' }}>
+        Б <span style={{ fontWeight: 600, color: '#7EB8F0' }}>{Math.round(p)}</span>г
+      </span>
+      <span style={{ color: 'var(--text-2)' }}>
+        Ж <span style={{ fontWeight: 600, color: '#F0A07A' }}>{Math.round(f)}</span>г
+      </span>
+      <span style={{ color: 'var(--text-2)' }}>
+        У <span style={{ fontWeight: 600, color: '#90C860' }}>{Math.round(c)}</span>г
+      </span>
     </div>
   );
 }
 
-// ─── Records Section (Day mode) ────────────────────────────────────────────
+// ─── Meal Card (expandable, with media viewing) ─────────────────────────────
+
+function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState(false);
+
+  const srcIcon = SOURCE_ICONS[meal.sourceType] ?? '📝';
+  const isMediaType = meal.sourceType === 'photo' || meal.sourceType === 'voice';
+  const hasFile = meal.sourceType === 'photo' ? !!meal.photoFileId : meal.sourceType === 'voice' ? !!meal.voiceFileId : false;
+
+  async function loadMedia() {
+    if (mediaUrl || mediaLoading || mediaError) return;
+    setMediaLoading(true);
+    try {
+      const result = await api.nutritionMealMedia(meal.id);
+      setMediaUrl(result.url);
+    } catch {
+      setMediaError(true);
+    } finally {
+      setMediaLoading(false);
+    }
+  }
+
+  function toggle() {
+    if (!expanded && hasFile) loadMedia();
+    setExpanded(v => !v);
+  }
+
+  return (
+    <div style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+      {/* Main row */}
+      <div
+        onClick={isMediaType ? toggle : undefined}
+        style={{
+          padding: '10px 14px',
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          cursor: isMediaType ? 'pointer' : 'default',
+        }}
+      >
+        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1, opacity: 0.65 }}>{srcIcon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>
+            {meal.text || (isMediaType ? `${SOURCE_LABELS[meal.sourceType]} запись` : '—')}
+          </div>
+          {meal.caloriesKcal != null && (
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+              {Math.round(meal.caloriesKcal)} ккал
+              {meal.proteinG != null && ` · Б${meal.proteinG.toFixed(0)} Ж${meal.fatG?.toFixed(0)} У${meal.carbsG?.toFixed(0)}`}
+            </div>
+          )}
+        </div>
+        {isMediaType && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 2,
+            padding: '2px 7px', borderRadius: 6,
+            background: expanded ? 'var(--surface-2)' : 'var(--accent-soft)',
+            color: expanded ? 'var(--text-3)' : 'var(--accent)',
+          }}>
+            {expanded ? '▲' : SOURCE_LABELS[meal.sourceType]}
+          </span>
+        )}
+      </div>
+
+      {/* Expanded media */}
+      {expanded && isMediaType && (
+        <div style={{ padding: '0 14px 12px' }}>
+          {!hasFile ? (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
+              Источник недоступен для этой записи
+            </div>
+          ) : mediaLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="spinner" style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Загрузка...</span>
+            </div>
+          ) : mediaError || !mediaUrl ? (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic' }}>
+              Источник недоступен для этой записи
+            </div>
+          ) : meal.sourceType === 'photo' ? (
+            <img
+              src={mediaUrl}
+              alt="Фото блюда"
+              style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }}
+            />
+          ) : (
+            <audio controls src={mediaUrl} style={{ width: '100%' }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Records Section ────────────────────────────────────────────────────────
 
 function RecordsSection({ meals }: { meals: MealEntry[] }) {
-  // Group by mealType in the order we care about
   const ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'unknown'];
   const byType: Record<string, MealEntry[]> = {};
   for (const m of meals) { (byType[m.mealType] ??= []).push(m); }
@@ -169,9 +262,9 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
 
   if (groups.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px 16px' }}>
-        <div style={{ fontSize: 36, opacity: 0.2, marginBottom: 10 }}>🍽</div>
-        <div style={{ fontSize: 14, color: 'var(--text-3)' }}>Нет записей за этот день</div>
+      <div style={{ textAlign: 'center', padding: '24px 16px' }}>
+        <div style={{ fontSize: 32, opacity: 0.2, marginBottom: 8 }}>🍽</div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Нет записей за этот день</div>
       </div>
     );
   }
@@ -185,7 +278,7 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
               {MEAL_LABELS[g.type] ?? g.type}
             </span>
           </div>
-          {g.entries.map((m, i) => <EntryRow key={m.id} meal={m} isLast={i === g.entries.length - 1} />)}
+          {g.entries.map((m, i) => <MealCard key={m.id} meal={m} isLast={i === g.entries.length - 1} />)}
         </div>
       ))}
     </div>
@@ -233,6 +326,8 @@ function DayView({ norms }: { norms: { cal: number | null; p: number | null; f: 
 // ─── Week View ─────────────────────────────────────────────────────────────
 
 function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f: number | null; c: number | null } }) {
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['nutrition-stats', 7],
     queryFn: () => api.nutritionStats(7),
@@ -257,7 +352,6 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
 
   const avg = (v: number) => activeDays > 0 ? Math.round(v / activeDays) : 0;
 
-  // Last 7 calendar days
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(TODAY + 'T12:00:00');
     d.setDate(d.getDate() - 6 + i);
@@ -315,7 +409,7 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
         normCal={norms.cal} normP={norms.p} normF={norms.f} normC={norms.c}
       />
 
-      {/* Day-by-day breakdown */}
+      {/* Day-by-day breakdown with expandable detail */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
         По дням
       </div>
@@ -325,43 +419,67 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
           const dayCal = dayMeals.reduce((s, m) => s + (m.caloriesKcal ?? 0), 0);
           const hasData = dayMeals.length > 0;
           const isToday = day === TODAY;
+          const isExpanded = expandedDay === day;
+          const isLast = i === 6;
 
           return (
-            <div
-              key={day}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '13px 16px',
-                borderBottom: i < 6 ? '1px solid var(--border)' : 'none',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: hasData ? 'var(--accent)' : 'var(--surface-3)',
-                  flexShrink: 0,
-                }} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: isToday ? 'var(--accent)' : 'var(--text)' }}>
-                    {fmtDateShort(day)}{isToday ? ' · сегодня' : ''}
-                  </div>
-                  {hasData && (
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-                      {dayMeals.length} {dayMeals.length === 1 ? 'запись' : dayMeals.length < 5 ? 'записи' : 'записей'}
+            <div key={day}>
+              {/* Day row */}
+              <div
+                onClick={hasData ? () => setExpandedDay(isExpanded ? null : day) : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '13px 16px',
+                  borderBottom: (!isLast || isExpanded) ? '1px solid var(--border)' : 'none',
+                  cursor: hasData ? 'pointer' : 'default',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: hasData ? 'var(--accent)' : 'var(--surface-3)',
+                    flexShrink: 0,
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: isToday ? 'var(--accent)' : 'var(--text)' }}>
+                      {fmtDateShort(day)}{isToday ? ' · сегодня' : ''}
                     </div>
+                    {hasData && (
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
+                        {dayMeals.length} {dayMeals.length === 1 ? 'запись' : dayMeals.length < 5 ? 'записи' : 'записей'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {hasData ? (
+                    <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                      {Math.round(dayCal).toLocaleString('ru')}
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> ккал</span>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 13, color: 'var(--text-3)' }}>—</span>
+                  )}
+                  {hasData && (
+                    <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 2 }}>
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
                   )}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                {hasData ? (
-                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                    {Math.round(dayCal).toLocaleString('ru')}
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> ккал</span>
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 13, color: 'var(--text-3)' }}>—</span>
-                )}
-              </div>
+
+              {/* Expanded day detail */}
+              {isExpanded && (
+                <div style={{
+                  background: 'var(--surface-2)',
+                  borderBottom: !isLast ? '1px solid var(--border)' : 'none',
+                }}>
+                  <CompactDaySummary {...computeTotals(dayMeals)} />
+                  <div style={{ padding: '12px' }}>
+                    <RecordsSection meals={dayMeals} />
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -398,7 +516,6 @@ function WeightView() {
 
   return (
     <>
-      {/* Current vs target */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '16px', border: '1px solid var(--border)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 6 }}>Текущий</div>
@@ -416,7 +533,6 @@ function WeightView() {
         </div>
       </div>
 
-      {/* Progress towards goal */}
       {diff !== null && (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '16px', border: '1px solid var(--border)', marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -437,7 +553,6 @@ function WeightView() {
         </div>
       )}
 
-      {/* Weight history */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
         История
       </div>
@@ -491,7 +606,6 @@ function WeightView() {
 export default function StatsScreen() {
   const [tab, setTab] = useState<Tab>('day');
 
-  // Profile norms — shared across Day and Week views
   const { data: bootstrapProfile } = useQuery({
     queryKey: ['profile-full'],
     queryFn: api.profile,
@@ -506,13 +620,10 @@ export default function StatsScreen() {
 
   return (
     <div className="screen">
-
-      {/* Title */}
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', marginBottom: 16 }}>
         Статистика
       </h1>
 
-      {/* Segment tabs */}
       <div className="period-tabs" style={{ marginBottom: 16 }}>
         {TABS.map(t => (
           <button
@@ -525,11 +636,9 @@ export default function StatsScreen() {
         ))}
       </div>
 
-      {/* Tab content */}
       {tab === 'day'    && <DayView    norms={norms} />}
       {tab === 'week'   && <WeekView   norms={norms} />}
       {tab === 'weight' && <WeightView />}
-
     </div>
   );
 }

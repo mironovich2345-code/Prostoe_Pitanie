@@ -48,6 +48,35 @@ router.get('/diary', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/nutrition/meals/:id/media — fetch Telegram file URL for a meal
+router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const meal = await prisma.mealEntry.findFirst({
+      where: { id, chatId },
+      select: { sourceType: true, photoFileId: true, voiceFileId: true },
+    });
+    if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
+    const fileId = meal.sourceType === 'photo' ? meal.photoFileId
+                 : meal.sourceType === 'voice' ? meal.voiceFileId
+                 : null;
+    if (!fileId) { res.status(404).json({ error: 'No media source' }); return; }
+    const botToken = process.env.BOT_TOKEN;
+    if (!botToken) { res.status(500).json({ error: 'Bot not configured' }); return; }
+    const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    const tgData = await tgRes.json() as { ok: boolean; result?: { file_path: string } };
+    if (!tgData.ok || !tgData.result?.file_path) {
+      res.status(404).json({ error: 'File not available' }); return;
+    }
+    res.json({ url: `https://api.telegram.org/file/bot${botToken}/${tgData.result.file_path}`, type: meal.sourceType });
+  } catch (err) {
+    console.error('[nutrition/meals/:id/media]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/nutrition/stats?days=7
 router.get('/stats', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;

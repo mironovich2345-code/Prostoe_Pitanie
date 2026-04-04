@@ -85,6 +85,8 @@ export const api = {
     request<{ ratings: import('../types').TrainerRating[] }>(`/api/ratings/for-client/${clientId}`),
   myRatings: () =>
     request<{ ratings: import('../types').TrainerRating[] }>('/api/ratings/my'),
+  nutritionMealMedia: (mealId: number) =>
+    request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralApply: (code: string) =>
