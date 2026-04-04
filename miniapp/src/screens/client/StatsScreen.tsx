@@ -78,8 +78,13 @@ interface MetricCardProps {
   accentSoft: string;
 }
 function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardProps) {
-  const pct = norm && norm > 0 ? Math.min(100, Math.round((value / norm) * 100)) : null;
-  const isOver = pct !== null && pct >= 100;
+  const isOver = norm != null && norm > 0 && value > norm;
+  const displayPct = norm && norm > 0
+    ? isOver
+      ? Math.round(((value - norm) / norm) * 100)
+      : Math.round((value / norm) * 100)
+    : null;
+  const barPct = norm && norm > 0 ? Math.min(100, Math.round((value / norm) * 100)) : null;
 
   return (
     <div style={{
@@ -95,13 +100,13 @@ function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardP
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
           {label}
         </span>
-        {pct !== null && (
+        {displayPct !== null && (
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
             background: isOver ? 'var(--danger-soft)' : accentSoft,
             color: isOver ? 'var(--danger)' : color,
           }}>
-            {pct}%
+            {isOver ? `+${displayPct}%` : `${displayPct}%`}
           </span>
         )}
       </div>
@@ -111,19 +116,19 @@ function MetricCard({ label, value, unit, norm, color, accentSoft }: MetricCardP
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>{unit}</span>
       </div>
-      {pct !== null && (
+      {barPct !== null && (
         <div style={{ height: 4, borderRadius: 4, background: 'var(--surface-2)', overflow: 'hidden', marginBottom: 6 }}>
           <div style={{
             height: '100%', borderRadius: 4,
             background: isOver ? 'var(--danger)' : color,
-            width: `${pct}%`,
+            width: `${barPct}%`,
             transition: 'width 0.5s ease',
           }} />
         </div>
       )}
       {norm && (
         <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
-          цель {norm.toLocaleString('ru')} {unit}
+          {isOver ? 'превышение' : 'цель'} {norm.toLocaleString('ru')} {unit}
         </div>
       )}
     </div>
@@ -320,6 +325,94 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
   );
 }
 
+// ─── AI Insight Banner ─────────────────────────────────────────────────────
+
+function AiInsightBanner({ date, mealCount }: { date: string; mealCount: number }) {
+  const hour = new Date().getHours();
+  const bucket = hour < 14 ? 'morning' : hour < 19 ? 'afternoon' : 'evening';
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['nutrition-insight', date, bucket, mealCount],
+    queryFn: () => api.nutritionInsight(date),
+    staleTime: Infinity,
+    retry: 1,
+    enabled: date === TODAY,
+  });
+
+  if (date !== TODAY || isError) return null;
+
+  if (isLoading) {
+    return (
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+        border: '1px solid var(--border)', padding: '14px 16px',
+        marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <div className="spinner" style={{ width: 14, height: 14, flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Анализирую рацион...</span>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const dotColor = data.severity === 'good'
+    ? 'var(--accent)'
+    : data.severity === 'warning'
+    ? 'var(--danger)'
+    : 'var(--text-3)';
+  const chipBg = data.severity === 'good'
+    ? 'var(--accent-soft)'
+    : data.severity === 'warning'
+    ? 'rgba(255,87,87,0.09)'
+    : 'var(--surface-2)';
+
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+      border: '1px solid var(--border)', padding: '14px 16px',
+      marginBottom: 16,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: dotColor, letterSpacing: 0.3 }}>
+          {data.bannerTitle}
+        </span>
+      </div>
+
+      {/* Main text */}
+      <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, margin: 0,
+        marginBottom: (data.nextMealSuggestion || data.mealAdvice.length > 0) ? 10 : 0 }}>
+        {data.bannerText}
+      </p>
+
+      {/* Next meal suggestion */}
+      {data.nextMealSuggestion && (
+        <div style={{
+          background: chipBg, borderRadius: 8, padding: '8px 11px',
+          fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45,
+          marginBottom: data.mealAdvice.length > 0 ? 8 : 0,
+        }}>
+          <span style={{ fontWeight: 600, color: dotColor }}>Следующий приём: </span>
+          {data.nextMealSuggestion}
+        </div>
+      )}
+
+      {/* Meal advice list */}
+      {data.mealAdvice.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {data.mealAdvice.map((tip, i) => (
+            <div key={i} style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
+              · {tip}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Day View ──────────────────────────────────────────────────────────────
 
 function DayView({ norms }: { norms: { cal: number | null; p: number | null; f: number | null; c: number | null } }) {
@@ -347,6 +440,8 @@ function DayView({ norms }: { norms: { cal: number | null; p: number | null; f: 
             cal={totals.cal} p={totals.p} f={totals.f} c={totals.c}
             normCal={norms.cal} normP={norms.p} normF={norms.f} normC={norms.c}
           />
+
+          <AiInsightBanner date={date} mealCount={meals.length} />
 
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
             Записи

@@ -136,6 +136,14 @@ export interface NutritionTotals {
   fiber: number;
 }
 
+export interface NutritionInsight {
+  bannerTitle: string;
+  bannerText: string;
+  severity: 'neutral' | 'good' | 'warning';
+  nextMealSuggestion: string;
+  mealAdvice: string[];
+}
+
 export interface TodayNutritionData {
   meals: MealEntry[];
   totals: NutritionTotals;
