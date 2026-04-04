@@ -150,11 +150,80 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   );
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function weightDeltaColor(delta: number, goalType: string | null | undefined): string {
+  if (Math.abs(delta) < 0.01) return 'var(--text-3)';
+  if (goalType === 'maintain' || goalType === 'track') return 'var(--text-2)';
+  if (goalType === 'gain') return delta > 0 ? 'var(--accent)' : 'var(--danger)';
+  return delta < 0 ? 'var(--accent)' : 'var(--danger)'; // 'lose' or unknown
+}
+
+// ─── BMI Info Overlay ──────────────────────────────────────────────────────
+
+function BmiInfoOverlay({ onClose }: { onClose: () => void }) {
+  const BMI_RANGES = [
+    { range: '< 18.5',     label: 'Дефицит веса', color: 'var(--warn)'   },
+    { range: '18.5 – 24.9', label: 'Норма',        color: 'var(--accent)' },
+    { range: '25 – 29.9',  label: 'Избыток веса',  color: 'var(--warn)'   },
+    { range: '≥ 30',       label: 'Ожирение',      color: 'var(--danger)' },
+  ];
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
+      <div style={{
+        position: 'fixed', left: 12, right: 12, bottom: 20,
+        background: 'var(--surface)', borderRadius: 20,
+        border: '1px solid var(--border)', padding: '20px 18px 28px', zIndex: 201,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>
+            Индекс массы тела
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'var(--surface-2)', border: 'none',
+              color: 'var(--text-3)', fontSize: 16, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 0, lineHeight: 1,
+            }}
+            aria-label="Закрыть"
+          >✕</button>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65 }}>
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Что такое ИМТ</p>
+          <p style={{ margin: '0 0 12px' }}>
+            Ориентировочный показатель соотношения веса и роста. Не учитывает мышечную массу и индивидуальные особенности состава тела.
+          </p>
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Формула</p>
+          <div style={{
+            margin: '0 0 12px', padding: '8px 12px',
+            background: 'var(--surface-2)', borderRadius: 10,
+            fontSize: 12, color: 'var(--accent)', fontWeight: 600, letterSpacing: 0.1,
+          }}>
+            ИМТ = вес (кг) ÷ рост² (м)
+          </div>
+          <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Диапазоны</p>
+          {BMI_RANGES.map(row => (
+            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{row.range}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Tab: Вес ──────────────────────────────────────────────────────────────
 
 function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
   const navigate = useNavigate();
   const p = bootstrap.profile;
+  const [showBmiInfo, setShowBmiInfo] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['profile-full'],
@@ -261,8 +330,21 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 4 }}>
-              Индекс массы тела
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
+                Индекс массы тела
+              </div>
+              <button
+                onClick={() => setShowBmiInfo(true)}
+                style={{
+                  width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                  background: 'transparent', border: '1px solid var(--border-2, #2a2a2a)',
+                  color: 'var(--text-3)', fontSize: 10, fontWeight: 700,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 0, lineHeight: 1,
+                }}
+                aria-label="Что такое ИМТ"
+              >?</button>
             </div>
             <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>
               {bmi.toFixed(1)}
@@ -277,6 +359,7 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
           </div>
         </div>
       )}
+      {showBmiInfo && <BmiInfoOverlay onClose={() => setShowBmiInfo(false)} />}
 
       {/* Weight history */}
       {isLoading ? (
@@ -312,7 +395,7 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
                   {delta !== null && (
                     <span style={{
                       fontSize: 13, fontWeight: 600,
-                      color: delta < -0.01 ? 'var(--accent)' : delta > 0.01 ? 'var(--danger)' : 'var(--text-3)',
+                      color: weightDeltaColor(delta, p?.goalType),
                     }}>
                       {delta > 0 ? '+' : ''}{delta.toFixed(1)} кг
                     </span>

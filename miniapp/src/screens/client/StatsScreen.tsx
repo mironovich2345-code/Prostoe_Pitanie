@@ -4,6 +4,15 @@ import { api } from '../../api/client';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
 import type { MealEntry } from '../../types';
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function weightDeltaColor(delta: number, goalType: string | null | undefined): string {
+  if (Math.abs(delta) < 0.01) return 'var(--text-3)';
+  if (goalType === 'maintain' || goalType === 'track') return 'var(--text-2)';
+  if (goalType === 'gain') return delta > 0 ? 'var(--accent)' : 'var(--danger)';
+  return delta < 0 ? 'var(--accent)' : 'var(--danger)'; // 'lose' or unknown
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 type Tab = 'day' | 'week' | 'weight';
@@ -606,7 +615,7 @@ function WeightView() {
                 {delta !== null && (
                   <span style={{
                     fontSize: 12, fontWeight: 600,
-                    color: delta < 0 ? 'var(--accent)' : delta > 0 ? 'var(--danger)' : 'var(--text-3)',
+                    color: weightDeltaColor(delta, profile?.goalType),
                   }}>
                     {delta > 0 ? '+' : ''}{delta.toFixed(1)} кг
                   </span>
