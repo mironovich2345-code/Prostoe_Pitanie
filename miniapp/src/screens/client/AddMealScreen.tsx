@@ -280,6 +280,17 @@ export default function AddMealScreen() {
           </div>
         )}
 
+        {sourceType === 'photo' && (
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: 14, marginBottom: 8 }}
+            disabled={saving}
+            onClick={() => { setResult(null); setPhotoPreview(null); setError(''); setStep('photo'); }}
+          >
+            📷 Выбрать другое фото
+          </button>
+        )}
+
         <button className="btn" disabled={saving} onClick={handleSave} style={{ fontSize: 15 }}>
           {saving ? 'Сохраняем...' : '✓ Сохранить приём'}
         </button>
@@ -349,7 +360,6 @@ export default function AddMealScreen() {
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={handleFileSelect}
           style={{ display: 'none' }}
         />
