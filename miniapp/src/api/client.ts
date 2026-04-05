@@ -78,6 +78,12 @@ export const api = {
     request<import('../types').TrainerLookupResult>('/api/client/trainer/lookup', { method: 'POST', body: JSON.stringify({ code }) }),
   trainerConnect: (data: { code: string; fullHistoryAccess: boolean; canViewPhotos: boolean }) =>
     request<{ ok: boolean }>('/api/client/trainer/connect', { method: 'POST', body: JSON.stringify(data) }),
+  trainerList: () =>
+    request<{ trainers: Array<{ chatId: string; fullName: string | null; specialization: string | null; bio: string | null }> }>('/api/client/trainers'),
+  trainerLookupById: (trainerId: string) =>
+    request<import('../types').TrainerLookupResult>(`/api/client/trainer/lookup-by-id?trainerId=${encodeURIComponent(trainerId)}`),
+  trainerConnectDirect: (data: { trainerId: string; fullHistoryAccess: boolean; canViewPhotos: boolean }) =>
+    request<{ ok: boolean }>('/api/client/trainer/connect-direct', { method: 'POST', body: JSON.stringify(data) }),
   // Ratings
   rateMeal: (mealId: number, rating: string) =>
     request<{ rating: import('../types').TrainerRating }>(`/api/ratings/meal/${mealId}`, { method: 'POST', body: JSON.stringify({ rating }) }),

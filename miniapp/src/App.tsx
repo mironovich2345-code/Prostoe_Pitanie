@@ -32,6 +32,7 @@ import AddMealScreen from './screens/client/AddMealScreen';
 import ConnectTrainerScreen from './screens/client/ConnectTrainerScreen';
 import TrainerReviewScreen from './screens/client/TrainerReviewScreen';
 import ShopScreen from './screens/client/ShopScreen';
+import TrainerListScreen from './screens/client/TrainerListScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import { api } from './api/client';
 import type { AppMode } from './types';
@@ -109,6 +110,7 @@ export default function App() {
             <Route path="/connect-trainer" element={<ConnectTrainerScreen />} />
             <Route path="/trainer/review" element={<TrainerReviewScreen />} />
             <Route path="/shop" element={<ShopScreen />} />
+            <Route path="/trainers" element={<TrainerListScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

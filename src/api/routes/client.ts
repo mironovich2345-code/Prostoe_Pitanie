@@ -4,6 +4,88 @@ import prisma from '../../db';
 
 const router = Router();
 
+// GET /api/client/trainers — list all verified trainers (public info only)
+router.get('/trainers', async (_req: AuthRequest, res: Response) => {
+  try {
+    const trainers = await prisma.trainerProfile.findMany({
+      where: { verificationStatus: 'verified' },
+      select: { chatId: true, fullName: true, specialization: true, bio: true },
+      orderBy: { verifiedAt: 'desc' },
+    });
+    res.json({ trainers });
+  } catch (err) {
+    console.error('[client/trainers]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/client/trainer/lookup-by-id?trainerId=xxx — preview a verified trainer by chatId
+router.get('/trainer/lookup-by-id', async (req: AuthRequest, res: Response) => {
+  const { trainerId } = req.query as { trainerId?: string };
+  if (!trainerId) { res.status(400).json({ error: 'trainerId required' }); return; }
+  try {
+    const tp = await prisma.trainerProfile.findFirst({
+      where: { chatId: trainerId, verificationStatus: 'verified' },
+      select: { chatId: true, fullName: true, specialization: true, bio: true },
+    });
+    if (!tp) { res.status(404).json({ error: 'Trainer not found' }); return; }
+    res.json({ trainerId: tp.chatId, fullName: tp.fullName, specialization: tp.specialization, bio: tp.bio });
+  } catch (err) {
+    console.error('[client/trainer/lookup-by-id]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/client/trainer/connect-direct — connect by trainerId, no code required
+router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { trainerId, fullHistoryAccess, canViewPhotos } = req.body as {
+    trainerId?: string;
+    fullHistoryAccess?: boolean;
+    canViewPhotos?: boolean;
+  };
+  if (!trainerId) { res.status(400).json({ error: 'trainerId required' }); return; }
+  if (trainerId === chatId) { res.status(400).json({ error: 'Cannot connect to yourself' }); return; }
+  try {
+    const existing = await prisma.trainerClientLink.findFirst({
+      where: { clientId: chatId, status: 'active' },
+    });
+    if (existing) { res.status(409).json({ error: 'Already have an active trainer' }); return; }
+
+    const tp = await prisma.trainerProfile.findFirst({
+      where: { chatId: trainerId, verificationStatus: 'verified' },
+      select: { chatId: true, fullName: true, specialization: true },
+    });
+    if (!tp) { res.status(404).json({ error: 'Trainer not found or not verified' }); return; }
+
+    const link = await prisma.trainerClientLink.upsert({
+      where: { trainerId_clientId: { trainerId: tp.chatId, clientId: chatId } },
+      update: {
+        status: 'active',
+        fullHistoryAccess: fullHistoryAccess ?? false,
+        canViewPhotos: canViewPhotos ?? true,
+        connectedAt: new Date(),
+        disconnectedAt: { set: null },
+      },
+      create: {
+        trainerId: tp.chatId,
+        clientId: chatId,
+        status: 'active',
+        fullHistoryAccess: fullHistoryAccess ?? false,
+        canViewPhotos: canViewPhotos ?? true,
+      },
+    });
+    res.json({
+      ok: true,
+      link: { trainerId: link.trainerId, fullHistoryAccess: link.fullHistoryAccess, canViewPhotos: link.canViewPhotos, connectedAt: link.connectedAt },
+      trainer: { fullName: tp.fullName, specialization: tp.specialization },
+    });
+  } catch (err) {
+    console.error('[client/trainer/connect-direct]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // DELETE /api/client/trainer — disconnect current active trainer
 router.delete('/trainer', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
