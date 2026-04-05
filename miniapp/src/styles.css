@@ -280,6 +280,36 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Analyzing button — fill left-to-right ──────────────────────────── */
+@keyframes btn-fill {
+  0%   { background-position: 200% center; }
+  100% { background-position:   0% center; }
+}
+.btn-analyzing {
+  position: relative;
+  color: #000;
+  cursor: default;
+  /* Two-stop gradient: accent on the left, dimmed on the right, 200% wide */
+  background: linear-gradient(90deg, var(--accent) 50%, var(--surface-3) 50%);
+  background-size: 200% 100%;
+  background-position: 200% center;
+  animation: btn-fill 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  overflow: hidden;
+}
+/* Text on top, always readable */
+.btn-analyzing::after {
+  content: attr(data-label);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #000;
+  pointer-events: none;
+}
+
 .empty-state      { text-align: center; padding: 56px 16px; color: var(--text-3); }
 .empty-state-icon { font-size: 44px; margin-bottom: 16px; opacity: 0.45; }
 

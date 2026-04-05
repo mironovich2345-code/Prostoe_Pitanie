@@ -39,6 +39,12 @@ async function resizeToDataUrl(file: File, maxSide = 1024): Promise<string> {
   });
 }
 
+function parsePositiveFloat(v: string): number | null {
+  const n = parseFloat(v.replace(',', '.'));
+  if (!isFinite(n) || n < 0) return null;
+  return Math.round(n * 10) / 10;
+}
+
 // ─── Nutrition row ──────────────────────────────────────────────────────────
 
 function NutritionRow({ result }: { result: FoodAnalysis }) {
@@ -68,7 +74,168 @@ function NutritionRow({ result }: { result: FoodAnalysis }) {
       {result.weightG != null && (
         <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{result.weightG} г</span>
       )}
+      {result.fiberG != null && (
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          Клетч. <span style={{ fontWeight: 600 }}>{result.fiberG}</span>г
+        </span>
+      )}
     </div>
+  );
+}
+
+// ─── Edit Nutrition Sheet ───────────────────────────────────────────────────
+
+interface EditSheetProps {
+  result: FoodAnalysis;
+  onClose: () => void;
+  onSave: (updated: Partial<FoodAnalysis>) => void;
+}
+
+function EditNutritionSheet({ result, onClose, onSave }: EditSheetProps) {
+  const [weight,   setWeight]   = useState(result.weightG     != null ? String(result.weightG)     : '');
+  const [kcal,     setKcal]     = useState(result.caloriesKcal != null ? String(result.caloriesKcal) : '');
+  const [protein,  setProtein]  = useState(result.proteinG    != null ? String(result.proteinG)    : '');
+  const [fat,      setFat]      = useState(result.fatG        != null ? String(result.fatG)        : '');
+  const [carbs,    setCarbs]    = useState(result.carbsG      != null ? String(result.carbsG)      : '');
+  const [fiber,    setFiber]    = useState(result.fiberG      != null ? String(result.fiberG)      : '');
+  const [fieldErr, setFieldErr] = useState('');
+
+  function handleSave() {
+    const fields: { label: string; raw: string; key: keyof FoodAnalysis }[] = [
+      { label: 'Вес',       raw: weight,  key: 'weightG'      },
+      { label: 'Ккал',      raw: kcal,    key: 'caloriesKcal' },
+      { label: 'Белки',     raw: protein, key: 'proteinG'     },
+      { label: 'Жиры',      raw: fat,     key: 'fatG'         },
+      { label: 'Углеводы',  raw: carbs,   key: 'carbsG'       },
+      { label: 'Клетчатка', raw: fiber,   key: 'fiberG'       },
+    ];
+
+    const updated: Partial<FoodAnalysis> = {};
+    for (const f of fields) {
+      if (f.raw.trim() === '') {
+        (updated as Record<string, number | null>)[f.key] = null;
+        continue;
+      }
+      const val = parsePositiveFloat(f.raw);
+      if (val === null) {
+        setFieldErr(`${f.label}: введи корректное неотрицательное число`);
+        return;
+      }
+      (updated as Record<string, number | null>)[f.key] = val;
+    }
+    setFieldErr('');
+    onSave(updated);
+  }
+
+  const FIELDS: { label: string; unit: string; val: string; set: (v: string) => void }[] = [
+    { label: 'Вес',        unit: 'г',    val: weight,  set: setWeight  },
+    { label: 'Ккал',       unit: 'ккал', val: kcal,    set: setKcal    },
+    { label: 'Белки',      unit: 'г',    val: protein, set: setProtein },
+    { label: 'Жиры',       unit: 'г',    val: fat,     set: setFat     },
+    { label: 'Углеводы',   unit: 'г',    val: carbs,   set: setCarbs   },
+    { label: 'Клетчатка',  unit: 'г',    val: fiber,   set: setFiber   },
+  ];
+
+  return (
+    /* Backdrop */
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'flex-end',
+      }}
+    >
+      {/* Sheet */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%',
+          background: 'var(--surface)',
+          borderRadius: '22px 22px 0 0',
+          padding: '20px 20px 32px',
+          border: '1px solid var(--border)',
+          borderBottom: 'none',
+        }}
+      >
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-2)', margin: '0 auto 18px' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Исправить значения</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text-3)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* 2-column grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px', marginBottom: 14 }}>
+          {FIELDS.map(f => (
+            <div key={f.label}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>
+                {f.label}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.1"
+                  value={f.val}
+                  onChange={e => f.set(e.target.value)}
+                  placeholder="—"
+                  style={{
+                    width: '100%',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-2)',
+                    borderRadius: 10,
+                    padding: '10px 36px 10px 12px',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    outline: 'none',
+                  }}
+                />
+                <span style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  fontSize: 11, color: 'var(--text-3)', pointerEvents: 'none',
+                }}>
+                  {f.unit}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {fieldErr && (
+          <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 12, lineHeight: 1.4 }}>
+            {fieldErr}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }} onClick={onClose}>
+            Отмена
+          </button>
+          <button className="btn" style={{ flex: 1, fontSize: 14 }} onClick={handleSave}>
+            Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Analyzing button ───────────────────────────────────────────────────────
+
+function AnalyzingButton() {
+  return (
+    <button
+      className="btn btn-analyzing"
+      disabled
+      data-label="Анализирую..."
+      style={{ fontSize: 15, color: 'transparent' /* text hidden — shown via ::after */ }}
+    >
+      Анализирую...
+    </button>
   );
 }
 
@@ -88,6 +255,7 @@ export default function AddMealScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showEditSheet, setShowEditSheet] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -116,7 +284,6 @@ export default function AddMealScreen() {
     } catch {
       setError('Не удалось загрузить фото. Попробуйте другое.');
     }
-    // Reset input so same file can be re-selected
     e.target.value = '';
   }
 
@@ -175,6 +342,12 @@ export default function AddMealScreen() {
     setResult(null);
     setError('');
     setMealType('breakfast');
+    setShowEditSheet(false);
+  }
+
+  function handleEditSave(updated: Partial<FoodAnalysis>) {
+    setResult(prev => prev ? { ...prev, ...updated } : prev);
+    setShowEditSheet(false);
   }
 
   // ── Shared back-button ────────────────────────────────────────────────
@@ -190,8 +363,6 @@ export default function AddMealScreen() {
       </button>
     );
   }
-
-  // ── Render ────────────────────────────────────────────────────────────
 
   // ── DONE ──────────────────────────────────────────────────────────────
   if (step === 'done') {
@@ -239,14 +410,31 @@ export default function AddMealScreen() {
                        maxHeight: 200, objectFit: 'cover', display: 'block' }}
             />
           )}
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-            {result.name}
-          </div>
-          {result.composition && (
-            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.4 }}>
-              {result.composition}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                {result.name}
+              </div>
+              {result.composition && (
+                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.4 }}>
+                  {result.composition}
+                </div>
+              )}
             </div>
-          )}
+            {/* Исправить button — compact, secondary, right-aligned */}
+            <button
+              onClick={() => setShowEditSheet(true)}
+              style={{
+                flexShrink: 0, alignSelf: 'flex-start',
+                padding: '6px 12px', borderRadius: 8,
+                background: 'var(--surface-2)', border: '1px solid var(--border-2)',
+                fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
+                cursor: 'pointer', lineHeight: 1.3,
+              }}
+            >
+              Исправить
+            </button>
+          </div>
           <NutritionRow result={result} />
         </div>
 
@@ -295,6 +483,15 @@ export default function AddMealScreen() {
         <button className="btn" disabled={saving} onClick={handleSave} style={{ fontSize: 15 }}>
           {saving ? 'Сохраняем...' : '✓ Сохранить приём'}
         </button>
+
+        {/* Edit sheet overlay */}
+        {showEditSheet && (
+          <EditNutritionSheet
+            result={result}
+            onClose={() => setShowEditSheet(false)}
+            onSave={handleEditSave}
+          />
+        )}
       </div>
     );
   }
@@ -332,14 +529,18 @@ export default function AddMealScreen() {
           </div>
         )}
 
-        <button
-          className="btn"
-          disabled={!textInput.trim() || analyzing}
-          onClick={handleTextAnalyze}
-          style={{ fontSize: 15 }}
-        >
-          {analyzing ? 'Анализирую...' : 'Проанализировать →'}
-        </button>
+        {analyzing ? (
+          <AnalyzingButton />
+        ) : (
+          <button
+            className="btn"
+            disabled={!textInput.trim()}
+            onClick={handleTextAnalyze}
+            style={{ fontSize: 15 }}
+          >
+            Проанализировать →
+          </button>
+        )}
       </div>
     );
   }
@@ -356,7 +557,6 @@ export default function AddMealScreen() {
           Сфотографируй или выбери фото из галереи
         </div>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -366,7 +566,6 @@ export default function AddMealScreen() {
         />
 
         {!photoPreview ? (
-          /* Photo picker tap zone */
           <div
             onClick={() => fileInputRef.current?.click()}
             style={{
@@ -388,7 +587,6 @@ export default function AddMealScreen() {
             </div>
           </div>
         ) : (
-          /* Photo preview */
           <div style={{ marginBottom: 16 }}>
             <img
               src={photoPreview}
@@ -415,14 +613,18 @@ export default function AddMealScreen() {
           </div>
         )}
 
-        <button
-          className="btn"
-          disabled={!photoPreview || analyzing}
-          onClick={handlePhotoAnalyze}
-          style={{ fontSize: 15 }}
-        >
-          {analyzing ? 'Анализирую...' : 'Проанализировать →'}
-        </button>
+        {analyzing ? (
+          <AnalyzingButton />
+        ) : (
+          <button
+            className="btn"
+            disabled={!photoPreview}
+            onClick={handlePhotoAnalyze}
+            style={{ fontSize: 15 }}
+          >
+            Проанализировать →
+          </button>
+        )}
       </div>
     );
   }
