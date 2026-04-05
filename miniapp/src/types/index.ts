@@ -50,6 +50,7 @@ export interface TrainerProfileInfo {
   socialLink: string | null;
   documentLink: string | null;
   appliedAt: string | null;
+  avatarData: string | null;
 }
 
 export interface SubscriptionInfo {
@@ -143,8 +144,13 @@ export interface TrainerReview {
   rating: number;
   reviewText: string | null;
   allowTrainerComment: boolean;
+  trainerComment: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrainerReviewWithClient extends TrainerReview {
+  clientName: string | null;
 }
 
 export interface NutritionInsight {

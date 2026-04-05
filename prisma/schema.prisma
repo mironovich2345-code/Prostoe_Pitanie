@@ -79,6 +79,7 @@ model TrainerProfile {
   verificationNote        String?
   connectionCode          String?
   connectionCodeExpiresAt DateTime?
+  avatarData              String?   // base64 data URL
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }
@@ -137,6 +138,7 @@ model TrainerReview {
   rating              Int
   reviewText          String?
   allowTrainerComment Boolean  @default(true)
+  trainerComment      String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   @@unique([clientId, trainerId])

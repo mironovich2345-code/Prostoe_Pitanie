@@ -34,6 +34,7 @@ import TrainerReviewScreen from './screens/client/TrainerReviewScreen';
 import ShopScreen from './screens/client/ShopScreen';
 import TrainerListScreen from './screens/client/TrainerListScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
+import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import { api } from './api/client';
 import type { AppMode } from './types';
 
@@ -125,6 +126,7 @@ export default function App() {
             <Route path="/referrals" element={<CoachReferralsScreen />} />
             <Route path="/payouts" element={<CoachPayoutsScreen />} />
             <Route path="/connect-client" element={<TrainerConnectionScreen />} />
+            <Route path="/reviews" element={<CoachReviewsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

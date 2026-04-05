@@ -55,6 +55,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         socialLink: trainerProfile.socialLink,
         documentLink: trainerProfile.documentLink,
         appliedAt: trainerProfile.appliedAt,
+        avatarData: trainerProfile.avatarData,
       } : null,
       subscription: subscription ? {
         planId: subscription.planId,

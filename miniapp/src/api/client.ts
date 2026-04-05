@@ -107,6 +107,12 @@ export const api = {
     request<{ review: import('../types').TrainerReview | null }>('/api/reviews/my-trainer'),
   submitTrainerReview: (data: { rating: number; reviewText?: string; allowTrainerComment: boolean }) =>
     request<{ review: import('../types').TrainerReview }>('/api/reviews/my-trainer', { method: 'PUT', body: JSON.stringify(data) }),
+  trainerReviews: () =>
+    request<{ reviews: import('../types').TrainerReviewWithClient[]; avgRating: number | null }>('/api/reviews/trainer'),
+  trainerPatchReviewComment: (id: number, trainerComment: string) =>
+    request<{ review: import('../types').TrainerReview }>(`/api/reviews/trainer/${id}/comment`, { method: 'PATCH', body: JSON.stringify({ trainerComment }) }),
+  trainerPatchProfile: (data: { fullName?: string; avatarData?: string | null }) =>
+    request<{ ok: boolean; fullName: string | null; avatarData: string | null }>('/api/trainer/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralMyInvited: () =>

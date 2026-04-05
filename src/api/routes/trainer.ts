@@ -4,6 +4,26 @@ import prisma from '../../db';
 
 const router = Router();
 
+// PATCH /api/trainer/profile — update fullName and/or avatarData
+router.patch('/profile', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { fullName, avatarData } = req.body as { fullName?: string; avatarData?: string | null };
+  try {
+    const tp = await prisma.trainerProfile.findUnique({ where: { chatId } });
+    if (!tp) { res.status(404).json({ error: 'Trainer profile not found' }); return; }
+
+    const data: Record<string, unknown> = {};
+    if (fullName !== undefined) data['fullName'] = fullName?.trim() || null;
+    if (avatarData !== undefined) data['avatarData'] = avatarData ?? null;
+
+    const updated = await prisma.trainerProfile.update({ where: { chatId }, data });
+    res.json({ ok: true, fullName: updated.fullName, avatarData: updated.avatarData });
+  } catch (err) {
+    console.error('[trainer/profile PATCH]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/trainer/clients — list trainer's clients
 router.get('/clients', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
