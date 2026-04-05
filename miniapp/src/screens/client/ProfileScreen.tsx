@@ -643,10 +643,17 @@ function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
 
 function ReferralSection() {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['referral-me'],
     queryFn: api.referralMe,
+  });
+
+  const { data: invitedData, isLoading: invitedLoading } = useQuery({
+    queryKey: ['referral-my-invited'],
+    queryFn: api.referralMyInvited,
+    enabled: expanded,
   });
 
   function handleCopy() {
@@ -656,6 +663,8 @@ function ReferralSection() {
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => null);
   }
+
+  const invited = invitedData?.invited ?? [];
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -684,7 +693,7 @@ function ReferralSection() {
             </div>
 
             {/* Copy button + invited count */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: data.invitedCount > 0 ? 12 : 0 }}>
               <button
                 onClick={handleCopy}
                 className="btn"
@@ -704,6 +713,77 @@ function ReferralSection() {
                 </div>
               )}
             </div>
+
+            {/* Invited list expand/collapse */}
+            {data.invitedCount > 0 && (
+              <div>
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '4px 0',
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+                    Кто перешёл по ссылке
+                  </span>
+                  <span style={{
+                    fontSize: 14, color: 'var(--text-3)',
+                    display: 'inline-block',
+                    transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.18s',
+                  }}>
+                    ▾
+                  </span>
+                </button>
+
+                {expanded && (
+                  <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                    {invitedLoading ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+                        <div className="spinner" style={{ width: 18, height: 18 }} />
+                      </div>
+                    ) : invited.length === 0 ? (
+                      <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>
+                        Пока никто не перешёл по вашей ссылке
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {invited.map((u, i) => {
+                          const label = u.displayName ?? `Пользователь ${i + 1}`;
+                          const dateLabel = new Date(u.joinedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+                          return (
+                            <div key={i} style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '9px 0',
+                              borderBottom: i < invited.length - 1 ? '1px solid var(--border)' : 'none',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                                  background: 'var(--accent-soft)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: 11, fontWeight: 700, color: 'var(--accent)',
+                                }}>
+                                  {label.charAt(0).toUpperCase()}
+                                </div>
+                                <span style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500 }}>
+                                  {label}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                                {dateLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>

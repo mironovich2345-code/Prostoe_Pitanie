@@ -103,6 +103,8 @@ export const api = {
     request<{ review: import('../types').TrainerReview }>('/api/reviews/my-trainer', { method: 'PUT', body: JSON.stringify(data) }),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
+  referralMyInvited: () =>
+    request<{ invited: Array<{ displayName: string | null; joinedAt: string }> }>('/api/referral/my-invited'),
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
   trainerOfferLinks: () =>

@@ -9,11 +9,14 @@ function HomeIcon() {
     </svg>
   );
 }
-function DiaryIcon() {
+function ShopIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <rect x="4" y="3" width="14" height="16" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-      <path d="M8 8h6M8 12h6M8 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M4 6h14l-1.5 8.5a2 2 0 01-2 1.5H7.5a2 2 0 01-2-1.5L4 6z"
+            stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M4 6l-.8-3H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="8.5" cy="19" r="1" fill="currentColor"/>
+      <circle cx="15.5" cy="19" r="1" fill="currentColor"/>
     </svg>
   );
 }
@@ -45,7 +48,7 @@ const NAV: Array<{
   isAdd: boolean;
 }> = [
   { to: '/',        icon: <HomeIcon />,    label: 'Главная',    end: true,  isAdd: false },
-  { to: '/diary',   icon: <DiaryIcon />,   label: 'Дневник',    end: false, isAdd: false },
+  { to: '/shop',    icon: <ShopIcon />,    label: 'SHOP',       end: false, isAdd: false },
   { to: '/add',     icon: '+',             label: 'Добавить',   end: false, isAdd: true  },
   { to: '/stats',   icon: <StatsIcon />,   label: 'Статистика', end: false, isAdd: false },
   { to: '/profile', icon: <ProfileIcon />, label: 'Профиль',    end: false, isAdd: false },

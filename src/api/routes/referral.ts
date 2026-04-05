@@ -27,6 +27,26 @@ router.get('/me', async (req: AuthRequest, res: Response) => {
   }
 });
 
+/** GET /api/referral/my-invited — list of users who signed up via this user's referral */
+router.get('/my-invited', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  try {
+    const rows = await prisma.userProfile.findMany({
+      where: { referredBy: chatId },
+      select: { chatId: true, preferredName: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const invited = rows.map(r => ({
+      displayName: r.preferredName?.trim() || null,
+      joinedAt: r.createdAt.toISOString(),
+    }));
+    res.json({ invited });
+  } catch (err) {
+    console.error('[referral/my-invited]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 /** GET /api/referral/trainer-offers — 3 offer links with stats (for verified trainers) */
 router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
