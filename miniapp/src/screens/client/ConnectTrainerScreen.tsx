@@ -21,15 +21,15 @@ const PHOTOS_OPTIONS = [
 
 function extractCode(raw: string): string | null {
   // Formats:
-  // 1) https://t.me/BOTNAME?start=connect_XXXXX
-  // 2) connect_XXXXX
-  // 3) XXXXX (raw 5-char code)
-  const startMatch = raw.match(/[?&]start=connect_([A-Z2-9]{5})/i);
-  if (startMatch) return startMatch[1].toUpperCase();
-  const connectMatch = raw.match(/connect_([A-Z2-9]{5})/i);
-  if (connectMatch) return connectMatch[1].toUpperCase();
-  const rawCode = raw.trim().toUpperCase().replace(/[^A-Z2-9]/g, '');
-  if (rawCode.length === 5) return rawCode;
+  // 1) https://t.me/BOTNAME?start=connect_XXXXXX
+  // 2) connect_XXXXXX
+  // 3) XXXXXX (raw 6-digit numeric code)
+  const startMatch = raw.match(/[?&]start=connect_(\d{6})/i);
+  if (startMatch) return startMatch[1];
+  const connectMatch = raw.match(/connect_(\d{6})/i);
+  if (connectMatch) return connectMatch[1];
+  const rawCode = raw.trim().replace(/\D/g, '');
+  if (rawCode.length === 6) return rawCode;
   return null;
 }
 
@@ -334,7 +334,7 @@ export default function ConnectTrainerScreen() {
           )}
           <button
             className="btn"
-            disabled={code.length < 5 || lookupMutation.isPending}
+            disabled={code.length < 6 || lookupMutation.isPending}
             onClick={() => { setConnectMode('code'); lookupMutation.mutate(); }}
             style={{ fontSize: 15, marginBottom: 10 }}
           >

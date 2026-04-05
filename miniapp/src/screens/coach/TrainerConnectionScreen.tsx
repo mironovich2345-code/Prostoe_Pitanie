@@ -1,21 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 
 export default function TrainerConnectionScreen() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['trainer-my-code'],
     queryFn: api.trainerMyCode,
-  });
-
-  const refreshMutation = useMutation({
-    mutationFn: api.trainerRefreshCode,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['trainer-my-code'] }),
   });
 
   function handleCopyLink() {
@@ -28,10 +22,6 @@ export default function TrainerConnectionScreen() {
 
   const code = data?.code ?? '';
   const link = data?.link ?? '';
-  const expiresAt = data?.expiresAt ? new Date(data.expiresAt) : null;
-  const expiresLabel = expiresAt
-    ? expiresAt.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : '';
 
   const qrUrl = link
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=svg&data=${encodeURIComponent(link)}`
@@ -53,7 +43,7 @@ export default function TrainerConnectionScreen() {
         </div>
       ) : (
         <>
-          {/* QR Code */}
+          {/* QR + Code */}
           <div style={{
             background: 'var(--surface)', borderRadius: 'var(--r-xl)',
             padding: 24, border: '1px solid var(--border)',
@@ -78,39 +68,27 @@ export default function TrainerConnectionScreen() {
                 Код подключения
               </div>
               <div style={{
-                fontSize: 44, fontWeight: 700, letterSpacing: 10,
+                fontSize: 44, fontWeight: 700, letterSpacing: 12,
                 color: 'var(--accent)', fontFamily: 'monospace',
                 background: 'var(--accent-soft)', borderRadius: 16,
                 padding: '12px 24px', lineHeight: 1,
               }}>
                 {code}
               </div>
-              {expiresLabel && (
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8 }}>
-                  Действует до {expiresLabel}
-                </div>
-              )}
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8 }}>
+                Постоянный код · не меняется
+              </div>
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button
-              className="btn"
-              style={{ flex: 1, fontSize: 13, padding: '11px 12px' }}
-              onClick={handleCopyLink}
-            >
-              {copied ? '✓ Ссылка скопирована' : '📋 Скопировать ссылку'}
-            </button>
-            <button
-              className="btn btn-secondary"
-              style={{ flex: 1, fontSize: 13, padding: '11px 12px' }}
-              disabled={refreshMutation.isPending}
-              onClick={() => refreshMutation.mutate()}
-            >
-              {refreshMutation.isPending ? '...' : '🔄 Обновить код'}
-            </button>
-          </div>
+          {/* Copy link button */}
+          <button
+            className="btn"
+            style={{ fontSize: 14, marginBottom: 16 }}
+            onClick={handleCopyLink}
+          >
+            {copied ? '✓ Ссылка скопирована' : '📋 Скопировать ссылку'}
+          </button>
 
           {/* Link display */}
           <div style={{
@@ -118,18 +96,19 @@ export default function TrainerConnectionScreen() {
             border: '1px solid var(--border)',
             fontFamily: 'monospace', fontSize: 11, color: 'var(--text-3)',
             wordBreak: 'break-all', lineHeight: 1.5,
+            marginBottom: 16,
           }}>
             {link}
           </div>
 
           {/* Instructions */}
           <div style={{
-            marginTop: 16, background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+            background: 'var(--surface)', borderRadius: 'var(--r-lg)',
             border: '1px solid var(--border)', overflow: 'hidden',
           }}>
             {[
               { n: '1', text: 'Покажите QR-код клиенту или отправьте ссылку' },
-              { n: '2', text: 'Клиент сканирует QR или вводит 5-значный код в приложении' },
+              { n: '2', text: 'Клиент сканирует QR или вводит 6-значный код в приложении' },
               { n: '3', text: 'Клиент подтверждает подключение и выбирает права доступа' },
             ].map((item, i, arr) => (
               <div

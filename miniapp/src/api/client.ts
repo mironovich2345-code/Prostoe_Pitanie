@@ -63,7 +63,7 @@ export const api = {
   trainerClientStats: (clientId: string) => request<{ todayMeals: import('../types').MealEntry[]; todayCalories: number; recentMeals: import('../types').MealEntry[]; weightHistory: Array<{ weightKg: number; createdAt: string }>; profile: import('../types').UserProfile | null }>(`/api/trainer/clients/${clientId}/stats`),
   trainerAlerts: () => request<{ notLoggedToday: string[]; expiringSoon: unknown[]; totalClients: number; activeToday: number }>('/api/trainer/alerts'),
   trainerRewards: () => request<{ rewards: unknown[]; summary: { total: number; available: number; paidOut: number } }>('/api/trainer/rewards'),
-  expertApply: (data: { fullName: string; socialLink: string; documentLink: string; specialization?: string; bio?: string }) =>
+  expertApply: (data: { fullName: string; socialLink: string; documentLink?: string; specialization?: string; bio?: string; verificationPhotoData?: string }) =>
     request<{ trainerProfile: import('../types').TrainerProfileInfo }>('/api/expert/apply', { method: 'POST', body: JSON.stringify(data) }),
   disconnectTrainer: () => request<{ ok: boolean }>('/api/client/trainer', { method: 'DELETE' }),
   setTrainerHistoryAccess: (fullAccess: boolean) =>

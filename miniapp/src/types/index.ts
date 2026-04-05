@@ -80,7 +80,7 @@ export interface TrainerLookupResult {
 export interface TrainerConnectionCode {
   code: string;
   link: string;
-  expiresAt: string;
+  expiresAt?: string; // kept for backwards compat, no longer used
 }
 
 export interface TrainerRating {

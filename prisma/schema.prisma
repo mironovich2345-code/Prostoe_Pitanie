@@ -80,6 +80,7 @@ model TrainerProfile {
   connectionCode          String?
   connectionCodeExpiresAt DateTime?
   avatarData              String?   // base64 data URL
+  verificationPhotoData   String?   // base64 selfie for identity verification
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }

@@ -4,15 +4,18 @@ import prisma from '../../db';
 
 const router = Router();
 
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-
-function generateCode(): string {
-  let code = '';
-  for (let i = 0; i < 5; i++) {
-    code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+/** Generate a random 6-digit numeric string, zero-padded */
+async function generateUniqueCode(): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const existing = await prisma.trainerProfile.findFirst({
+      where: { connectionCode: code },
+      select: { chatId: true },
+    });
+    if (!existing) return code;
   }
-  return code;
+  // Extremely unlikely — 10^6 space, fall back to timestamp-derived code
+  return String(Date.now()).slice(-6);
 }
 
 function buildConnectLink(code: string): string {
@@ -21,34 +24,35 @@ function buildConnectLink(code: string): string {
   return `https://t.me/${botUsername}?start=connect_${code}`;
 }
 
-async function getOrCreateCode(chatId: string) {
+/** Ensure trainer has a permanent 6-digit code; migrate old-format codes lazily */
+async function ensurePermanentCode(chatId: string): Promise<string> {
   const tp = await prisma.trainerProfile.findUnique({
     where: { chatId },
-    select: { verificationStatus: true, connectionCode: true, connectionCodeExpiresAt: true },
+    select: { verificationStatus: true, connectionCode: true },
   });
-  if (!tp || tp.verificationStatus !== 'verified') throw Object.assign(new Error('Not a verified trainer'), { code: 403 });
-
-  if (tp.connectionCode && tp.connectionCodeExpiresAt && tp.connectionCodeExpiresAt > new Date()) {
-    return { code: tp.connectionCode, expiresAt: tp.connectionCodeExpiresAt };
+  if (!tp || tp.verificationStatus !== 'verified') {
+    throw Object.assign(new Error('Not a verified trainer'), { code: 403 });
   }
-  return refreshCode(chatId);
-}
 
-async function refreshCode(chatId: string) {
-  const code = generateCode();
-  const expiresAt = new Date(Date.now() + CODE_TTL_MS);
+  // If already a valid 6-digit numeric code — return it unchanged
+  if (tp.connectionCode && /^\d{6}$/.test(tp.connectionCode)) {
+    return tp.connectionCode;
+  }
+
+  // First visit or old alphanumeric code: assign a permanent 6-digit code
+  const newCode = await generateUniqueCode();
   await prisma.trainerProfile.update({
     where: { chatId },
-    data: { connectionCode: code, connectionCodeExpiresAt: expiresAt },
+    data: { connectionCode: newCode, connectionCodeExpiresAt: null },
   });
-  return { code, expiresAt };
+  return newCode;
 }
 
-/** GET /api/trainer/my-code — get (or auto-generate) connection code */
+/** GET /api/trainer/my-code — get permanent 6-digit connection code */
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { code, expiresAt } = await getOrCreateCode(req.chatId!);
-    res.json({ code, link: buildConnectLink(code), expiresAt });
+    const code = await ensurePermanentCode(req.chatId!);
+    res.json({ code, link: buildConnectLink(code) });
   } catch (err: any) {
     if (err.code === 403) { res.status(403).json({ error: err.message }); return; }
     console.error('[trainer/my-code GET]', err);
@@ -56,19 +60,13 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
-/** POST /api/trainer/my-code/refresh — force-generate a new code */
+// POST /refresh is kept for backwards compatibility but now returns the same permanent code
 router.post('/refresh', async (req: AuthRequest, res: Response) => {
   try {
-    const tp = await prisma.trainerProfile.findUnique({
-      where: { chatId: req.chatId! },
-      select: { verificationStatus: true },
-    });
-    if (!tp || tp.verificationStatus !== 'verified') {
-      res.status(403).json({ error: 'Not a verified trainer' }); return;
-    }
-    const { code, expiresAt } = await refreshCode(req.chatId!);
-    res.json({ code, link: buildConnectLink(code), expiresAt });
-  } catch (err) {
+    const code = await ensurePermanentCode(req.chatId!);
+    res.json({ code, link: buildConnectLink(code) });
+  } catch (err: any) {
+    if (err.code === 403) { res.status(403).json({ error: err.message }); return; }
     console.error('[trainer/my-code POST /refresh]', err);
     res.status(500).json({ error: 'Internal server error' });
   }

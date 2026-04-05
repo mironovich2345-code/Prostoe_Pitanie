@@ -133,18 +133,18 @@ router.patch('/trainer/history-access', async (req: AuthRequest, res: Response) 
   }
 });
 
-// POST /api/client/trainer/lookup — find trainer by 5-char connection code (no DB write)
+// POST /api/client/trainer/lookup — find trainer by 6-digit connection code (no DB write)
 router.post('/trainer/lookup', async (req: AuthRequest, res: Response) => {
   const { code } = req.body as { code?: string };
   if (!code || typeof code !== 'string') {
     res.status(400).json({ error: 'Missing code' }); return;
   }
-  const normalizedCode = code.trim().toUpperCase();
+  // Accept 6-digit numeric codes; also accept old alphanumeric for backward compatibility during migration
+  const normalizedCode = code.trim();
   try {
     const tp = await prisma.trainerProfile.findFirst({
       where: {
         connectionCode: normalizedCode,
-        connectionCodeExpiresAt: { gt: new Date() },
         verificationStatus: 'verified',
       },
       select: { chatId: true, fullName: true, specialization: true, bio: true },
@@ -168,7 +168,7 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
     canViewPhotos?: boolean;
   };
   if (!code) { res.status(400).json({ error: 'Missing code' }); return; }
-  const normalizedCode = code.trim().toUpperCase();
+  const normalizedCode = code.trim();
 
   try {
     // Only one active trainer allowed
@@ -179,16 +179,15 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
       res.status(409).json({ error: 'Already have an active trainer' }); return;
     }
 
-    // Find trainer by code
+    // Find trainer by permanent code (no TTL)
     const tp = await prisma.trainerProfile.findFirst({
       where: {
         connectionCode: normalizedCode,
-        connectionCodeExpiresAt: { gt: new Date() },
         verificationStatus: 'verified',
       },
       select: { chatId: true, fullName: true, specialization: true },
     });
-    if (!tp) { res.status(404).json({ error: 'Code not found or expired' }); return; }
+    if (!tp) { res.status(404).json({ error: 'Code not found' }); return; }
     if (tp.chatId === chatId) { res.status(400).json({ error: 'Cannot connect to yourself' }); return; }
 
     // Create or reactivate link

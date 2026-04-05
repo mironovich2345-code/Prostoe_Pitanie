@@ -8,16 +8,16 @@ const router = Router();
 // POST /api/expert/apply — submit trainer application
 router.post('/apply', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { fullName, socialLink, documentLink, specialization, bio } = req.body as {
+  const { fullName, socialLink, verificationPhotoData, specialization, bio } = req.body as {
     fullName?: string;
     socialLink?: string;
-    documentLink?: string;
+    verificationPhotoData?: string;
     specialization?: string;
     bio?: string;
   };
 
-  if (!fullName?.trim() || !socialLink?.trim() || !documentLink?.trim()) {
-    res.status(400).json({ error: 'fullName, socialLink, documentLink are required' });
+  if (!fullName?.trim() || !socialLink?.trim()) {
+    res.status(400).json({ error: 'fullName and socialLink are required' });
     return;
   }
 
@@ -29,7 +29,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),
-        documentLink: documentLink.trim(),
+        verificationPhotoData: verificationPhotoData ?? null,
         specialization: specialization?.trim() ?? null,
         bio: bio?.trim() ?? null,
         appliedAt: new Date(),
@@ -39,7 +39,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),
-        documentLink: documentLink.trim(),
+        verificationPhotoData: verificationPhotoData ?? null,
         specialization: specialization?.trim() ?? null,
         bio: bio?.trim() ?? null,
         appliedAt: new Date(),
@@ -51,7 +51,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
     const botToken = process.env.BOT_TOKEN ?? '';
     const adminChatId = process.env.ADMIN_CHAT_ID ?? '';
     if (!adminChatId) {
-      console.warn('[expert/apply] ADMIN_CHAT_ID is not set — admin notification skipped. Set this env var to receive trainer applications.');
+      console.warn('[expert/apply] ADMIN_CHAT_ID is not set — admin notification skipped.');
     }
     if (botToken && adminChatId) {
       const telegram = new Telegram(botToken);
@@ -67,7 +67,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         `🆔 Chat ID: <code>${chatId}</code>`,
         `📛 Имя: ${fullName.trim()}`,
         `🔗 Соцсеть: ${socialLink.trim()}`,
-        `📄 Документ: ${documentLink.trim()}`,
+        verificationPhotoData ? `📸 Фото верификации: прикреплено (base64)` : `📸 Фото верификации: не прикреплено`,
         specialization?.trim() ? `🏷 Специализация: ${specialization.trim()}` : null,
         bio?.trim() ? `📝 Bio: ${bio.trim()}` : null,
         ``,
@@ -93,7 +93,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         referralCode: trainerProfile.referralCode,
         fullName: trainerProfile.fullName,
         socialLink: trainerProfile.socialLink,
-        documentLink: trainerProfile.documentLink,
+        documentLink: null,
         appliedAt: trainerProfile.appliedAt,
       },
     });
