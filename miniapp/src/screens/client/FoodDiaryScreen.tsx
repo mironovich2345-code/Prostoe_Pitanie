@@ -6,11 +6,11 @@ import { Card } from '../../ui';
 import type { MealEntry } from '../../types';
 
 const MEAL_LABELS: Record<string, string> = {
-  breakfast: '🍳 Завтрак',
-  lunch:     '🍲 Обед',
-  dinner:    '🍽 Ужин',
-  snack:     '🍎 Перекус',
-  unknown:   '🍴 Прочее',
+  breakfast: 'Завтрак',
+  lunch:     'Обед',
+  dinner:    'Ужин',
+  snack:     'Перекус',
+  unknown:   'Прочее',
 };
 
 function fmtDate(iso: string) {
@@ -103,7 +103,9 @@ export default function FoodDiaryScreen() {
       ) : meals.length === 0 ? (
         /* Premium empty state */
         <div style={{ textAlign: 'center', padding: '52px 24px 40px' }}>
-          <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.25 }}>🍽</div>
+          <div style={{ marginBottom: 16, opacity: 0.2, display: 'flex', justifyContent: 'center' }}>
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+          </div>
           <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
             {isToday ? 'День ещё не начат' : 'В этот день пусто'}
           </div>

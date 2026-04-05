@@ -282,7 +282,9 @@ export default function ConnectTrainerScreen() {
   if (step === 'done') {
     return (
       <div className="screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center', gap: 16 }}>
-        <div style={{ fontSize: 64 }}>✅</div>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Тренер подключён!</div>
         <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.5 }}>
           {trainer?.fullName ?? 'Тренер'} теперь видит ваши данные с выбранными правами доступа.

@@ -87,7 +87,7 @@ export default function TrainerConnectionScreen() {
             style={{ fontSize: 14, marginBottom: 16 }}
             onClick={handleCopyLink}
           >
-            {copied ? '✓ Ссылка скопирована' : '📋 Скопировать ссылку'}
+            {copied ? '✓ Ссылка скопирована' : 'Скопировать ссылку'}
           </button>
 
           {/* Link display */}

@@ -91,7 +91,12 @@ export default function CoachAlertsDashboardScreen() {
       )}
 
       {notLoggedToday.length === 0 && expiringSoon.length === 0 && (
-        <div className="empty-state"><div className="empty-state-icon">✅</div><div>Всё в порядке</div></div>
+        <div className="empty-state">
+          <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', opacity: 0.3 }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>Всё в порядке</div>
+        </div>
       )}
     </div>
   );

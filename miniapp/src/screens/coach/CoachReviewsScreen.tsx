@@ -204,7 +204,9 @@ export default function CoachReviewsScreen() {
           background: 'var(--surface)', borderRadius: 'var(--r-xl)',
           border: '1px solid var(--border)', padding: '48px 24px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>⭐</div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', opacity: 0.25 }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Отзывов пока нет</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
             Клиенты смогут оставить отзыв после работы с вами

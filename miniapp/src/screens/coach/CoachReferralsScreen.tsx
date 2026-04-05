@@ -122,14 +122,14 @@ export default function CoachReferralsScreen() {
                     className="btn"
                     style={{ flex: 1, fontSize: 13, padding: '10px 12px' }}
                   >
-                    {isCopied ? '✓ Скопировано' : '📋 Скопировать'}
+                    {isCopied ? '✓ Скопировано' : 'Скопировать'}
                   </button>
                   <button
                     onClick={() => handleShare(offer.link, offer.title)}
                     className="btn btn-secondary"
                     style={{ flex: 1, fontSize: 13, padding: '10px 12px' }}
                   >
-                    📤 Поделиться
+                    Поделиться
                   </button>
                 </div>
               </div>
@@ -145,19 +145,19 @@ export default function CoachReferralsScreen() {
         border: '1px solid var(--border)', overflow: 'hidden',
       }}>
         {[
-          { icon: '🔒', text: 'Клиент закрепляется за оффером при первом переходе' },
-          { icon: '🔄', text: 'Повторный переход по другой ссылке ничего не меняет' },
-          { icon: '🚫', text: 'Самореферал не засчитывается' },
-        ].map((item, i, arr) => (
+          'Клиент закрепляется за оффером при первом переходе',
+          'Повторный переход по другой ссылке ничего не меняет',
+          'Самореферал не засчитывается',
+        ].map((text, i, arr) => (
           <div
-            key={item.text}
+            key={text}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
               borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
             }}
           >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
-            <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>{item.text}</span>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-3)', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>{text}</span>
           </div>
         ))}
       </div>

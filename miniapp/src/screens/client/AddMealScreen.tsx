@@ -9,10 +9,10 @@ import type { FoodAnalysis } from '../../types';
 type Step = 'select' | 'text' | 'photo' | 'result' | 'done';
 
 const MEAL_TYPES = [
-  { key: 'breakfast', label: '🍳 Завтрак' },
-  { key: 'lunch',     label: '🍲 Обед'    },
-  { key: 'dinner',    label: '🍽 Ужин'    },
-  { key: 'snack',     label: '🍎 Перекус' },
+  { key: 'breakfast', label: 'Завтрак' },
+  { key: 'lunch',     label: 'Обед'    },
+  { key: 'dinner',    label: 'Ужин'    },
+  { key: 'snack',     label: 'Перекус' },
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -371,7 +371,9 @@ export default function AddMealScreen() {
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', minHeight: '60vh', textAlign: 'center', gap: 16,
       }}>
-        <div style={{ fontSize: 64 }}>✅</div>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Приём сохранён!</div>
         <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
           {MEAL_TYPES.find(t => t.key === mealType)?.label ?? 'Приём'} добавлен в дневник
@@ -381,7 +383,7 @@ export default function AddMealScreen() {
             + Ещё
           </button>
           <button className="btn" style={{ flex: 1, fontSize: 14 }} onClick={() => navigate('/diary')}>
-            📖 Дневник
+            Дневник
           </button>
         </div>
       </div>
@@ -476,7 +478,7 @@ export default function AddMealScreen() {
             disabled={saving}
             onClick={() => { setResult(null); setPhotoPreview(null); setError(''); setStep('photo'); }}
           >
-            📷 Выбрать другое фото
+            Выбрать другое фото
           </button>
         )}
 
@@ -578,7 +580,9 @@ export default function AddMealScreen() {
               background: 'var(--surface)',
             }}
           >
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📷</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', opacity: 0.6 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </div>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
               Выбрать фото
             </div>
@@ -649,9 +653,9 @@ export default function AddMealScreen() {
           width: 48, height: 48, borderRadius: 14,
           background: 'var(--accent-soft)', border: '1px solid rgba(215,255,63,0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, flexShrink: 0,
+          flexShrink: 0, color: 'var(--accent)',
         }}>
-          📝
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Текстом</div>
@@ -670,9 +674,9 @@ export default function AddMealScreen() {
           width: 48, height: 48, borderRadius: 14,
           background: 'rgba(126,184,240,0.14)', border: '1px solid rgba(126,184,240,0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, flexShrink: 0,
+          flexShrink: 0, color: '#7EB8F0',
         }}>
-          📷
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Фото</div>
@@ -687,9 +691,9 @@ export default function AddMealScreen() {
           width: 48, height: 48, borderRadius: 14,
           background: 'var(--surface-2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, flexShrink: 0,
+          flexShrink: 0, color: 'var(--text-3)',
         }}>
-          🎤
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>Голосом</div>

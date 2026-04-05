@@ -6,15 +6,15 @@ import NutritionSummary from '../../components/NutritionSummary';
 import type { MealEntry, UserProfile } from '../../types';
 
 const MEAL_RATINGS = [
-  { value: 'good',    label: '👍 Хорошо' },
-  { value: 'ok',      label: '👌 Нормально' },
-  { value: 'improve', label: '↗️ Улучшить' },
+  { value: 'good',    label: 'Хорошо' },
+  { value: 'ok',      label: 'Нормально' },
+  { value: 'improve', label: 'Улучшить' },
 ] as const;
 
 const DAY_RATINGS = [
-  { value: 'excellent', label: '⭐ Отлично' },
-  { value: 'good',      label: '👍 Хорошо' },
-  { value: 'improve',   label: '↗️ Улучшить' },
+  { value: 'excellent', label: 'Отлично' },
+  { value: 'good',      label: 'Хорошо' },
+  { value: 'improve',   label: 'Улучшить' },
 ] as const;
 
 function MealRatingBar({ mealId, existingRating }: { mealId: number; existingRating?: string }) {

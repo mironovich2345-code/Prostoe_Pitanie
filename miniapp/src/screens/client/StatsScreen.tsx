@@ -33,9 +33,9 @@ const TABS: { key: Tab; label: string }[] = [
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 const SOURCE_ICONS: Record<string, string> = {
-  text:  '📝',
-  photo: '📷',
-  voice: '🎤',
+  text:  '·',
+  photo: '·',
+  voice: '·',
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -45,11 +45,11 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const MEAL_LABELS: Record<string, string> = {
-  breakfast: '🍳 Завтрак',
-  lunch:     '🍲 Обед',
-  dinner:    '🍽 Ужин',
-  snack:     '🍎 Перекус',
-  unknown:   '🍴 Прочее',
+  breakfast: 'Завтрак',
+  lunch:     'Обед',
+  dinner:    'Ужин',
+  snack:     'Перекус',
+  unknown:   'Прочее',
 };
 
 function computeTotals(meals: MealEntry[]) {
@@ -238,7 +238,9 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
           cursor: isMediaType ? 'pointer' : 'default',
         }}
       >
-        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1, opacity: 0.65 }}>{srcIcon}</span>
+        <span style={{ fontSize: 11, flexShrink: 0, marginTop: 2, opacity: 0.5, color: 'var(--text-3)', fontWeight: 600, minWidth: 10 }}>
+          {SOURCE_LABELS[meal.sourceType] ? SOURCE_LABELS[meal.sourceType].charAt(0) : '·'}
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>
             {meal.text || (isMediaType ? `${SOURCE_LABELS[meal.sourceType]} запись` : '—')}
@@ -303,7 +305,9 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
   if (groups.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '24px 16px' }}>
-        <div style={{ fontSize: 32, opacity: 0.2, marginBottom: 8 }}>🍽</div>
+        <div style={{ opacity: 0.18, marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+        </div>
         <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Нет записей за этот день</div>
       </div>
     );
@@ -576,7 +580,9 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
 
       {activeDays === 0 ? (
         <div style={{ textAlign: 'center', padding: '52px 16px' }}>
-          <div style={{ fontSize: 40, opacity: 0.2, marginBottom: 12 }}>📊</div>
+          <div style={{ opacity: 0.2, marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет данных за неделю</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Начни записывать питание, чтобы увидеть статистику</div>
         </div>
@@ -773,7 +779,9 @@ function WeightView() {
 
       {history.length === 0 ? (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '32px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: 32, opacity: 0.2, marginBottom: 10 }}>⚖️</div>
+          <div style={{ opacity: 0.2, marginBottom: 10, display: 'flex', justifyContent: 'center' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          </div>
           <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600, marginBottom: 4 }}>История веса пуста</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Записи добавляются через Telegram-бот</div>
         </div>

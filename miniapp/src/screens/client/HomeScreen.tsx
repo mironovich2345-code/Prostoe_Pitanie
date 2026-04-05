@@ -10,10 +10,10 @@ import type { BootstrapData, MealEntry, UserProfile } from '../../types';
 interface Props { bootstrap: BootstrapData; }
 
 const MEAL_SECTIONS = [
-  { type: 'breakfast', icon: '🍳', label: 'Завтрак' },
-  { type: 'lunch',     icon: '🍲', label: 'Обед'    },
-  { type: 'dinner',    icon: '🍽', label: 'Ужин'    },
-  { type: 'snack',     icon: '🍎', label: 'Перекус'  },
+  { type: 'breakfast', label: 'Завтрак' },
+  { type: 'lunch',     label: 'Обед'    },
+  { type: 'dinner',    label: 'Ужин'    },
+  { type: 'snack',     label: 'Перекус' },
 ] as const;
 
 // ─── SVG Ring primitive ────────────────────────────────────────────────────
@@ -569,7 +569,7 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
 
 // ─── Meal Section Card ─────────────────────────────────────────────────────
 
-function MealSectionCard({ icon, label, meals, onAdd }: { icon: string; label: string; meals: MealEntry[]; onAdd: () => void }) {
+function MealSectionCard({ label, meals, onAdd }: { label: string; meals: MealEntry[]; onAdd: () => void }) {
   const totalCal = meals.reduce((s, m) => s + (m.caloriesKcal ?? 0), 0);
   const hasMeals = meals.length > 0;
 
@@ -577,7 +577,6 @@ function MealSectionCard({ icon, label, meals, onAdd }: { icon: string; label: s
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', marginBottom: 8, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: hasMeals ? '1px solid var(--border)' : 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ fontSize: 18 }}>{icon}</span>
           <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{label}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -697,7 +696,7 @@ export default function HomeScreen({ bootstrap }: Props) {
       </div>
 
       {MEAL_SECTIONS.map(s => (
-        <MealSectionCard key={s.type} icon={s.icon} label={s.label} meals={mealsByType[s.type] ?? []} onAdd={() => navigate('/add')} />
+        <MealSectionCard key={s.type} label={s.label} meals={mealsByType[s.type] ?? []} onAdd={() => navigate('/add')} />
       ))}
 
       {(sub || trainer) && (
@@ -717,7 +716,7 @@ export default function HomeScreen({ bootstrap }: Props) {
           {trainer && (
             <div className="info-row" onClick={() => navigate('/trainer')}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 16 }}>🏋</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: 'var(--text-3)' }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Тренер</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -260,7 +260,9 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
   if (!weight && !isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-        <div style={{ fontSize: 44, opacity: 0.2, marginBottom: 14 }}>⚖️</div>
+        <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        </div>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Вес не указан</div>
         <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.5 }}>
           Добавь данные о весе, чтобы отслеживать прогресс и динамику изменений
@@ -503,7 +505,9 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
         padding: '32px 20px', border: '1px solid var(--border)',
         textAlign: 'center', marginBottom: 10,
       }}>
-        <div style={{ fontSize: 48, opacity: 0.2, marginBottom: 14 }}>🏋</div>
+        <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
           Тренер не подключён
         </div>
@@ -551,7 +555,9 @@ function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
   if (!p?.dailyCaloriesKcal) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-        <div style={{ fontSize: 44, opacity: 0.2, marginBottom: 14 }}>🎯</div>
+        <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
           Нормы не рассчитаны
         </div>
@@ -632,14 +638,6 @@ function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
         </div>
       )}
 
-      <button
-        onClick={() => navigate('/profile/edit-data')}
-        className="btn btn-secondary"
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', fontSize: 14, marginTop: 6 }}
-      >
-        <span>Изменить физические данные</span>
-        <span style={{ color: 'var(--text-3)' }}>›</span>
-      </button>
     </div>
   );
 }

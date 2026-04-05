@@ -6,10 +6,10 @@ import type { BootstrapData, TrainerRating } from '../../types';
 interface Props { bootstrap: BootstrapData; }
 
 const RATING_LABELS: Record<string, { label: string; color: string }> = {
-  excellent: { label: '⭐ Отлично',    color: 'var(--accent)' },
-  good:      { label: '👍 Хорошо',     color: '#7EB8F0' },
-  ok:        { label: '👌 Нормально',  color: 'var(--text-2)' },
-  improve:   { label: '↗️ Улучшить',   color: 'var(--warn)' },
+  excellent: { label: 'Отлично',    color: 'var(--accent)' },
+  good:      { label: 'Хорошо',     color: '#7EB8F0' },
+  ok:        { label: 'Нормально',  color: 'var(--text-2)' },
+  improve:   { label: 'Улучшить',   color: 'var(--warn)' },
 };
 
 export default function MyTrainerScreen({ bootstrap }: Props) {
@@ -49,7 +49,9 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Мой тренер</div>
         </div>
         <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-          <div style={{ fontSize: 56, opacity: 0.2, marginBottom: 16 }}>🏋</div>
+          <div style={{ opacity: 0.2, marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Тренер не подключён</div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 28, maxWidth: 260, margin: '0 auto 28px' }}>
             Подключи персонального тренера — он будет видеть твой дневник и оценивать питание
@@ -60,13 +62,13 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </div>
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 16 }}>
           {[
-            { icon: '📊', label: 'Тренер видит твою статистику питания' },
-            { icon: '⭐', label: 'Получай оценки от тренера по каждому приёму' },
-            { icon: '🔒', label: 'Ты сам выбираешь, какие данные доступны' },
-          ].map((item, i, arr) => (
-            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>{item.icon}</span>
-              <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{item.label}</span>
+            'Тренер видит твою статистику питания',
+            'Получай оценки от тренера по каждому приёму',
+            'Ты сам выбираешь, какие данные доступны',
+          ].map((label, i, arr) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.4 }}>{label}</span>
             </div>
           ))}
         </div>
@@ -113,9 +115,9 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
           {[
-            trainer.fullHistoryAccess ? '📂 Вся история' : '📅 С момента подключения',
-            trainer.canViewPhotos ? '📷 Видит фото' : '🚫 Без фото',
-            '📊 Нормы и метрики',
+            trainer.fullHistoryAccess ? 'Вся история' : 'С момента подключения',
+            trainer.canViewPhotos ? 'Видит фото' : 'Без фото',
+            'Нормы и метрики',
           ].map(tag => (
             <div key={tag} style={{ background: 'var(--surface-2)', borderRadius: 20, padding: '5px 12px', fontSize: 12, color: 'var(--text-2)', border: '1px solid var(--border)' }}>
               {tag}
@@ -129,7 +131,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
           disabled={isPending}
           onClick={() => historyMutation.mutate(!trainer.fullHistoryAccess)}
         >
-          {historyMutation.isPending ? 'Сохраняем...' : trainer.fullHistoryAccess ? '📅 Ограничить историю' : '📂 Дать полный доступ к истории'}
+          {historyMutation.isPending ? 'Сохраняем...' : trainer.fullHistoryAccess ? 'Ограничить историю' : 'Дать полный доступ к истории'}
         </button>
       </div>
 

@@ -57,7 +57,9 @@ export default function NotificationSettingsScreen() {
 
           {mealReminders.length === 0 ? (
             <div className="empty-state" style={{ marginBottom: 0 }}>
-              <div className="empty-state-icon">🔔</div>
+              <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', opacity: 0.3 }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>Нет напоминаний</div>
               <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>Добавь первое напоминание о приёме пищи</div>
               <button
