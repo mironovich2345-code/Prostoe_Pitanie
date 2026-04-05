@@ -434,7 +434,8 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
     const connectedDate = new Date(trainer.connectedAt).toLocaleDateString('ru-RU', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
-    const initial = trainer.name ? trainer.name.charAt(0).toUpperCase() : '?';
+    const trainerName = trainer.fullName?.trim() || 'Тренер';
+    const initial = trainerName.charAt(0).toUpperCase();
 
     return (
       <div>
@@ -446,15 +447,19 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
             <div style={{
               width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-              background: 'var(--surface-2)', border: '2px solid var(--border)',
+              background: trainer.avatarData ? 'transparent' : 'var(--accent-soft)',
+              border: '2px solid rgba(215,255,63,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 22, fontWeight: 700, color: 'var(--text)',
+              fontSize: 22, fontWeight: 700, color: 'var(--accent)', overflow: 'hidden',
             }}>
-              {initial}
+              {trainer.avatarData
+                ? <img src={trainer.avatarData} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initial
+              }
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>
-                {trainer.name ?? 'Тренер'}
+                {trainerName}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Подключён с {connectedDate}</div>
             </div>

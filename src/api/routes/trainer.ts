@@ -4,6 +4,13 @@ import prisma from '../../db';
 
 const router = Router();
 
+/** Derive a human display name for a client, preferring trainer alias > preferredName > short fallback */
+function clientDisplayName(alias: string | null | undefined, preferredName: string | null | undefined, chatId: string): string {
+  if (alias?.trim()) return alias.trim();
+  if (preferredName?.trim()) return preferredName.trim();
+  return `Клиент …${chatId.slice(-4)}`;
+}
+
 // PATCH /api/trainer/profile — update fullName and/or avatarData
 router.patch('/profile', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
@@ -43,11 +50,22 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
     ]);
     const profileMap = Object.fromEntries(profiles.map(p => [p.chatId, p]));
     const subMap = Object.fromEntries(subscriptions.map(s => [s.chatId, s]));
-    const clients = links.map(link => ({
-      link: { id: link.id, clientId: link.clientId, status: link.status, fullHistoryAccess: link.fullHistoryAccess, connectedAt: link.connectedAt },
-      profile: profileMap[link.clientId] ?? null,
-      subscription: subMap[link.clientId] ?? null,
-    }));
+    const clients = links.map(link => {
+      const profile = profileMap[link.clientId] ?? null;
+      return {
+        link: {
+          id: link.id,
+          clientId: link.clientId,
+          status: link.status,
+          fullHistoryAccess: link.fullHistoryAccess,
+          connectedAt: link.connectedAt,
+          clientAlias: link.clientAlias ?? null,
+        },
+        profile: profile,
+        subscription: subMap[link.clientId] ?? null,
+        displayName: clientDisplayName(link.clientAlias, profile?.preferredName, link.clientId),
+      };
+    });
     res.json({ clients });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
@@ -70,8 +88,40 @@ router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
       prisma.userProfile.findUnique({ where: { chatId: clientId } }),
       prisma.subscription.findUnique({ where: { chatId: clientId } }),
     ]);
-    res.json({ link, profile, subscription });
+    res.json({
+      link: {
+        id: link.id,
+        status: link.status,
+        fullHistoryAccess: link.fullHistoryAccess,
+        connectedAt: link.connectedAt,
+        clientAlias: link.clientAlias ?? null,
+      },
+      profile,
+      subscription,
+      displayName: clientDisplayName(link.clientAlias, profile?.preferredName, clientId),
+    });
   } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/trainer/clients/:clientId/alias — set trainer's private label for a client
+router.patch('/clients/:clientId/alias', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const clientId = req.params['clientId'] as string;
+  const { alias } = req.body as { alias?: string };
+  try {
+    const link = await prisma.trainerClientLink.findFirst({
+      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
+    });
+    if (!link) { res.status(404).json({ error: 'Client link not found' }); return; }
+    const updated = await prisma.trainerClientLink.update({
+      where: { id: link.id },
+      data: { clientAlias: alias?.trim() || null },
+    });
+    res.json({ ok: true, clientAlias: updated.clientAlias });
+  } catch (err) {
+    console.error('[trainer/clients/:clientId/alias PATCH]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -119,6 +169,7 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
       weightHistory: weights,
       profile,
       canViewPhotos: link.canViewPhotos,
+      displayName: clientDisplayName(link.clientAlias, profile?.preferredName, clientId),
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
@@ -138,19 +189,32 @@ router.get('/alerts', async (req: AuthRequest, res: Response) => {
       where: { trainerId: chatId, status: 'active' },
     });
     const clientIds = links.map(l => l.clientId);
+    const aliasMap = Object.fromEntries(links.map(l => [l.clientId, l.clientAlias]));
+
     const start = new Date(); start.setHours(0,0,0,0);
     const end = new Date(); end.setHours(23,59,59,999);
-    const [todayMeals, subscriptions] = await Promise.all([
+    const [todayMeals, subscriptions, profiles] = await Promise.all([
       prisma.mealEntry.findMany({ where: { chatId: { in: clientIds }, createdAt: { gte: start, lte: end } } }),
       prisma.subscription.findMany({ where: { chatId: { in: clientIds } } }),
+      prisma.userProfile.findMany({ where: { chatId: { in: clientIds } }, select: { chatId: true, preferredName: true } }),
     ]);
+    const nameMap = Object.fromEntries(profiles.map(p => [p.chatId, p.preferredName]));
     const activeToday = new Set(todayMeals.map(m => m.chatId));
-    const notLoggedToday = clientIds.filter(id => !activeToday.has(id));
-    const expiringSoon = subscriptions.filter(s => {
-      if (!s.currentPeriodEnd) return false;
-      const daysLeft = (s.currentPeriodEnd.getTime() - Date.now()) / 86400000;
-      return daysLeft >= 0 && daysLeft <= 3;
-    });
+    const notLoggedToday = clientIds
+      .filter(id => !activeToday.has(id))
+      .map(id => ({ chatId: id, displayName: clientDisplayName(aliasMap[id], nameMap[id], id) }));
+    const expiringSoon = subscriptions
+      .filter(s => {
+        if (!s.currentPeriodEnd) return false;
+        const daysLeft = (s.currentPeriodEnd.getTime() - Date.now()) / 86400000;
+        return daysLeft >= 0 && daysLeft <= 3;
+      })
+      .map(s => ({
+        id: s.id,
+        chatId: s.chatId,
+        currentPeriodEnd: s.currentPeriodEnd,
+        displayName: clientDisplayName(aliasMap[s.chatId], nameMap[s.chatId], s.chatId),
+      }));
     res.json({ notLoggedToday, expiringSoon, totalClients: clientIds.length, activeToday: activeToday.size });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });

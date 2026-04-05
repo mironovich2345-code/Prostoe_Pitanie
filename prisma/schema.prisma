@@ -91,6 +91,7 @@ model TrainerClientLink {
   status            String   @default("active")
   fullHistoryAccess Boolean  @default(false)
   canViewPhotos     Boolean  @default(true)
+  clientAlias       String?  // trainer-private label for this client
   connectedAt       DateTime @default(now())
   disconnectedAt    DateTime?
   @@unique([trainerId, clientId])

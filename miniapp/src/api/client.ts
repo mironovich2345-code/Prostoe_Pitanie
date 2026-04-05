@@ -113,6 +113,8 @@ export const api = {
     request<{ review: import('../types').TrainerReview }>(`/api/reviews/trainer/${id}/comment`, { method: 'PATCH', body: JSON.stringify({ trainerComment }) }),
   trainerPatchProfile: (data: { fullName?: string; avatarData?: string | null }) =>
     request<{ ok: boolean; fullName: string | null; avatarData: string | null }>('/api/trainer/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+  trainerSetClientAlias: (clientId: string, alias: string) =>
+    request<{ ok: boolean; clientAlias: string | null }>(`/api/trainer/clients/${encodeURIComponent(clientId)}/alias`, { method: 'PATCH', body: JSON.stringify({ alias }) }),
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralMyInvited: () =>

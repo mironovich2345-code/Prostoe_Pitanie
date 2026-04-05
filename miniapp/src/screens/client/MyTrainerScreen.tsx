@@ -74,6 +74,8 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
     );
   }
 
+  const trainerDisplayName = trainer.fullName?.trim() || 'Тренер';
+  const trainerInitial = trainerDisplayName.charAt(0).toUpperCase();
   const connectedDate = new Date(trainer.connectedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
@@ -86,11 +88,20 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
       {/* Trainer card */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-xl)', padding: 20, border: '1px solid var(--border)', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-          <div style={{ width: 52, height: 52, borderRadius: '50%', flexShrink: 0, background: 'var(--accent-soft)', border: '2px solid rgba(215,255,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>
-            {trainer.name?.charAt(0).toUpperCase() ?? '?'}
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+            background: trainer.avatarData ? 'transparent' : 'var(--accent-soft)',
+            border: '2px solid rgba(215,255,63,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, fontWeight: 700, color: 'var(--accent)', overflow: 'hidden',
+          }}>
+            {trainer.avatarData
+              ? <img src={trainer.avatarData} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : trainerInitial
+            }
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{trainer.name ?? 'Тренер'}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{trainerDisplayName}</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Подключён с {connectedDate}</div>
           </div>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent)' }}>Активен</span>

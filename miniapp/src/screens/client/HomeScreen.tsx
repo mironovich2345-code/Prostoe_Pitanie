@@ -721,7 +721,7 @@ export default function HomeScreen({ bootstrap }: Props) {
                 <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Тренер</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>{trainer.name ?? 'Подключён'}</span>
+                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>{trainer.fullName?.trim() || 'Подключён'}</span>
                 <span style={{ color: 'var(--text-3)', fontSize: 16 }}>›</span>
               </div>
             </div>

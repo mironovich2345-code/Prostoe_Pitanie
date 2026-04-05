@@ -110,6 +110,7 @@ export default function CoachClientStatsScreen() {
   const todayMeals: MealEntry[] = data?.todayMeals ?? [];
   const recentMeals: MealEntry[] = data?.recentMeals ?? [];
   const profile = data?.profile as UserProfile | null;
+  const displayName = (data as { displayName?: string })?.displayName ?? `Клиент …${clientId?.slice(-4)}`;
   const todayProt = todayMeals.reduce((s, m) => s + (m.proteinG ?? 0), 0);
   const todayFat = todayMeals.reduce((s, m) => s + (m.fatG ?? 0), 0);
   const todayCarbs = todayMeals.reduce((s, m) => s + (m.carbsG ?? 0), 0);
@@ -130,7 +131,7 @@ export default function CoachClientStatsScreen() {
       >
         ← Назад
       </button>
-      <h1 style={{ marginBottom: 16 }}>📊 Статистика клиента</h1>
+      <h1 style={{ marginBottom: 16, fontSize: 18 }}>Статистика · {displayName}</h1>
 
       {/* Today summary */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-xl)', padding: '18px', border: '1px solid var(--border)', marginBottom: 12 }}>

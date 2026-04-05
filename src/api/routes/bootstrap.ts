@@ -16,13 +16,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
-    let connectedTrainerName: string | null = null;
+    let connectedTrainerProfile: { fullName: string | null; avatarData: string | null } | null = null;
     if (clientLink) {
-      const trainerUser = await prisma.userProfile.findUnique({
+      connectedTrainerProfile = await prisma.trainerProfile.findUnique({
         where: { chatId: clientLink.trainerId },
-        select: { chatId: true }
+        select: { fullName: true, avatarData: true },
       });
-      connectedTrainerName = trainerUser ? `Тренер (${clientLink.trainerId})` : null;
     }
 
     res.json({
@@ -66,7 +65,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       } : null,
       connectedTrainer: clientLink ? {
         trainerId: clientLink.trainerId,
-        name: connectedTrainerName,
+        fullName: connectedTrainerProfile?.fullName ?? null,
+        avatarData: connectedTrainerProfile?.avatarData ?? null,
         fullHistoryAccess: clientLink.fullHistoryAccess,
         canViewPhotos: clientLink.canViewPhotos,
         connectedAt: clientLink.connectedAt,

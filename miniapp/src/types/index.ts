@@ -63,7 +63,8 @@ export interface SubscriptionInfo {
 
 export interface ConnectedTrainerInfo {
   trainerId: string;
-  name: string | null;
+  fullName: string | null;
+  avatarData: string | null;
   fullHistoryAccess: boolean;
   canViewPhotos: boolean;
   connectedAt: string;
