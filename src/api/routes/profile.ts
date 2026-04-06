@@ -137,4 +137,25 @@ router.patch('/notifications', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/profile/avatar — store base64 avatar for user profile
+router.patch('/avatar', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { avatarData } = req.body as { avatarData?: string | null };
+  if (avatarData !== null && avatarData !== undefined && typeof avatarData !== 'string') {
+    res.status(400).json({ error: 'Invalid avatarData' });
+    return;
+  }
+  try {
+    await prisma.userProfile.upsert({
+      where: { chatId },
+      update: { avatarData: avatarData ?? null },
+      create: { chatId, avatarData: avatarData ?? null },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[profile/avatar]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

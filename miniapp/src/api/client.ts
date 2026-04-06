@@ -55,6 +55,8 @@ export const api = {
     request<{ ok: boolean }>(`/api/reminders/${id}`, { method: 'DELETE' }),
   patchProfileData: (data: { heightCm?: number; currentWeightKg?: number; desiredWeightKg?: number; sex?: string; birthDate?: string; activityLevel?: number; city?: string; timezone?: string; preferredName?: string }) =>
     request<{ ok: boolean; profile: import('../types').UserProfile | null }>('/api/profile/data', { method: 'PATCH', body: JSON.stringify(data) }),
+  patchProfileAvatar: (avatarData: string | null) =>
+    request<{ ok: boolean }>('/api/profile/avatar', { method: 'PATCH', body: JSON.stringify({ avatarData }) }),
   logWeight: (weightKg: number) =>
     request<{ ok: boolean; weightEntry: { id: number; weightKg: number; createdAt: string } }>('/api/profile/weight', { method: 'POST', body: JSON.stringify({ weightKg }) }),
   subscription: () => request<{ subscription: import('../types').SubscriptionInfo | null }>('/api/subscription'),

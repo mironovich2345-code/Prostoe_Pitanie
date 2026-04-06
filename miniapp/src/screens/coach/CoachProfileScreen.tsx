@@ -89,7 +89,9 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(tp?.fullName ?? '');
   const [localName, setLocalName] = useState(tp?.fullName ?? '');
-  const [localAvatar, setLocalAvatar] = useState<string | null>(tp?.avatarData ?? null);
+  // Use trainer avatar; fall back to client profile avatar (display-only, not auto-saved)
+  const clientAvatar = bootstrap.profile?.avatarData ?? null;
+  const [localAvatar, setLocalAvatar] = useState<string | null>(tp?.avatarData ?? clientAvatar ?? null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -179,7 +181,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         {/* Name + status */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingName ? (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <input
                 value={nameVal}
                 onChange={e => setNameVal(e.target.value)}
@@ -187,26 +189,33 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
                 autoFocus
                 placeholder="Ваше имя"
                 style={{
-                  flex: 1, fontSize: 16, fontWeight: 600,
+                  width: '100%', boxSizing: 'border-box',
+                  fontSize: 16, fontWeight: 600,
                   background: 'var(--surface-2)', border: '1px solid var(--accent)',
-                  borderRadius: 8, padding: '6px 10px', color: 'var(--text)',
+                  borderRadius: 8, padding: '8px 10px', color: 'var(--text)',
                   outline: 'none',
                 }}
               />
-              <button
-                onClick={saveName}
-                disabled={patchMutation.isPending}
-                className="btn"
-                style={{ fontSize: 13, padding: '6px 14px', flexShrink: 0 }}
-              >
-                {patchMutation.isPending ? '...' : 'OK'}
-              </button>
-              <button
-                onClick={() => { setNameVal(localName); setEditingName(false); }}
-                style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text-3)', cursor: 'pointer', padding: '0 2px' }}
-              >
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={saveName}
+                  disabled={patchMutation.isPending}
+                  className="btn"
+                  style={{ flex: 1, fontSize: 14 }}
+                >
+                  {patchMutation.isPending ? '...' : 'Сохранить'}
+                </button>
+                <button
+                  onClick={() => { setNameVal(localName); setEditingName(false); }}
+                  style={{
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '0 14px', fontSize: 14,
+                    color: 'var(--text-2)', cursor: 'pointer',
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

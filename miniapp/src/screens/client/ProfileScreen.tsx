@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData, TrainerVerificationStatus } from '../../types';
 import { Chip, ListCard, ListItem } from '../../ui';
@@ -63,6 +63,27 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
     ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
+  const [localAvatar, setLocalAvatar] = useState<string | null>(p?.avatarData ?? null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+
+  const avatarMutation = useMutation({
+    mutationFn: api.patchProfileAvatar,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bootstrap'] }),
+  });
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setLocalAvatar(base64);
+      avatarMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div style={{
       background: 'var(--surface)',
@@ -74,15 +95,43 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
       {/* Top row: avatar + info + role switcher */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: (p?.currentWeightKg || p?.desiredWeightKg) ? 16 : 0 }}>
 
-        {/* Initials avatar */}
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-          background: 'var(--accent-soft)',
-          border: '2px solid rgba(215,255,63,0.2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 26, fontWeight: 700, color: 'var(--accent)',
-        }}>
-          {initial}
+        {/* Avatar with upload button */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: localAvatar ? 'transparent' : 'var(--accent-soft)',
+            border: '2px solid rgba(215,255,63,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26, fontWeight: 700, color: 'var(--accent)',
+            overflow: 'hidden',
+          }}>
+            {localAvatar
+              ? <img src={localAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initial
+            }
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              position: 'absolute', bottom: 0, right: 0,
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'var(--accent)', border: '2px solid var(--bg)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: '#000', padding: 0,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleAvatarChange}
+          />
         </div>
 
         {/* Name + meta */}
