@@ -112,7 +112,7 @@ function ReviewForm({ existing }: { existing: TrainerReview | null }) {
         marginBottom: 12, textAlign: 'center',
       }}>
         <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16, fontWeight: 500 }}>
-          Оцените работу тренера
+          Оцените работу эксперта
         </div>
         <StarRating value={rating} onChange={setRating} />
         {rating > 0 && (
@@ -163,10 +163,10 @@ function ReviewForm({ existing }: { existing: TrainerReview | null }) {
       }}>
         <div>
           <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>
-            Тренер может ответить
+            Эксперт может ответить
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-            Тренер сможет оставить комментарий к вашему отзыву
+            Эксперт сможет оставить комментарий к вашему отзыву
           </div>
         </div>
         <Toggle value={allowComment} onChange={setAllowComment} />

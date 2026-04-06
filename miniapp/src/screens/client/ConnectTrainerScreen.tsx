@@ -8,13 +8,13 @@ type Step = 'code' | 'preview' | 'rights' | 'done';
 type ConnectMode = 'code' | 'direct';  // 'code' = via code, 'direct' = via trainerId from list
 
 const HISTORY_OPTIONS = [
-  { value: false, label: 'С момента подключения', desc: 'Тренер видит только новые записи' },
-  { value: true,  label: 'Вся история',            desc: 'Тренер видит все ваши записи' },
+  { value: false, label: 'С момента подключения', desc: 'Эксперт видит только новые записи' },
+  { value: true,  label: 'Вся история',            desc: 'Эксперт видит все ваши записи' },
 ];
 
 const PHOTOS_OPTIONS = [
-  { value: true,  label: 'С фотографиями', desc: 'Тренер видит прикреплённые фото' },
-  { value: false, label: 'Без фотографий', desc: 'Тренер видит только текст и данные' },
+  { value: true,  label: 'С фотографиями', desc: 'Эксперт видит прикреплённые фото' },
+  { value: false, label: 'Без фотографий', desc: 'Эксперт видит только текст и данные' },
 ];
 
 // ─── QR scanner ────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ function QrScannerModal({ onCode, onClose }: QrScannerModalProps) {
         {!error && (
           <div style={{ padding: '16px 32px 32px', textAlign: 'center', flexShrink: 0 }}>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-              Наведите камеру на QR-код тренера
+              Наведите камеру на QR-код эксперта
             </div>
           </div>
         )}
@@ -239,7 +239,7 @@ export default function ConnectTrainerScreen() {
       setStep('preview');
     },
     onError: (err: Error) => {
-      setLookupError(err.message.includes('not found') ? 'Код не найден или истёк. Попроси тренера обновить код.' : err.message);
+      setLookupError(err.message.includes('not found') ? 'Код не найден или истёк. Попроси эксперта обновить код.' : err.message);
     },
   });
 
@@ -251,7 +251,7 @@ export default function ConnectTrainerScreen() {
       setStep('preview');
     },
     onError: () => {
-      setLookupError('Тренер не найден или недоступен.');
+      setLookupError('Эксперт не найден или недоступен.');
     },
   });
 
@@ -285,12 +285,12 @@ export default function ConnectTrainerScreen() {
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Тренер подключён!</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Эксперт подключён!</div>
         <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.5 }}>
-          {trainer?.fullName ?? 'Тренер'} теперь видит ваши данные с выбранными правами доступа.
+          {trainer?.fullName ?? 'Эксперт'} теперь видит ваши данные с выбранными правами доступа.
         </div>
         <button className="btn" style={{ marginTop: 8, padding: '13px 32px' }} onClick={() => navigate('/trainer')}>
-          Перейти к тренеру
+          Перейти к эксперту
         </button>
       </div>
     );
@@ -306,7 +306,7 @@ export default function ConnectTrainerScreen() {
           ‹
         </button>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
-          {step === 'code' ? 'Подключить тренера' : step === 'preview' ? 'Ваш тренер' : 'Права доступа'}
+          {step === 'code' ? 'Подключить эксперта' : step === 'preview' ? 'Ваш эксперт' : 'Права доступа'}
         </div>
       </div>
 
@@ -314,7 +314,7 @@ export default function ConnectTrainerScreen() {
       {step === 'code' && (
         <div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
-            Попросите тренера показать вам 5-значный код для подключения и введите его ниже.
+            Попросите эксперта показать вам 6-значный код для подключения и введите его ниже.
           </div>
           <div style={{ marginBottom: 16 }}>
             <input
@@ -340,7 +340,7 @@ export default function ConnectTrainerScreen() {
             onClick={() => { setConnectMode('code'); lookupMutation.mutate(); }}
             style={{ fontSize: 15, marginBottom: 10 }}
           >
-            {lookupMutation.isPending ? 'Поиск...' : 'Найти тренера →'}
+            {lookupMutation.isPending ? 'Поиск...' : 'Найти эксперта →'}
           </button>
 
           {/* QR scan button */}
@@ -358,7 +358,7 @@ export default function ConnectTrainerScreen() {
             style={{ fontSize: 14 }}
             onClick={() => navigate('/trainers')}
           >
-            Найти тренера в каталоге
+            Найти эксперта в каталоге
           </button>
         </div>
       )}
@@ -381,7 +381,7 @@ export default function ConnectTrainerScreen() {
               </div>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
-                  {trainer.fullName ?? 'Тренер'}
+                  {trainer.fullName ?? 'Эксперт'}
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent-soft)', borderRadius: 20, padding: '3px 10px' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>✓ Верифицирован</span>
@@ -398,13 +398,13 @@ export default function ConnectTrainerScreen() {
             )}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginBottom: 20 }}>
-            Это ваш тренер? Нажмите «Продолжить» чтобы выбрать права доступа.
+            Это ваш эксперт? Нажмите «Продолжить» чтобы выбрать права доступа.
           </div>
           <button className="btn" style={{ fontSize: 15, marginBottom: 10 }} onClick={() => setStep('rights')}>
             Продолжить →
           </button>
           <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={() => { setStep('code'); setTrainer(null); setConnectMode('code'); }}>
-            Это не мой тренер
+            Это не мой эксперт
           </button>
         </div>
       )}
@@ -413,7 +413,7 @@ export default function ConnectTrainerScreen() {
       {step === 'rights' && (
         <div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
-            Выберите, какой доступ получит тренер к вашим данным. Вы сможете изменить это позже.
+            Выберите, какой доступ получит эксперт к вашим данным. Вы сможете изменить это позже.
           </div>
 
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
@@ -473,7 +473,7 @@ export default function ConnectTrainerScreen() {
           {connectMutation.isError && (
             <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
               {(connectMutation.error as Error).message.includes('active trainer')
-                ? 'У вас уже есть активный тренер. Сначала отключите его.'
+                ? 'У вас уже есть активный эксперт. Сначала отключите его.'
                 : (connectMutation.error as Error).message || 'Ошибка подключения. Попробуйте ещё раз.'}
             </div>
           )}

@@ -32,7 +32,7 @@ export default function RoleSwitcher({ mode, onChange }: Props) {
               whiteSpace: 'nowrap',
             }}
           >
-            {m === 'client' ? 'Клиент' : 'Тренер'}
+            {m === 'client' ? 'Клиент' : 'Эксперт'}
           </button>
         );
       })}

@@ -11,7 +11,7 @@ interface TrainerItem {
 
 function TrainerCard({ trainer }: { trainer: TrainerItem }) {
   const navigate = useNavigate();
-  const name = trainer.fullName?.trim() || 'Тренер';
+  const name = trainer.fullName?.trim() || 'Эксперт';
   const initial = name.charAt(0).toUpperCase();
 
   return (
@@ -62,7 +62,7 @@ function TrainerCard({ trainer }: { trainer: TrainerItem }) {
         style={{ fontSize: 14 }}
         onClick={() => navigate(`/connect-trainer?trainerId=${encodeURIComponent(trainer.chatId)}`)}
       >
-        Выбрать тренера →
+        Выбрать эксперта →
       </button>
     </div>
   );
@@ -89,7 +89,7 @@ export default function TrainerListScreen() {
           ‹
         </button>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-          Найти тренера
+          Найти эксперта
         </h1>
       </div>
 
@@ -105,7 +105,7 @@ export default function TrainerListScreen() {
           border: '1px solid var(--border)', padding: '32px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>
-            Не удалось загрузить список тренеров
+            Не удалось загрузить список экспертов
           </div>
           <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={() => navigate(-1)}>
             Назад
@@ -119,10 +119,10 @@ export default function TrainerListScreen() {
           border: '1px solid var(--border)', padding: '48px 24px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
-            Тренеры пока не добавлены
+            Эксперты пока не добавлены
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            Подключи тренера по его коду, если он уже работает на платформе
+            Подключи эксперта по его коду, если он уже работает на платформе
           </div>
         </div>
       )}
@@ -130,7 +130,7 @@ export default function TrainerListScreen() {
       {!isLoading && !isError && trainers.length > 0 && (
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 14px' }}>
-            {trainers.length} {trainers.length === 1 ? 'тренер' : trainers.length < 5 ? 'тренера' : 'тренеров'}
+            {trainers.length} {trainers.length === 1 ? 'эксперт' : trainers.length < 5 ? 'эксперта' : 'экспертов'}
           </div>
           {trainers.map(t => <TrainerCard key={t.chatId} trainer={t} />)}
         </div>

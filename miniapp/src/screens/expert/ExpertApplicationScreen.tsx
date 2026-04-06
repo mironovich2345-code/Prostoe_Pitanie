@@ -4,6 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { useBootstrap } from '../../hooks/useBootstrap';
 
+type ApplicantType = 'expert' | 'company';
+
 export default function ExpertApplicationScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -12,10 +14,21 @@ export default function ExpertApplicationScreen() {
   const existing = bootstrap?.trainerProfile;
   const isReapply = existing?.verificationStatus === 'rejected';
 
+  // ── applicant type ──
+  const [applicantType, setApplicantType] = useState<ApplicantType>('expert');
+  const [showTypeInfo, setShowTypeInfo] = useState(false);
+
+  // ── expert fields ──
   const [fullName, setFullName] = useState(existing?.fullName ?? '');
   const [socialLink, setSocialLink] = useState(existing?.socialLink ?? '');
   const [specialization, setSpecialization] = useState(existing?.specialization ?? '');
   const [bio, setBio] = useState(existing?.bio ?? '');
+
+  // ── company fields ──
+  const [companyName, setCompanyName] = useState('');
+  const [companySocialLink, setCompanySocialLink] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,21 +44,42 @@ export default function ExpertApplicationScreen() {
   }
 
   async function handleSubmit() {
-    if (!fullName.trim() || !socialLink.trim()) {
-      setError('Заполни все обязательные поля');
-      return;
+    if (applicantType === 'expert') {
+      if (!fullName.trim() || !socialLink.trim()) {
+        setError('Заполни все обязательные поля');
+        return;
+      }
+    } else {
+      if (!companyName.trim() || !companySocialLink.trim()) {
+        setError('Заполни все обязательные поля');
+        return;
+      }
     }
+
     setLoading(true);
     setError(null);
     try {
-      await api.expertApply({
-        fullName,
-        socialLink,
-        documentLink: '-',          // legacy field, kept for API compat
-        specialization,
-        bio,
-        verificationPhotoData: photoData ?? undefined,
-      });
+      if (applicantType === 'company') {
+        const companyBio = contactPerson.trim()
+          ? `Контактное лицо: ${contactPerson.trim()}`
+          : undefined;
+        await api.expertApply({
+          fullName: companyName.trim(),
+          socialLink: companySocialLink.trim(),
+          specialization: 'Компания',
+          bio: companyBio,
+          verificationPhotoData: photoData ?? undefined,
+        });
+      } else {
+        await api.expertApply({
+          fullName,
+          socialLink,
+          documentLink: '-',
+          specialization,
+          bio,
+          verificationPhotoData: photoData ?? undefined,
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
       navigate('/profile', { replace: true });
     } catch (e: unknown) {
@@ -69,12 +103,63 @@ export default function ExpertApplicationScreen() {
         </h1>
       </div>
 
+      {/* Type switcher */}
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        border: '1px solid var(--border)', padding: '14px 18px', marginBottom: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Segment control */}
+          <div style={{
+            display: 'inline-flex', background: 'var(--surface-2)',
+            borderRadius: 10, padding: 3, border: '1px solid var(--border)',
+          }}>
+            {(['expert', 'company'] as ApplicantType[]).map(t => {
+              const active = applicantType === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => { setApplicantType(t); setError(null); }}
+                  style={{
+                    padding: '5px 16px', fontSize: 13, fontWeight: 600,
+                    borderRadius: 7, border: 'none', cursor: 'pointer',
+                    background: active ? 'var(--surface-3)' : 'transparent',
+                    color: active ? 'var(--text)' : 'var(--text-3)',
+                    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  {t === 'expert' ? 'Эксперт' : 'Компания'}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Help button */}
+          <button
+            onClick={() => setShowTypeInfo(true)}
+            style={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              background: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--text-3)', fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, padding: 0,
+            }}
+          >
+            ?
+          </button>
+        </div>
+      </div>
+
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', padding: '16px 18px', marginBottom: 12,
       }}>
         <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, margin: 0 }}>
-          Заполни анкету — мы проверим её в течение 1–3 рабочих дней. После подтверждения ты сможешь работать с клиентами в режиме Эксперта.
+          {applicantType === 'expert'
+            ? 'Заполни анкету — мы проверим её в течение 1–3 рабочих дней. После подтверждения ты сможешь работать с клиентами в режиме Эксперта.'
+            : 'Заполни данные компании — мы свяжемся с контактным лицом для подтверждения. После верификации компания получит доступ к работе с клиентами.'}
         </p>
       </div>
 
@@ -87,25 +172,58 @@ export default function ExpertApplicationScreen() {
           Обязательные поля
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Имя и фамилия</label>
-          <input
-            value={fullName}
-            onChange={e => setFullName(e.target.value)}
-            placeholder="Иван Иванов"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={labelStyle}>Ссылка на соцсеть или сайт</label>
-          <input
-            value={socialLink}
-            onChange={e => setSocialLink(e.target.value)}
-            placeholder="https://instagram.com/..."
-            style={inputStyle}
-          />
-        </div>
+        {applicantType === 'expert' ? (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Имя и фамилия</label>
+              <input
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                placeholder="Иван Иванов"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Ссылка на соцсеть или сайт</label>
+              <input
+                value={socialLink}
+                onChange={e => setSocialLink(e.target.value)}
+                placeholder="https://instagram.com/..."
+                style={inputStyle}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Название компании</label>
+              <input
+                value={companyName}
+                onChange={e => setCompanyName(e.target.value)}
+                placeholder="ООО «Фитнес Плюс»"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Соцсеть или сайт</label>
+              <input
+                value={companySocialLink}
+                onChange={e => setCompanySocialLink(e.target.value)}
+                placeholder="https://example.com"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Контактное лицо</label>
+              <input
+                value={contactPerson}
+                onChange={e => setContactPerson(e.target.value)}
+                placeholder="Имя, должность"
+                style={inputStyle}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Verification photo */}
@@ -118,7 +236,9 @@ export default function ExpertApplicationScreen() {
         </div>
 
         <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 16 }}>
-          Сделайте фото, чтобы подтвердить сходство с сайтом или соцсетью
+          {applicantType === 'expert'
+            ? 'Сделайте фото, чтобы подтвердить сходство с сайтом или соцсетью'
+            : 'Сделайте фото представителя компании для верификации'}
         </div>
 
         {photoData ? (
@@ -176,7 +296,6 @@ export default function ExpertApplicationScreen() {
           </button>
         )}
 
-        {/* Camera-only file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -187,36 +306,38 @@ export default function ExpertApplicationScreen() {
         />
       </div>
 
-      {/* Optional fields */}
-      <div style={{
-        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-        border: '1px solid var(--border)', padding: '18px 18px', marginBottom: 12,
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 14 }}>
-          Дополнительно
-        </div>
+      {/* Optional fields — expert only */}
+      {applicantType === 'expert' && (
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)', padding: '18px 18px', marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 14 }}>
+            Дополнительно
+          </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Специализация</label>
-          <input
-            value={specialization}
-            onChange={e => setSpecialization(e.target.value)}
-            placeholder="Силовые тренировки, похудение..."
-            style={inputStyle}
-          />
-        </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Специализация</label>
+            <input
+              value={specialization}
+              onChange={e => setSpecialization(e.target.value)}
+              placeholder="Силовые тренировки, похудение..."
+              style={inputStyle}
+            />
+          </div>
 
-        <div>
-          <label style={labelStyle}>О себе</label>
-          <textarea
-            value={bio}
-            onChange={e => setBio(e.target.value)}
-            placeholder="Расскажи о своём опыте и подходе..."
-            rows={3}
-            style={{ ...inputStyle, resize: 'none' }}
-          />
+          <div>
+            <label style={labelStyle}>О себе</label>
+            <textarea
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder="Расскажи о своём опыте и подходе..."
+              rows={3}
+              style={{ ...inputStyle, resize: 'none' }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div style={{
@@ -231,6 +352,62 @@ export default function ExpertApplicationScreen() {
       <button className="btn" onClick={handleSubmit} disabled={loading}>
         {loading ? 'Отправляем...' : 'Отправить заявку'}
       </button>
+
+      {/* Type info bottom sheet */}
+      {showTypeInfo && (
+        <>
+          <div
+            onClick={() => setShowTypeInfo(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }}
+          />
+          <div style={{
+            position: 'fixed', left: 12, right: 12, bottom: 20,
+            background: 'var(--surface)', borderRadius: 20,
+            border: '1px solid var(--border)', padding: '20px 18px 28px', zIndex: 201,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>
+                Тип заявки
+              </span>
+              <button
+                onClick={() => setShowTypeInfo(false)}
+                style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: 'var(--surface-2)', border: 'none',
+                  color: 'var(--text-3)', fontSize: 16, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 0,
+                }}
+              >✕</button>
+            </div>
+            {[
+              {
+                title: 'Эксперт',
+                desc: 'Частный специалист: тренер, нутрициолог, диетолог и т.д. Работаете лично с клиентами под своим именем.',
+              },
+              {
+                title: 'Компания',
+                desc: 'Фитнес-клуб, клиника, студия или другая организация. Подключаете сотрудников и ведёте клиентов от имени бренда.',
+              },
+            ].map((item, i) => (
+              <div
+                key={item.title}
+                style={{
+                  padding: i === 0 ? '0 0 14px' : '14px 0 0',
+                  borderTop: i === 1 ? '1px solid var(--border)' : 'none',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 5 }}>
+                  {item.title}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.55 }}>
+                  {item.desc}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

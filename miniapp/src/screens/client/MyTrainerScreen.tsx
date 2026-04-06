@@ -37,7 +37,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
   const recentRatings = (ratingsData?.ratings ?? []).slice(0, 5) as TrainerRating[];
 
   function handleDisconnect() {
-    if (!confirm('Отключить тренера? Тренер потеряет доступ к вашим данным.')) return;
+    if (!confirm('Отключить эксперта? Он потеряет доступ к вашим данным.')) return;
     disconnectMutation.mutate();
   }
 
@@ -46,24 +46,24 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
       <div className="screen">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <button onClick={() => navigate('/profile')} style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}>‹</button>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Мой тренер</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Мой эксперт</div>
         </div>
         <div style={{ textAlign: 'center', padding: '40px 16px' }}>
           <div style={{ opacity: 0.2, marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Тренер не подключён</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Эксперт не подключён</div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 28, maxWidth: 260, margin: '0 auto 28px' }}>
-            Подключи персонального тренера — он будет видеть твой дневник и оценивать питание
+            Подключи персонального эксперта — он будет видеть твой дневник и давать рекомендации по питанию
           </div>
           <button className="btn" style={{ width: 'auto', padding: '13px 32px', display: 'inline-block', fontSize: 15 }} onClick={() => navigate('/connect-trainer')}>
-            Подключить тренера
+            Подключить эксперта
           </button>
         </div>
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 16 }}>
           {[
-            'Тренер видит твою статистику питания',
-            'Получай оценки от тренера по каждому приёму',
+            'Эксперт видит твою статистику питания',
+            'Получай оценки от эксперта по каждому приёму',
             'Ты сам выбираешь, какие данные доступны',
           ].map((label, i, arr) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -76,7 +76,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
     );
   }
 
-  const trainerDisplayName = trainer.fullName?.trim() || 'Тренер';
+  const trainerDisplayName = trainer.fullName?.trim() || 'Эксперт';
   const trainerInitial = trainerDisplayName.charAt(0).toUpperCase();
   const connectedDate = new Date(trainer.connectedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -84,10 +84,10 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button onClick={() => navigate('/profile')} style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}>‹</button>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Мой тренер</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Мой эксперт</div>
       </div>
 
-      {/* Trainer card */}
+      {/* Expert card */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-xl)', padding: 20, border: '1px solid var(--border)', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{
@@ -148,7 +148,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
       {recentRatings.length > 0 && (
         <>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '8px 2px 10px' }}>
-            Оценки тренера
+            Оценки эксперта
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12 }}>
             {recentRatings.map((r, i) => {
@@ -180,7 +180,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         disabled={isPending}
         onClick={handleDisconnect}
       >
-        {disconnectMutation.isPending ? 'Отключаем...' : 'Отключить тренера'}
+        {disconnectMutation.isPending ? 'Отключаем...' : 'Отключить эксперта'}
       </button>
     </div>
   );

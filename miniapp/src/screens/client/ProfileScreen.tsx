@@ -15,7 +15,7 @@ type ProfileTab = 'weight' | 'trainer' | 'norms';
 
 const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
   { key: 'weight',  label: 'Вес'    },
-  { key: 'trainer', label: 'Тренер' },
+  { key: 'trainer', label: 'Эксперт' },
   { key: 'norms',   label: 'Нормы'  },
 ];
 
@@ -485,7 +485,7 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
     const connectedDate = new Date(trainer.connectedAt).toLocaleDateString('ru-RU', {
       day: 'numeric', month: 'long', year: 'numeric',
     });
-    const trainerName = trainer.fullName?.trim() || 'Тренер';
+    const trainerName = trainer.fullName?.trim() || 'Эксперт';
     const initial = trainerName.charAt(0).toUpperCase();
 
     return (
@@ -539,7 +539,7 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
             className="btn"
             style={{ fontSize: 14 }}
           >
-            Открыть профиль тренера
+            Открыть профиль эксперта
           </button>
         </div>
       </div>
@@ -558,24 +558,24 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-          Тренер не подключён
+          Эксперт не подключён
         </div>
         <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 24, maxWidth: 260, margin: '0 auto 24px' }}>
-          Подключи персонального тренера для контроля питания и достижения целей
+          Подключи персонального эксперта для контроля питания и достижения целей
         </div>
         <button
           onClick={() => navigate('/trainer')}
           className="btn"
           style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
         >
-          Подключить тренера
+          Подключить эксперта
         </button>
       </div>
 
       {/* Feature list */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         {[
-          'Тренер видит твою статистику питания',
+          'Эксперт видит твою статистику питания',
           'Персональные рекомендации по рациону',
           'Обратная связь и корректировка целей',
         ].map((label, i, arr) => (

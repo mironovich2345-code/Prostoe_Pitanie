@@ -130,7 +130,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     <div className="screen">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Профиль тренера</h1>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Профиль эксперта</h1>
         {onSwitchToClient && (
           <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} />
         )}

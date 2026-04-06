@@ -10,7 +10,7 @@ export default function TrainerRejectedScreen({ onBack }: Props) {
           </div>
         </div>
         <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Заявка отклонена</h2>
-        <p style={{ color: 'var(--text-3)', marginBottom: 24, fontSize: 14, lineHeight: 1.55 }}>К сожалению, твоя заявка тренера была отклонена. Ты можешь подать повторную заявку позже.</p>
+        <p style={{ color: 'var(--text-3)', marginBottom: 24, fontSize: 14, lineHeight: 1.55 }}>К сожалению, твоя заявка эксперта была отклонена. Ты можешь подать повторную заявку позже.</p>
         <button className="btn btn-secondary" onClick={onBack}>Вернуться в режим клиента</button>
       </div>
     </div>
