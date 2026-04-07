@@ -11,12 +11,11 @@ interface Props {
   onSwitchToCoach?: () => void;
 }
 
-type ProfileTab = 'weight' | 'trainer' | 'norms';
+type ProfileTab = 'weight' | 'trainer';
 
 const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
   { key: 'weight',  label: 'Вес'    },
   { key: 'trainer', label: 'Эксперт' },
-  { key: 'norms',   label: 'Нормы'  },
 ];
 
 const ACTIVITY_LABELS: Record<number, string> = {
@@ -595,102 +594,6 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
   );
 }
 
-// ─── Tab: Нормы ────────────────────────────────────────────────────────────
-
-function NormsTab({ bootstrap }: { bootstrap: BootstrapData }) {
-  const navigate = useNavigate();
-  const p = bootstrap.profile;
-
-  if (!p?.dailyCaloriesKcal) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-        <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
-          Нормы не рассчитаны
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 24 }}>
-          Заполни физические данные и цель — AI рассчитает персональные нормы
-        </div>
-        <button
-          onClick={() => navigate('/profile/edit-data')}
-          className="btn"
-          style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
-        >
-          Заполнить данные
-        </button>
-      </div>
-    );
-  }
-
-  const macros = [
-    { label: 'Белки',    value: p.dailyProteinG, color: '#7EB8F0' },
-    { label: 'Жиры',     value: p.dailyFatG,     color: '#F0A07A' },
-    { label: 'Углеводы', value: p.dailyCarbsG,   color: '#90C860' },
-  ].filter(m => m.value != null);
-
-  return (
-    <div>
-      {/* Calorie hero */}
-      <div style={{
-        background: 'var(--surface)', borderRadius: 'var(--r-xl)', padding: '18px',
-        border: '1px solid var(--border)', marginBottom: 10,
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 10 }}>
-          Дневная норма калорий
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: p.activityLevel ? 8 : 0 }}>
-          <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: -1.5, color: 'var(--accent)', lineHeight: 1 }}>
-            {p.dailyCaloriesKcal.toLocaleString('ru')}
-          </span>
-          <span style={{ fontSize: 14, color: 'var(--text-3)', fontWeight: 500 }}>ккал / день</span>
-        </div>
-        {p.activityLevel && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-            Уровень активности: {ACTIVITY_LABELS[p.activityLevel] ?? p.activityLevel}
-          </div>
-        )}
-      </div>
-
-      {/* Macro tiles */}
-      {macros.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          {macros.map(m => (
-            <div
-              key={m.label}
-              style={{
-                flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-md)',
-                padding: '14px 10px', border: '1px solid var(--border)',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: m.color, lineHeight: 1 }}>
-                {(m.value as number).toFixed(0)}
-                <span style={{ fontSize: 11, fontWeight: 500 }}> г</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, fontWeight: 600 }}>{m.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Fiber if available */}
-      {p.dailyFiberG && (
-        <div style={{
-          background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 16px',
-          border: '1px solid var(--border)', marginBottom: 10,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Клетчатка</span>
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{p.dailyFiberG.toFixed(0)} г</span>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
 // ─── Referral Section ──────────────────────────────────────────────────────
 
 function ReferralSection() {
@@ -878,7 +781,6 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
       {/* Tab content */}
       {tab === 'weight'  && <WeightTab  bootstrap={bootstrap} />}
       {tab === 'trainer' && <TrainerTab bootstrap={bootstrap} />}
-      {tab === 'norms'   && <NormsTab   bootstrap={bootstrap} />}
 
       {/* Settings sections */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '16px 2px 10px' }}>

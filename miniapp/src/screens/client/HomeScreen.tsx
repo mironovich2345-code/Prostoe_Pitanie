@@ -627,6 +627,15 @@ export default function HomeScreen({ bootstrap }: Props) {
   const sub = bootstrap.subscription;
   const trainer = bootstrap.connectedTrainer;
   const firstName = bootstrap.telegramUser?.first_name ?? '';
+
+  // Greeting: preferredName > firstName from Telegram > no name
+  const displayName = profile?.preferredName?.trim() || firstName || '';
+  const greetingHour = new Date().getHours();
+  const greetingWord = greetingHour >= 5 && greetingHour < 12
+    ? 'Доброе утро'
+    : greetingHour >= 12 && greetingHour < 18
+    ? 'Добрый день'
+    : 'Добрый вечер';
   const meals: MealEntry[] = data?.meals ?? [];
 
   const totals = useMemo(() => {
@@ -658,7 +667,7 @@ export default function HomeScreen({ bootstrap }: Props) {
 
       <div style={{ marginBottom: 14 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1.1 }}>
-          {firstName ? `Привет, ${firstName}` : 'Привет'} 👋
+          {displayName ? `${greetingWord}, ${displayName}` : greetingWord} 👋
         </h1>
       </div>
 
