@@ -28,12 +28,27 @@ export default function ExpertApplicationScreen() {
   const [companyName, setCompanyName] = useState('');
   const [companySocialLink, setCompanySocialLink] = useState('');
   const [contactPerson, setContactPerson] = useState('');
+  const [companyPhone, setCompanyPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function isValidPhone(phone: string): boolean {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 15;
+  }
+
+  function normalizePhone(phone: string): string {
+    const digits = phone.trim().replace(/\D/g, '');
+    if (digits.length === 10) return `+7${digits}`;
+    if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) return `+7${digits.slice(1)}`;
+    const trimmed = phone.trim();
+    return trimmed.startsWith('+') ? trimmed : `+${digits}`;
+  }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -44,6 +59,7 @@ export default function ExpertApplicationScreen() {
   }
 
   async function handleSubmit() {
+    setPhoneError(null);
     if (applicantType === 'expert') {
       if (!fullName.trim() || !socialLink.trim()) {
         setError('Заполни все обязательные поля');
@@ -54,21 +70,29 @@ export default function ExpertApplicationScreen() {
         setError('Заполни все обязательные поля');
         return;
       }
+      if (!companyPhone.trim()) {
+        setPhoneError('Введи номер телефона');
+        return;
+      }
+      if (!isValidPhone(companyPhone)) {
+        setPhoneError('Некорректный номер телефона');
+        return;
+      }
     }
 
     setLoading(true);
     setError(null);
     try {
       if (applicantType === 'company') {
+        const phoneLine = `Телефон: ${normalizePhone(companyPhone)}`;
         const companyBio = contactPerson.trim()
-          ? `Контактное лицо: ${contactPerson.trim()}`
-          : undefined;
+          ? `Контактное лицо: ${contactPerson.trim()}\n${phoneLine}`
+          : phoneLine;
         await api.expertApply({
           fullName: companyName.trim(),
           socialLink: companySocialLink.trim(),
           specialization: 'Компания',
           bio: companyBio,
-          verificationPhotoData: photoData ?? undefined,
         });
       } else {
         await api.expertApply({
@@ -107,49 +131,48 @@ export default function ExpertApplicationScreen() {
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', padding: '14px 18px', marginBottom: 12,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Segment control */}
-          <div style={{
-            display: 'inline-flex', background: 'var(--surface-2)',
-            borderRadius: 10, padding: 3, border: '1px solid var(--border)',
-          }}>
-            {(['expert', 'company'] as ApplicantType[]).map(t => {
-              const active = applicantType === t;
-              return (
-                <button
-                  key={t}
-                  onClick={() => { setApplicantType(t); setError(null); }}
-                  style={{
-                    padding: '5px 16px', fontSize: 13, fontWeight: 600,
-                    borderRadius: 7, border: 'none', cursor: 'pointer',
-                    background: active ? 'var(--surface-3)' : 'transparent',
-                    color: active ? 'var(--text)' : 'var(--text-3)',
-                    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
-                    transition: 'background 0.15s, color 0.15s',
-                  }}
-                >
-                  {t === 'expert' ? 'Эксперт' : 'Компания'}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Help button */}
-          <button
-            onClick={() => setShowTypeInfo(true)}
-            style={{
-              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              background: 'transparent', border: '1px solid var(--border)',
-              color: 'var(--text-3)', fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1, padding: 0,
-            }}
-          >
-            ?
-          </button>
+        {/* Segment control — stretched */}
+        <div style={{
+          flex: 1, display: 'flex', background: 'var(--surface-2)',
+          borderRadius: 10, padding: 3, border: '1px solid var(--border)',
+        }}>
+          {(['expert', 'company'] as ApplicantType[]).map(t => {
+            const active = applicantType === t;
+            return (
+              <button
+                key={t}
+                onClick={() => { setApplicantType(t); setError(null); }}
+                style={{
+                  flex: 1, padding: '7px 8px', fontSize: 13, fontWeight: 600,
+                  borderRadius: 7, border: 'none', cursor: 'pointer',
+                  background: active ? 'var(--surface-3)' : 'transparent',
+                  color: active ? 'var(--text)' : 'var(--text-3)',
+                  boxShadow: active ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
+                  transition: 'background 0.15s, color 0.15s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t === 'expert' ? 'Эксперт' : 'Компания'}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Help button — fixed width */}
+        <button
+          onClick={() => setShowTypeInfo(true)}
+          style={{
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+            background: 'transparent', border: '1px solid var(--border)',
+            color: 'var(--text-3)', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1, padding: 0,
+          }}
+        >
+          ?
+        </button>
       </div>
 
       <div style={{
@@ -213,7 +236,7 @@ export default function ExpertApplicationScreen() {
                 style={inputStyle}
               />
             </div>
-            <div>
+            <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Контактное лицо</label>
               <input
                 value={contactPerson}
@@ -222,12 +245,27 @@ export default function ExpertApplicationScreen() {
                 style={inputStyle}
               />
             </div>
+            <div>
+              <label style={labelStyle}>Номер телефона</label>
+              <input
+                value={companyPhone}
+                onChange={e => { setCompanyPhone(e.target.value); setPhoneError(null); }}
+                placeholder="+7 999 123-45-67"
+                inputMode="tel"
+                style={{ ...inputStyle, borderColor: phoneError ? 'var(--danger)' : undefined }}
+              />
+              {phoneError && (
+                <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 5 }}>
+                  {phoneError}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
 
-      {/* Verification photo */}
-      <div style={{
+      {/* Verification photo — expert only */}
+      {applicantType === 'expert' && <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', padding: '18px 18px', marginBottom: 12,
       }}>
@@ -304,7 +342,7 @@ export default function ExpertApplicationScreen() {
           style={{ display: 'none' }}
           onChange={handlePhotoChange}
         />
-      </div>
+      </div>}
 
       {/* Optional fields — expert only */}
       {applicantType === 'expert' && (

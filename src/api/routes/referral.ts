@@ -63,27 +63,59 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
 
     const code = await ensureReferralCode(chatId);
 
-    // Per-offer users with usernames
+    // Per-offer users with chatId for reward aggregation
     const referredUsers = await prisma.userProfile.findMany({
       where: { referredBy: chatId, referredByRole: 'trainer' },
-      select: { trainerOfferType: true, telegramUsername: true, preferredName: true, createdAt: true },
+      select: { chatId: true, trainerOfferType: true, telegramUsername: true, preferredName: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
 
     const usersByKey: Record<string, Array<{ displayName: string | null; username: string | null; joinedAt: string }>> = {};
+    const clientIdsByKey: Record<string, string[]> = {};
     for (const u of referredUsers) {
       const key = u.trainerOfferType ?? '';
-      if (!usersByKey[key]) usersByKey[key] = [];
+      if (!usersByKey[key]) { usersByKey[key] = []; clientIdsByKey[key] = []; }
       usersByKey[key].push({
         displayName: u.preferredName?.trim() || null,
         username: u.telegramUsername ?? null,
         joinedAt: u.createdAt.toISOString(),
       });
+      clientIdsByKey[key].push(u.chatId);
+    }
+
+    // Fetch rewards for all referred clients to compute per-offer earnings
+    const allReferredChatIds = referredUsers.map(u => u.chatId);
+    const allRewards = allReferredChatIds.length > 0
+      ? await prisma.trainerReward.findMany({
+          where: { trainerId: chatId, referredChatId: { in: allReferredChatIds } },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+
+    // First reward per client (for first_payment offer) + total per client (for lifetime_20)
+    const firstRewardByClient: Record<string, number> = {};
+    const totalRewardByClient: Record<string, number> = {};
+    for (const r of allRewards) {
+      if (!(r.referredChatId in firstRewardByClient)) {
+        firstRewardByClient[r.referredChatId] = r.amountRub;
+      }
+      totalRewardByClient[r.referredChatId] = (totalRewardByClient[r.referredChatId] ?? 0) + r.amountRub;
+    }
+
+    function computeEarned(offerKey: string, clientIds: string[]): number | null {
+      if (offerKey === 'first_payment') {
+        return clientIds.reduce((s, id) => s + (firstRewardByClient[id] ?? 0), 0);
+      }
+      if (offerKey === 'lifetime_20') {
+        return clientIds.reduce((s, id) => s + (totalRewardByClient[id] ?? 0), 0);
+      }
+      return null; // first_month_1rub: no further payment display
     }
 
     const offers = TRAINER_OFFER_IDS.map(offerId => {
       const meta = TRAINER_OFFERS[offerId];
       const users = usersByKey[meta.key] ?? [];
+      const clientIds = clientIdsByKey[meta.key] ?? [];
       return {
         offerId,
         offerKey: meta.key,
@@ -93,10 +125,13 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
         link: buildTrainerOfferLink(code, offerId),
         invitedCount: users.length,
         users,
+        earnedRub: computeEarned(meta.key, clientIds),
       };
     });
 
-    res.json({ offers });
+    const totalUniqueUsers = referredUsers.length;
+
+    res.json({ offers, totalUniqueUsers });
   } catch (err) {
     console.error('[referral/trainer-offers]', err);
     res.status(500).json({ error: 'Internal server error' });

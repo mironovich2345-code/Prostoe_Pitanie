@@ -62,7 +62,9 @@ export const api = {
   subscription: () => request<{ subscription: import('../types').SubscriptionInfo | null }>('/api/subscription'),
   trainerClients: () => request<{ clients: Array<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }> }>('/api/trainer/clients'),
   trainerClientCard: (clientId: string) => request<{ link: unknown; profile: import('../types').UserProfile | null; subscription: import('../types').SubscriptionInfo | null }>(`/api/trainer/clients/${clientId}`),
-  trainerClientStats: (clientId: string) => request<{ todayMeals: import('../types').MealEntry[]; todayCalories: number; recentMeals: import('../types').MealEntry[]; weightHistory: Array<{ weightKg: number; createdAt: string }>; profile: import('../types').UserProfile | null }>(`/api/trainer/clients/${clientId}/stats`),
+  trainerClientStats: (clientId: string) => request<{ todayMeals: import('../types').MealEntry[]; todayCalories: number; recentMeals: import('../types').MealEntry[]; weightHistory: Array<{ id: number; weightKg: number; createdAt: string }>; profile: import('../types').UserProfile | null; canViewPhotos: boolean; displayName: string }>(`/api/trainer/clients/${clientId}/stats`),
+  trainerClientStatsRange: (clientId: string, from: string, to: string) =>
+    request<{ meals: import('../types').MealEntry[] }>(`/api/trainer/clients/${clientId}/stats-range?from=${from}&to=${to}`),
   trainerAlerts: () => request<{ notLoggedToday: string[]; expiringSoon: unknown[]; totalClients: number; activeToday: number }>('/api/trainer/alerts'),
   trainerRewards: () => request<{ rewards: unknown[]; summary: { total: number; available: number; paidOut: number } }>('/api/trainer/rewards'),
   expertApply: (data: { fullName: string; socialLink: string; documentLink?: string; specialization?: string; bio?: string; verificationPhotoData?: string }) =>
@@ -128,5 +130,5 @@ export const api = {
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
   trainerOfferLinks: () =>
-    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
+    request<{ totalUniqueUsers: number; offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; earnedRub: number | null; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
 };

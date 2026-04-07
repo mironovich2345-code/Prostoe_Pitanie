@@ -20,6 +20,11 @@ import CoachAlertsDashboardScreen from './screens/coach/CoachAlertsDashboardScre
 import CoachProfileScreen from './screens/coach/CoachProfileScreen';
 import CoachReferralsScreen from './screens/coach/CoachReferralsScreen';
 import CoachPayoutsScreen from './screens/coach/CoachPayoutsScreen';
+import CompanyLayout from './layouts/CompanyLayout';
+import CompanyOffersScreen from './screens/company/CompanyOffersScreen';
+import CompanyStatsScreen from './screens/company/CompanyStatsScreen';
+import CompanyProfileScreen from './screens/company/CompanyProfileScreen';
+import CompanyPayoutsScreen from './screens/company/CompanyPayoutsScreen';
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
@@ -70,8 +75,9 @@ export default function App() {
 
   const isVerifiedTrainer = bootstrap.trainerProfile?.verificationStatus === 'verified';
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
+  const isCompany = isVerifiedTrainer && bootstrap.trainerProfile?.specialization === 'Компания';
 
-  if (mode === 'coach') {
+  if (mode === 'coach' || mode === 'company') {
     if (trainerStatus === 'pending') return <TrainerPendingScreen onBack={() => setMode('client')} />;
     if (trainerStatus === 'rejected') return <TrainerRejectedScreen onBack={() => setMode('client')} />;
     if (trainerStatus === 'blocked') return <TrainerBlockedScreen onBack={() => setMode('client')} />;
@@ -79,6 +85,9 @@ export default function App() {
       setMode('client');
       return null;
     }
+    // Enforce correct mode for company vs expert
+    if (mode === 'coach' && isCompany) { setMode('company'); return null; }
+    if (mode === 'company' && !isCompany) { setMode('coach'); return null; }
   }
 
   return (
@@ -94,7 +103,7 @@ export default function App() {
               element={
                 <ProfileScreen
                   bootstrap={bootstrap}
-                  onSwitchToCoach={isVerifiedTrainer ? () => setMode('coach') : undefined}
+                  onSwitchToCoach={isVerifiedTrainer ? () => setMode(isCompany ? 'company' : 'coach') : undefined}
                 />
               }
             />
@@ -117,7 +126,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
-      ) : (
+      ) : mode === 'coach' ? (
         <Routes>
           <Route element={<CoachLayout />}>
             <Route path="/" element={<CoachClientsScreen />} />
@@ -129,6 +138,16 @@ export default function App() {
             <Route path="/payouts" element={<CoachPayoutsScreen />} />
             <Route path="/connect-client" element={<TrainerConnectionScreen />} />
             <Route path="/reviews" element={<CoachReviewsScreen />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      ) : (
+        <Routes>
+          <Route element={<CompanyLayout />}>
+            <Route path="/" element={<CompanyOffersScreen />} />
+            <Route path="/stats" element={<CompanyStatsScreen />} />
+            <Route path="/profile" element={<CompanyProfileScreen bootstrap={bootstrap} onSwitchToClient={() => setMode('client')} />} />
+            <Route path="/payouts" element={<CompanyPayoutsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

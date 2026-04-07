@@ -176,6 +176,44 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
   }
 });
 
+// GET /api/trainer/clients/:clientId/stats-range?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const clientId = req.params['clientId'] as string;
+  const { from, to } = req.query as { from?: string; to?: string };
+  if (!from || !to) { res.status(400).json({ error: 'from and to required' }); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    res.status(400).json({ error: 'from and to must be YYYY-MM-DD' }); return;
+  }
+  try {
+    const link = await prisma.trainerClientLink.findFirst({
+      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
+    });
+    if (!link) { res.status(403).json({ error: 'Access denied' }); return; }
+
+    const since = link.fullHistoryAccess ? undefined : link.connectedAt;
+    const fromDate = new Date(from + 'T00:00:00');
+    const toDate = new Date(to + 'T23:59:59.999');
+
+    // Clamp fromDate to since if fullHistoryAccess is false
+    const effectiveFrom = since && fromDate < since ? since : fromDate;
+
+    const meals = await prisma.mealEntry.findMany({
+      where: { chatId: clientId, createdAt: { gte: effectiveFrom, lte: toDate } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const maskPhotos = !link.canViewPhotos;
+    const maskMeal = <T extends { photoFileId: string | null }>(m: T): T =>
+      maskPhotos ? { ...m, photoFileId: null } : m;
+
+    res.json({ meals: meals.map(maskMeal) });
+  } catch (err) {
+    console.error('[trainer/clients/:clientId/stats-range]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/trainer/alerts — dashboard alerts
 router.get('/alerts', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
