@@ -124,7 +124,12 @@ export default function CoachReferralsScreen() {
                     marginBottom: 12, overflow: 'hidden',
                   }}>
                     {offer.users.map((u, i) => {
-                      const displayName = u.username ? `@${u.username}` : `Пользователь ${i + 1}`;
+                      const namePart = u.displayName || '';
+                      const userPart = u.username ? `@${u.username}` : '';
+                      const label = namePart && userPart
+                        ? `${namePart} (${userPart})`
+                        : namePart || userPart || `Пользователь ${i + 1}`;
+                      const isReal = !!(namePart || userPart);
                       return (
                         <div
                           key={i}
@@ -134,8 +139,8 @@ export default function CoachReferralsScreen() {
                             borderBottom: i < offer.users.length - 1 ? '1px solid var(--border)' : 'none',
                           }}
                         >
-                          <span style={{ fontSize: 13, color: u.username ? 'var(--text)' : 'var(--text-3)', fontWeight: u.username ? 500 : 400 }}>
-                            {displayName}
+                          <span style={{ fontSize: 13, color: isReal ? 'var(--text)' : 'var(--text-3)', fontWeight: isReal ? 500 : 400 }}>
+                            {label}
                           </span>
                           <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
                             {formatJoinedAt(u.joinedAt)}

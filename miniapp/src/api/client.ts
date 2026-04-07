@@ -122,9 +122,9 @@ export const api = {
   referralMe: () =>
     request<{ code: string; link: string; invitedCount: number }>('/api/referral/me'),
   referralMyInvited: () =>
-    request<{ invited: Array<{ displayName: string | null; joinedAt: string }> }>('/api/referral/my-invited'),
+    request<{ invited: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }>('/api/referral/my-invited'),
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
   trainerOfferLinks: () =>
-    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; users: Array<{ username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
+    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
 };

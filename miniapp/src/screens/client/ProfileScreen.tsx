@@ -45,6 +45,26 @@ function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined 
 
 // ─── User Hero Card ────────────────────────────────────────────────────────
 
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 512;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = url;
+  });
+}
+
 function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData; onSwitchToCoach?: () => void }) {
   const user = bootstrap.telegramUser;
   const p = bootstrap.profile;
@@ -62,7 +82,10 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
     ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
-  const [localAvatar, setLocalAvatar] = useState<string | null>(p?.avatarData ?? null);
+  // localAvatar: only the freshly uploaded data URL (null = use bootstrap value)
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null);
+  // Derived: prefer in-session upload, then fall back to persisted value from bootstrap
+  const displayAvatar = localAvatar ?? p?.avatarData ?? null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
@@ -71,16 +94,12 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bootstrap'] }),
   });
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setLocalAvatar(base64);
-      avatarMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
+    const base64 = await compressImage(file);
+    setLocalAvatar(base64);
+    avatarMutation.mutate(base64);
   };
 
   return (
@@ -98,14 +117,14 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: localAvatar ? 'transparent' : 'var(--accent-soft)',
+            background: displayAvatar ? 'transparent' : 'var(--accent-soft)',
             border: '2px solid rgba(215,255,63,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 26, fontWeight: 700, color: 'var(--accent)',
             overflow: 'hidden',
           }}>
-            {localAvatar
-              ? <img src={localAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {displayAvatar
+              ? <img src={displayAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initial
             }
           </div>
@@ -708,7 +727,11 @@ function ReferralSection() {
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                         {invited.map((u, i) => {
-                          const label = u.displayName ?? `Пользователь ${i + 1}`;
+                          const namePart = u.displayName || '';
+                          const userPart = u.username ? `@${u.username}` : '';
+                          const label = namePart && userPart
+                            ? `${namePart} (${userPart})`
+                            : namePart || userPart || `Пользователь ${i + 1}`;
                           const dateLabel = new Date(u.joinedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
                           return (
                             <div key={i} style={{

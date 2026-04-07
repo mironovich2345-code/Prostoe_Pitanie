@@ -33,11 +33,12 @@ router.get('/my-invited', async (req: AuthRequest, res: Response) => {
   try {
     const rows = await prisma.userProfile.findMany({
       where: { referredBy: chatId },
-      select: { chatId: true, preferredName: true, createdAt: true },
+      select: { chatId: true, preferredName: true, telegramUsername: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
     const invited = rows.map(r => ({
       displayName: r.preferredName?.trim() || null,
+      username: r.telegramUsername ?? null,
       joinedAt: r.createdAt.toISOString(),
     }));
     res.json({ invited });
@@ -65,15 +66,19 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
     // Per-offer users with usernames
     const referredUsers = await prisma.userProfile.findMany({
       where: { referredBy: chatId, referredByRole: 'trainer' },
-      select: { trainerOfferType: true, telegramUsername: true, createdAt: true },
+      select: { trainerOfferType: true, telegramUsername: true, preferredName: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    const usersByKey: Record<string, Array<{ username: string | null; joinedAt: string }>> = {};
+    const usersByKey: Record<string, Array<{ displayName: string | null; username: string | null; joinedAt: string }>> = {};
     for (const u of referredUsers) {
       const key = u.trainerOfferType ?? '';
       if (!usersByKey[key]) usersByKey[key] = [];
-      usersByKey[key].push({ username: u.telegramUsername ?? null, joinedAt: u.createdAt.toISOString() });
+      usersByKey[key].push({
+        displayName: u.preferredName?.trim() || null,
+        username: u.telegramUsername ?? null,
+        joinedAt: u.createdAt.toISOString(),
+      });
     }
 
     const offers = TRAINER_OFFER_IDS.map(offerId => {
