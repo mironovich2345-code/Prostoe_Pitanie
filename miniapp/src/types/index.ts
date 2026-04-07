@@ -92,6 +92,9 @@ export interface TrainerRating {
   targetId: string;
   rating: string;
   createdAt: string;
+  // enriched by GET /api/ratings/my
+  mealType?: string | null;
+  mealCreatedAt?: string | null;
 }
 
 export interface BootstrapData {

@@ -88,7 +88,7 @@ router.get('/for-client/:clientId', async (req: AuthRequest, res: Response) => {
   }
 });
 
-/** GET /api/ratings/my — client sees ratings from their trainer */
+/** GET /api/ratings/my — client sees ratings from their trainer (enriched with meal info) */
 router.get('/my', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {
@@ -102,7 +102,31 @@ router.get('/my', async (req: AuthRequest, res: Response) => {
       where: { trainerId: link.trainerId, clientId: chatId },
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ ratings });
+
+    // Batch-fetch meal info for meal-type ratings
+    const mealIds = ratings
+      .filter(r => r.targetType === 'meal')
+      .map(r => parseInt(r.targetId, 10))
+      .filter(id => !isNaN(id));
+
+    const meals = mealIds.length > 0
+      ? await prisma.mealEntry.findMany({
+          where: { id: { in: mealIds } },
+          select: { id: true, mealType: true, createdAt: true },
+        })
+      : [];
+
+    const mealMap = new Map(meals.map(m => [m.id, m]));
+
+    const enriched = ratings.map(r => {
+      if (r.targetType === 'meal') {
+        const meal = mealMap.get(parseInt(r.targetId, 10));
+        return { ...r, mealType: meal?.mealType ?? null, mealCreatedAt: meal?.createdAt.toISOString() ?? null };
+      }
+      return { ...r, mealType: null as null, mealCreatedAt: null as null };
+    });
+
+    res.json({ ratings: enriched });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

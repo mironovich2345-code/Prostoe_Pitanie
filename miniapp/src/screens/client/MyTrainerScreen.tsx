@@ -13,6 +13,39 @@ const RATING_LABELS: Record<string, { label: string; color: string }> = {
   improve:   { label: 'Улучшить',   color: 'var(--warn)' },
 };
 
+const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: 'Завтрак',
+  lunch:     'Обед',
+  dinner:    'Ужин',
+  snack:     'Перекус',
+  unknown:   'Приём',
+};
+
+function formatRatingTitle(r: TrainerRating): string {
+  if (r.targetType === 'day') {
+    // targetId is YYYY-MM-DD — parse at noon to avoid timezone shift
+    const dt = new Date(r.targetId + 'T12:00:00');
+    return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  }
+  // meal
+  const typeLabel = MEAL_TYPE_LABELS[r.mealType ?? ''] ?? 'Приём';
+  if (!r.mealCreatedAt) return typeLabel;
+  const dt = new Date(r.mealCreatedAt);
+  const date = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const time = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `${typeLabel} ${date}, ${time}`;
+}
+
+const HISTORY_OPTIONS = [
+  { value: false, label: 'С момента подключения', desc: 'Эксперт видит только новые записи' },
+  { value: true,  label: 'Вся история',            desc: 'Эксперт видит все ваши записи' },
+];
+
+const PHOTOS_OPTIONS = [
+  { value: true,  label: 'С фотографиями', desc: 'Эксперт видит прикреплённые фото' },
+  { value: false, label: 'Без фотографий', desc: 'Эксперт видит только текст и данные' },
+];
+
 const STAR_LABELS: Record<number, string> = {
   1: 'Не понравилось', 2: 'Ниже ожиданий', 3: 'Нормально', 4: 'Хорошо', 5: 'Отлично',
 };
@@ -104,14 +137,24 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
   const trainer = bootstrap.connectedTrainer;
   const qc = useQueryClient();
 
+  const [showRightsPanel, setShowRightsPanel] = useState(false);
+  const [rightsFullHistory, setRightsFullHistory] = useState(false);
+  const [rightsCanViewPhotos, setRightsCanViewPhotos] = useState(true);
+  const [savedToast, setSavedToast] = useState(false);
+
   const disconnectMutation = useMutation({
     mutationFn: api.disconnectTrainer,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bootstrap'] }),
   });
 
-  const historyMutation = useMutation({
-    mutationFn: (fullAccess: boolean) => api.setTrainerHistoryAccess(fullAccess),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bootstrap'] }),
+  const accessMutation = useMutation({
+    mutationFn: () => api.setTrainerAccess(rightsFullHistory, rightsCanViewPhotos),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bootstrap'] });
+      setShowRightsPanel(false);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
+    },
   });
 
   const { data: ratingsData } = useQuery({
@@ -126,9 +169,15 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
     enabled: !!trainer,
   });
 
-  const isPending = disconnectMutation.isPending || historyMutation.isPending;
+  const isPending = disconnectMutation.isPending || accessMutation.isPending;
   const recentRatings = (ratingsData?.ratings ?? []).slice(0, 5) as TrainerRating[];
   const myReview = reviewData?.review ?? null;
+
+  function handleOpenRights() {
+    setRightsFullHistory(trainer?.fullHistoryAccess ?? false);
+    setRightsCanViewPhotos(trainer?.canViewPhotos ?? true);
+    setShowRightsPanel(true);
+  }
 
   function handleDisconnect() {
     if (!confirm('Отключить эксперта? Он потеряет доступ к вашим данным.')) return;
@@ -223,9 +272,9 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
           className="btn btn-secondary"
           style={{ fontSize: 13 }}
           disabled={isPending}
-          onClick={() => historyMutation.mutate(!trainer.fullHistoryAccess)}
+          onClick={handleOpenRights}
         >
-          {historyMutation.isPending ? 'Сохраняем...' : trainer.fullHistoryAccess ? 'Ограничить историю' : 'Дать полный доступ к истории'}
+          Изменить права
         </button>
       </div>
 
@@ -250,13 +299,12 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12 }}>
             {recentRatings.map((r, i) => {
               const meta = RATING_LABELS[r.rating] ?? { label: r.rating, color: 'var(--text-2)' };
+              const title = formatRatingTitle(r);
               const dateLabel = new Date(r.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
               return (
                 <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < recentRatings.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div>
-                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                      {r.targetType === 'day' ? `День ${r.targetId}` : `Приём #${r.targetId}`}
-                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{title}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{dateLabel}</div>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: meta.color }}>{meta.label}</div>
@@ -267,7 +315,7 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </>
       )}
 
-      {(disconnectMutation.isError || historyMutation.isError) && (
+      {(disconnectMutation.isError || accessMutation.isError) && (
         <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 8, textAlign: 'center' }}>Ошибка. Попробуйте ещё раз.</div>
       )}
 
@@ -279,6 +327,108 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
       >
         {disconnectMutation.isPending ? 'Отключаем...' : 'Отключить эксперта'}
       </button>
+
+      {/* Rights panel overlay */}
+      {showRightsPanel && (
+        <>
+          <div
+            onClick={() => setShowRightsPanel(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }}
+          />
+          <div className="bottom-sheet">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Права доступа</span>
+              <button
+                onClick={() => setShowRightsPanel(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--text-3)', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+              >×</button>
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+              История питания
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {HISTORY_OPTIONS.map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setRightsFullHistory(opt.value)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px',
+                    background: 'var(--surface)', border: `2px solid ${rightsFullHistory === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--r-md)', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${rightsFullHistory === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                    background: rightsFullHistory === opt.value ? 'var(--accent)' : 'transparent',
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{opt.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{opt.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+              Фотографии блюд
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              {PHOTOS_OPTIONS.map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setRightsCanViewPhotos(opt.value)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px',
+                    background: 'var(--surface)', border: `2px solid ${rightsCanViewPhotos === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--r-md)', cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${rightsCanViewPhotos === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                    background: rightsCanViewPhotos === opt.value ? 'var(--accent)' : 'transparent',
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{opt.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{opt.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {accessMutation.isError && (
+              <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+                Ошибка. Попробуйте ещё раз.
+              </div>
+            )}
+
+            <button
+              className="btn"
+              style={{ fontSize: 15 }}
+              disabled={accessMutation.isPending}
+              onClick={() => accessMutation.mutate()}
+            >
+              {accessMutation.isPending ? 'Сохраняем...' : 'Сохранить'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Saved toast */}
+      {savedToast && (
+        <div style={{
+          position: 'fixed', bottom: 90, left: 16, right: 16,
+          background: 'var(--accent)', color: '#000',
+          fontWeight: 700, borderRadius: 12,
+          padding: '12px 16px', textAlign: 'center',
+          fontSize: 14, zIndex: 300,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        }}>
+          Права обновлены
+        </div>
+      )}
     </div>
   );
 }

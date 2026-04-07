@@ -70,6 +70,8 @@ export const api = {
   disconnectTrainer: () => request<{ ok: boolean }>('/api/client/trainer', { method: 'DELETE' }),
   setTrainerHistoryAccess: (fullAccess: boolean) =>
     request<{ ok: boolean; fullHistoryAccess: boolean }>('/api/client/trainer/history-access', { method: 'PATCH', body: JSON.stringify({ fullAccess }) }),
+  setTrainerAccess: (fullHistoryAccess: boolean, canViewPhotos: boolean) =>
+    request<{ ok: boolean }>('/api/client/trainer/access', { method: 'PATCH', body: JSON.stringify({ fullHistoryAccess, canViewPhotos }) }),
   // Trainer connection code
   trainerMyCode: () =>
     request<import('../types').TrainerConnectionCode>('/api/trainer/my-code'),

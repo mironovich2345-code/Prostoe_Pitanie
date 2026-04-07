@@ -107,6 +107,25 @@ router.delete('/trainer', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// PATCH /api/client/trainer/access — update both fullHistoryAccess and canViewPhotos
+router.patch('/trainer/access', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { fullHistoryAccess, canViewPhotos } = req.body as { fullHistoryAccess?: boolean; canViewPhotos?: boolean };
+  try {
+    const link = await prisma.trainerClientLink.findFirst({
+      where: { clientId: chatId, status: 'active' },
+    });
+    if (!link) { res.status(404).json({ error: 'No active trainer link' }); return; }
+    const data: Record<string, boolean> = {};
+    if (typeof fullHistoryAccess === 'boolean') data['fullHistoryAccess'] = fullHistoryAccess;
+    if (typeof canViewPhotos === 'boolean') data['canViewPhotos'] = canViewPhotos;
+    await prisma.trainerClientLink.update({ where: { id: link.id }, data });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // PATCH /api/client/trainer/history-access — grant or revoke full history access
 router.patch('/trainer/history-access', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
