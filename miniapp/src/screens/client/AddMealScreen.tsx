@@ -378,12 +378,9 @@ export default function AddMealScreen() {
         <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
           {MEAL_TYPES.find(t => t.key === mealType)?.label ?? 'Приём'} добавлен в дневник
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8, width: '100%', maxWidth: 320 }}>
-          <button className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }} onClick={resetAndSelect}>
+        <div style={{ marginTop: 8, width: '100%', maxWidth: 320 }}>
+          <button className="btn" style={{ fontSize: 14 }} onClick={resetAndSelect}>
             + Ещё
-          </button>
-          <button className="btn" style={{ flex: 1, fontSize: 14 }} onClick={() => navigate('/diary')}>
-            Дневник
           </button>
         </div>
       </div>

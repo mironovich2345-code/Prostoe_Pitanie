@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
 import type { MealEntry } from '../../types';
@@ -908,7 +909,9 @@ function WeightView() {
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function StatsScreen() {
-  const [tab, setTab] = useState<Tab>('day');
+  const location = useLocation();
+  const initialTab = (location.state as { tab?: Tab } | null)?.tab ?? 'day';
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const { data: bootstrapProfile } = useQuery({
     queryKey: ['profile-full'],

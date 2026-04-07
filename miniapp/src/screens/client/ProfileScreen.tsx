@@ -424,10 +424,9 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '8px 2px 10px' }}>
             История
           </div>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            {/* API returns DESC (newest first) — no reverse needed.
-                arr[i+1] is the older entry → delta = newer − older = correct sign. */}
-            {[...history].slice(0, 8).map((entry, i, arr) => {
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 10 }}>
+            {/* API returns DESC (newest first) — show last 3 only */}
+            {[...history].slice(0, 3).map((entry, i, arr) => {
               const prev = arr[i + 1]; // older entry (DESC order)
               const delta = prev ? entry.weightKg - prev.weightKg : null;
               const dateLabel = new Date(entry.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
@@ -460,6 +459,13 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
               );
             })}
           </div>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: 14 }}
+            onClick={() => navigate('/stats', { state: { tab: 'weight' } })}
+          >
+            Перейти в статистику
+          </button>
         </>
       ) : (
         <div style={{ padding: '20px 0', textAlign: 'center' }}>
