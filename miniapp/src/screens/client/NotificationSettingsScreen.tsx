@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
@@ -14,6 +15,7 @@ const MEAL_LABELS: Record<ReminderMealType, string> = {
 export default function NotificationSettingsScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [showWeightInfo, setShowWeightInfo] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ['reminders'], queryFn: api.reminders });
   const reminders = data?.reminders ?? [];
@@ -106,8 +108,21 @@ export default function NotificationSettingsScreen() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               marginBottom: 10,
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)' }}>
-                Замер веса
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)' }}>
+                  Замер веса
+                </div>
+                <button
+                  onClick={() => setShowWeightInfo(true)}
+                  style={{
+                    background: 'none', border: '1.5px solid var(--text-3)',
+                    borderRadius: '50%', width: 16, height: 16,
+                    fontSize: 10, fontWeight: 700, color: 'var(--text-3)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 0, lineHeight: 1, flexShrink: 0,
+                  }}
+                  aria-label="Почему только 2 уведомления?"
+                >?</button>
               </div>
               <button
                 onClick={() => canAddWeight && navigate('/notifications/weight/new')}
@@ -153,6 +168,41 @@ export default function NotificationSettingsScreen() {
                 Максимум 2 напоминания о замере
               </p>
             )}
+          </div>
+        </>
+      )}
+
+      {showWeightInfo && (
+        <>
+          <div
+            onClick={() => setShowWeightInfo(false)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.45)', zIndex: 200,
+            }}
+          />
+          <div className="bottom-sheet">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                Почему только 2 уведомления?
+              </div>
+              <button
+                onClick={() => setShowWeightInfo(false)}
+                style={{
+                  background: 'none', border: 'none', fontSize: 22,
+                  color: 'var(--text-3)', cursor: 'pointer', padding: 0, lineHeight: 1,
+                }}
+              >×</button>
+            </div>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', margin: '0 0 12px' }}>
+              Слишком частые напоминания о весе могут усиливать тревожность и мешать спокойному контролю.
+            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', margin: '0 0 12px' }}>
+              Обычно достаточно 1–2 напоминаний в неделю — этого хватает, чтобы отслеживать динамику без лишнего стресса.
+            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-2)', margin: 0 }}>
+              Взвешивайся в одно и то же время и в тех же условиях — тогда данные будут точнее и сравнимы между собой.
+            </p>
           </div>
         </>
       )}

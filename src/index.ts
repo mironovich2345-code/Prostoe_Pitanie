@@ -154,16 +154,24 @@ const processingState = new Map<number, ProcessingEntry>();
 const lastBotMsgs = new Map<number, number[]>();
 
 
-function getNowInTimezone(tz: string): { hour: number; minute: number } {
+function getNowInTimezone(tz: string): { hour: number; minute: number; dowStr: string } {
+  const DOW_MAP: Record<string, string> = {
+    Monday: 'mon', Tuesday: 'tue', Wednesday: 'wed', Thursday: 'thu',
+    Friday: 'fri', Saturday: 'sat', Sunday: 'sun',
+  };
   try {
-    const fmt = new Intl.DateTimeFormat('en', { timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false });
+    const fmt = new Intl.DateTimeFormat('en', {
+      timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false, weekday: 'long',
+    });
     const parts = fmt.formatToParts(new Date());
-    const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0');
-    const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0');
-    return { hour: isNaN(h) ? 0 : h, minute: isNaN(m) ? 0 : m };
+    const h   = parseInt(parts.find(p => p.type === 'hour')?.value    ?? '0');
+    const m   = parseInt(parts.find(p => p.type === 'minute')?.value  ?? '0');
+    const dow =          parts.find(p => p.type === 'weekday')?.value ?? '';
+    return { hour: isNaN(h) ? 0 : h, minute: isNaN(m) ? 0 : m, dowStr: DOW_MAP[dow] ?? '' };
   } catch {
-    const now = new Date();
-    return { hour: now.getHours(), minute: now.getMinutes() };
+    const now  = new Date();
+    const days = ['sun','mon','tue','wed','thu','fri','sat'];
+    return { hour: now.getHours(), minute: now.getMinutes(), dowStr: days[now.getDay()] };
   }
 }
 
@@ -1201,6 +1209,9 @@ bot.action('nutrition_add', async (ctx) => {
   );
 });
 
+// ── Weight reminder text ─────────────────────────────────────────────
+const WEIGHT_REMINDER_TEXT = '⚖️ Время замера веса. Запиши текущий показатель — это займёт несколько секунд.';
+
 // ── Напоминания ─────────────────────────────────────────────────────
 async function sendReminders(): Promise<void> {
   // Fetch all enabled reminders
@@ -1221,10 +1232,18 @@ async function sendReminders(): Promise<void> {
     if (!profile) continue;
 
     const tz = profile.timezone ?? 'Europe/Moscow';
-    const { hour, minute } = getNowInTimezone(tz);
+    const { hour, minute, dowStr } = getNowInTimezone(tz);
     const nowStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
-    const due = reminders.filter(r => r.chatId === chatId && r.time === nowStr);
+    // Meal reminders: match by time only (no dayOfWeek restriction)
+    const dueMeal = reminders.filter(
+      r => r.chatId === chatId && r.mealType !== 'weight' && r.time === nowStr,
+    );
+    // Weight reminders: match by time AND dayOfWeek
+    const dueWeight = reminders.filter(
+      r => r.chatId === chatId && r.mealType === 'weight' && r.time === nowStr && r.dayOfWeek === dowStr,
+    );
+    const due = [...dueMeal, ...dueWeight];
     if (due.length === 0) continue;
 
     const chatIdNum = Number(chatId);
@@ -1236,14 +1255,14 @@ async function sendReminders(): Promise<void> {
 
     for (const reminder of due) {
       try {
-        const text = pickReminderMessage(chatId, reminder.mealType);
-        const sent = await bot.telegram.sendMessage(
-          chatId,
-          text,
-          Markup.inlineKeyboard([
-            Markup.button.callback('Добавить приём', 'reminder_add_meal'),
-          ])
-        );
+        const isWeight = reminder.mealType === 'weight';
+        const text = isWeight
+          ? WEIGHT_REMINDER_TEXT
+          : pickReminderMessage(chatId, reminder.mealType, profile.preferredName);
+        const keyboard = isWeight
+          ? Markup.inlineKeyboard([[Markup.button.callback('Записать вес', 'reminder_log_weight')]])
+          : Markup.inlineKeyboard([[Markup.button.callback('Добавить приём', 'reminder_add_meal')]]);
+        const sent = await bot.telegram.sendMessage(chatId, text, keyboard);
         msgs.push(sent.message_id);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -1268,6 +1287,17 @@ bot.action('reminder_add_meal', async (ctx) => {
   if (chatId) setPending(chatId, { action: 'awaiting_meal_input' });
   return ctx.reply(
     '🍽 Отправь блюдо — и я запишу.\n\nМожно текстом, фото или голосовым.',
+    Markup.inlineKeyboard([[Markup.button.callback('❌ Отмена', 'nav_main_menu')]])
+  );
+});
+
+bot.action('reminder_log_weight', async (ctx) => {
+  await ctx.answerCbQuery();
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+  setPending(chatId, { action: 'awaiting_weight_log' });
+  return ctx.reply(
+    '⚖️ Отправь текущий вес в килограммах.\nПример: 82 или 75.5\n\nЧтобы выйти, нажми /cancel.',
     Markup.inlineKeyboard([[Markup.button.callback('❌ Отмена', 'nav_main_menu')]])
   );
 });
