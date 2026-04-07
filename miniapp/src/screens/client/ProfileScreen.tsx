@@ -226,11 +226,7 @@ function BmiInfoOverlay({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
-      <div style={{
-        position: 'fixed', left: 12, right: 12, bottom: 20,
-        background: 'var(--surface)', borderRadius: 20,
-        border: '1px solid var(--border)', padding: '20px 18px 28px', zIndex: 201,
-      }}>
+      <div className="bottom-sheet">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>
             Индекс массы тела
