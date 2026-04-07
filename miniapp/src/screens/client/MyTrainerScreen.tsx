@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
-import type { BootstrapData, TrainerRating } from '../../types';
+import type { BootstrapData, TrainerRating, TrainerReview } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
 
@@ -11,6 +12,92 @@ const RATING_LABELS: Record<string, { label: string; color: string }> = {
   ok:        { label: 'Нормально',  color: 'var(--text-2)' },
   improve:   { label: 'Улучшить',   color: 'var(--warn)' },
 };
+
+const STAR_LABELS: Record<number, string> = {
+  1: 'Не понравилось', 2: 'Ниже ожиданий', 3: 'Нормально', 4: 'Хорошо', 5: 'Отлично',
+};
+
+function StarRow({ rating }: { rating: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <span key={n} style={{ fontSize: 18, color: n <= rating ? 'var(--accent)' : 'var(--surface-3, #2a2a2a)', lineHeight: 1 }}>★</span>
+      ))}
+      <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>{STAR_LABELS[rating] ?? ''}</span>
+    </div>
+  );
+}
+
+function MyReviewBlock({ review }: { review: TrainerReview }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasReply = !!(review.trainerComment && review.allowTrainerComment);
+
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+      border: '1px solid var(--border)', marginBottom: 12, overflow: 'hidden',
+    }}>
+      {/* Header — always visible, tappable */}
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Ваш отзыв</span>
+          <StarRow rating={review.rating} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
+          {hasReply && !expanded && (
+            <div style={{ fontSize: 10, fontWeight: 700, background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 20, padding: '2px 8px' }}>
+              Ответ
+            </div>
+          )}
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div style={{ padding: '0 18px 18px' }}>
+          {review.reviewText && (
+            <div style={{
+              fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6,
+              paddingTop: 12, borderTop: '1px solid var(--border)',
+              marginBottom: hasReply ? 14 : 0,
+            }}>
+              {review.reviewText}
+            </div>
+          )}
+          {!review.reviewText && hasReply && (
+            <div style={{ borderTop: '1px solid var(--border)', marginBottom: 14 }} />
+          )}
+          {hasReply && (
+            <div style={{
+              background: 'var(--surface-2)', borderRadius: 12,
+              border: '1px solid var(--border)', padding: '12px 14px',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--accent)', marginBottom: 6 }}>
+                Ответ эксперта
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                {review.trainerComment}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function MyTrainerScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
@@ -33,8 +120,15 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
     enabled: !!trainer,
   });
 
+  const { data: reviewData } = useQuery({
+    queryKey: ['my-trainer-review'],
+    queryFn: api.myTrainerReview,
+    enabled: !!trainer,
+  });
+
   const isPending = disconnectMutation.isPending || historyMutation.isPending;
   const recentRatings = (ratingsData?.ratings ?? []).slice(0, 5) as TrainerRating[];
+  const myReview = reviewData?.review ?? null;
 
   function handleDisconnect() {
     if (!confirm('Отключить эксперта? Он потеряет доступ к вашим данным.')) return;
@@ -135,13 +229,16 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </button>
       </div>
 
-      {/* Review button */}
+      {/* My review block (if exists) */}
+      {myReview && <MyReviewBlock review={myReview as TrainerReview} />}
+
+      {/* Review button — changes label based on existing review */}
       <button
         className="btn btn-secondary"
         style={{ fontSize: 14, marginBottom: 12 }}
         onClick={() => navigate('/trainer/review')}
       >
-        Оставить отзыв о специалисте
+        {myReview ? 'Изменить отзыв' : 'Оставить отзыв о специалисте'}
       </button>
 
       {/* Recent ratings */}

@@ -55,7 +55,7 @@ export default function CoachClientsScreen() {
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}>Клиенты ({clients.length})</h1>
+        <h1 style={{ margin: 0 }}>Клиенты {clients.length}</h1>
         <button onClick={() => navigate('/connect-client')} className="btn" style={{ width: 'auto', padding: '8px 16px', fontSize: 13 }}>
           + Добавить
         </button>
@@ -78,11 +78,6 @@ export default function CoachClientsScreen() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>
                   {name}
-                  {c.link.clientAlias && (
-                    <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>
-                      (моё название)
-                    </span>
-                  )}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
                   {c.profile?.currentWeightKg ? `${c.profile.currentWeightKg} кг` : '—'}
