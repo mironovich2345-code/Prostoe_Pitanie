@@ -790,6 +790,7 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
         <ListItem label="Мои данные"   onClick={() => navigate('/profile/edit-data')} />
         <ListItem label="Подписка"     onClick={() => navigate('/subscription')} />
         <ListItem label="Уведомления"  onClick={() => navigate('/notifications')} />
+        <ListItem label="Документы"    onClick={() => navigate('/documents')} />
       </ListCard>
 
       {/* Expert status / apply (only for non-verified trainers) */}
