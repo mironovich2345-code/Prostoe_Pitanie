@@ -227,7 +227,7 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 }
 .list-item:last-child { border-bottom: none; }
 .list-item:active     { background: var(--surface-2); }
-.list-arrow           { color: var(--text-3); font-size: 16px; }
+.list-arrow           { color: var(--accent); font-size: 16px; }
 
 /* ── Bottom navigation ──────────────────────────────────────────────── */
 .bottom-nav {

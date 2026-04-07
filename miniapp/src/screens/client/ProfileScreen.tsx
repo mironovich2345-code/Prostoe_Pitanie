@@ -448,7 +448,9 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
             {[...history].slice(0, 3).map((entry, i, arr) => {
               const prev = arr[i + 1]; // older entry (DESC order)
               const delta = prev ? entry.weightKg - prev.weightKg : null;
-              const dateLabel = new Date(entry.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+              const dt = new Date(entry.createdAt);
+              const dateLabel = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+              const timeLabel = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
               const goal = deriveGoal(weight, target);
               return (
                 <div
@@ -464,7 +466,10 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
                       {entry.weightKg.toFixed(1)}
                       <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> кг</span>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{dateLabel}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                      {dateLabel}
+                      <span style={{ color: 'var(--accent)', marginLeft: 5 }}>{timeLabel}</span>
+                    </div>
                   </div>
                   {delta !== null && (
                     <span style={{

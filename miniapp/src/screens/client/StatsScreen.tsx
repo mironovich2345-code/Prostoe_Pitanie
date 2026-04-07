@@ -807,11 +807,17 @@ function WeightView() {
     );
   }
 
-  const current = history.length > 0 ? history[history.length - 1].weightKg : profile?.currentWeightKg;
+  // history is DESC (newest first): [0] = newest, [last] = oldest
+  const currentWeight = history.length > 0 ? history[0].weightKg : profile?.currentWeightKg ?? null;
+  const startWeight   = history.length > 0 ? history[history.length - 1].weightKg : null;
+  const current = currentWeight;
   const target = profile?.desiredWeightKg;
-  const diff = current != null && target != null ? current - target : null;
-  const pct = current != null && target != null && current > 0
-    ? Math.max(0, Math.min(100, Math.round(((current - target) / current) * 100)))
+  const diff = currentWeight != null && target != null ? currentWeight - target : null;
+
+  // Progress: 0% = startWeight (oldest entry), 100% = targetWeight
+  const totalSpan = startWeight != null && target != null ? startWeight - target : null;
+  const pct = totalSpan != null && Math.abs(totalSpan) > 0.01 && currentWeight != null
+    ? Math.max(0, Math.min(100, Math.round(((startWeight! - currentWeight) / totalSpan) * 100)))
     : null;
 
   return (
@@ -847,7 +853,7 @@ function WeightView() {
           </div>
           {pct !== null && (
             <div style={{ height: 5, borderRadius: 5, background: 'var(--surface-2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 5, background: 'var(--accent)', width: `${100 - pct}%`, transition: 'width 0.5s ease' }} />
+              <div style={{ height: '100%', borderRadius: 5, background: 'var(--accent)', width: `${pct}%`, transition: 'width 0.5s ease' }} />
             </div>
           )}
         </div>
@@ -872,7 +878,9 @@ function WeightView() {
           {[...history].map((entry, i, arr) => {
             const prev = arr[i + 1]; // older entry (DESC order)
             const delta = prev ? entry.weightKg - prev.weightKg : null;
-            const dateLabel = new Date(entry.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+            const dt = new Date(entry.createdAt);
+            const dateLabel = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+            const timeLabel = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             const goal = deriveGoal(profile?.currentWeightKg, profile?.desiredWeightKg);
             return (
               <div
@@ -887,7 +895,10 @@ function WeightView() {
                   <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1 }}>
                     {entry.weightKg.toFixed(1)} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3)' }}>кг</span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{dateLabel}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                    {dateLabel}
+                    <span style={{ color: 'var(--accent)', marginLeft: 6 }}>{timeLabel}</span>
+                  </div>
                 </div>
                 {delta !== null && (
                   <span style={{
