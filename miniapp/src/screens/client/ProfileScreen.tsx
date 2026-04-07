@@ -165,7 +165,13 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
           ) : null}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {p?.city && (
-              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>📍 {p.city}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--text-3)' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  {p.city}
+                </span>
             )}
             {age && (
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{age} лет</span>
@@ -354,7 +360,9 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
               Текущий вес
             </div>
-            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>✏</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)', flexShrink: 0 }}>
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
           </div>
           <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--text)', lineHeight: 1 }}>
             {weight?.toFixed(1) ?? '—'}
@@ -374,7 +382,9 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>
               Цель
             </div>
-            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>✏</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)', flexShrink: 0 }}>
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              </svg>
           </div>
           {target ? (
             <>
