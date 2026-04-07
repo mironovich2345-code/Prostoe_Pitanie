@@ -3,9 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
+function formatJoinedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
 export default function CoachReferralsScreen() {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['trainer-offer-links'],
@@ -64,6 +69,7 @@ export default function CoachReferralsScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {data.offers.map(offer => {
             const isCopied = copiedId === offer.offerId;
+            const isExpanded = expandedId === offer.offerId;
             return (
               <div
                 key={offer.offerId}
@@ -93,16 +99,52 @@ export default function CoachReferralsScreen() {
                     </div>
                   </div>
                   {offer.invitedCount > 0 && (
-                    <div style={{
-                      flexShrink: 0,
-                      background: 'var(--accent-soft)', borderRadius: 20,
-                      padding: '4px 10px',
-                      fontSize: 12, fontWeight: 700, color: 'var(--accent)',
-                    }}>
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : offer.offerId)}
+                      style={{
+                        flexShrink: 0,
+                        background: 'var(--accent-soft)', borderRadius: 20,
+                        padding: '4px 10px',
+                        fontSize: 12, fontWeight: 700, color: 'var(--accent)',
+                        border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 5,
+                      }}
+                    >
                       {offer.invitedCount}
-                    </div>
+                      <span style={{ fontSize: 10, opacity: 0.7 }}>{isExpanded ? '▲' : '▼'}</span>
+                    </button>
                   )}
                 </div>
+
+                {/* Expandable user list */}
+                {isExpanded && offer.users.length > 0 && (
+                  <div style={{
+                    background: 'var(--surface-2)', borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    marginBottom: 12, overflow: 'hidden',
+                  }}>
+                    {offer.users.map((u, i) => {
+                      const displayName = u.username ? `@${u.username}` : `Пользователь ${i + 1}`;
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            borderBottom: i < offer.users.length - 1 ? '1px solid var(--border)' : 'none',
+                          }}
+                        >
+                          <span style={{ fontSize: 13, color: u.username ? 'var(--text)' : 'var(--text-3)', fontWeight: u.username ? 500 : 400 }}>
+                            {displayName}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                            {formatJoinedAt(u.joinedAt)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Link */}
                 <div style={{

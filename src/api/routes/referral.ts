@@ -62,18 +62,23 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
 
     const code = await ensureReferralCode(chatId);
 
-    // Per-offer stats
-    const stats = await prisma.userProfile.groupBy({
-      by: ['trainerOfferType'],
+    // Per-offer users with usernames
+    const referredUsers = await prisma.userProfile.findMany({
       where: { referredBy: chatId, referredByRole: 'trainer' },
-      _count: { id: true },
+      select: { trainerOfferType: true, telegramUsername: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
     });
-    const statsByKey = Object.fromEntries(
-      stats.map(s => [s.trainerOfferType ?? '', s._count.id])
-    );
+
+    const usersByKey: Record<string, Array<{ username: string | null; joinedAt: string }>> = {};
+    for (const u of referredUsers) {
+      const key = u.trainerOfferType ?? '';
+      if (!usersByKey[key]) usersByKey[key] = [];
+      usersByKey[key].push({ username: u.telegramUsername ?? null, joinedAt: u.createdAt.toISOString() });
+    }
 
     const offers = TRAINER_OFFER_IDS.map(offerId => {
       const meta = TRAINER_OFFERS[offerId];
+      const users = usersByKey[meta.key] ?? [];
       return {
         offerId,
         offerKey: meta.key,
@@ -81,7 +86,8 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
         desc: meta.desc,
         emoji: meta.emoji,
         link: buildTrainerOfferLink(code, offerId),
-        invitedCount: statsByKey[meta.key] ?? 0,
+        invitedCount: users.length,
+        users,
       };
     });
 

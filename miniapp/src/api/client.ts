@@ -124,5 +124,5 @@ export const api = {
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
   trainerOfferLinks: () =>
-    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number }> }>('/api/referral/trainer-offers'),
+    request<{ offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; users: Array<{ username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
 };

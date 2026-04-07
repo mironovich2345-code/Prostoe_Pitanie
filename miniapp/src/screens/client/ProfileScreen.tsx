@@ -564,7 +564,7 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
           Подключи персонального эксперта для контроля питания и достижения целей
         </div>
         <button
-          onClick={() => navigate('/trainer')}
+          onClick={() => navigate('/connect-trainer')}
           className="btn"
           style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
         >

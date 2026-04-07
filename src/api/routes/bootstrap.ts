@@ -7,6 +7,14 @@ const router = Router();
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {
+    // Lazily sync Telegram username (fire-and-forget)
+    const tgUsername = req.telegramUser?.username ?? null;
+    prisma.userProfile.upsert({
+      where: { chatId },
+      update: { telegramUsername: tgUsername },
+      create: { chatId, telegramUsername: tgUsername },
+    }).catch(() => null);
+
     const [profile, trainerProfile, subscription, clientLink] = await Promise.all([
       prisma.userProfile.findUnique({ where: { chatId } }),
       prisma.trainerProfile.findUnique({ where: { chatId } }),

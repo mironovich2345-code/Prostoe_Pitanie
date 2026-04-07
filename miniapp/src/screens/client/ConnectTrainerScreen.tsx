@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { TrainerLookupResult } from '../../types';
 
-type Step = 'code' | 'preview' | 'rights' | 'done';
-type ConnectMode = 'code' | 'direct';  // 'code' = via code, 'direct' = via trainerId from list
+type Step = 'code' | 'rights' | 'done';
+type ConnectMode = 'code' | 'direct';
 
 const HISTORY_OPTIONS = [
   { value: false, label: 'С момента подключения', desc: 'Эксперт видит только новые записи' },
@@ -17,186 +17,18 @@ const PHOTOS_OPTIONS = [
   { value: false, label: 'Без фотографий', desc: 'Эксперт видит только текст и данные' },
 ];
 
-// ─── QR scanner ────────────────────────────────────────────────────────────
-
 function extractCode(raw: string): string | null {
-  // Formats:
   // 1) https://t.me/BOTNAME?start=connect_XXXXXX
-  // 2) connect_XXXXXX
-  // 3) XXXXXX (raw 6-digit numeric code)
   const startMatch = raw.match(/[?&]start=connect_(\d{6})/i);
   if (startMatch) return startMatch[1];
+  // 2) connect_XXXXXX
   const connectMatch = raw.match(/connect_(\d{6})/i);
   if (connectMatch) return connectMatch[1];
+  // 3) raw 6-digit numeric code
   const rawCode = raw.trim().replace(/\D/g, '');
   if (rawCode.length === 6) return rawCode;
   return null;
 }
-
-interface QrScannerModalProps {
-  onCode: (code: string) => void;
-  onClose: () => void;
-}
-
-function QrScannerModal({ onCode, onClose }: QrScannerModalProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number>(0);
-  const [error, setError] = useState('');
-  const [starting, setStarting] = useState(true);
-  const detectedRef = useRef(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function start() {
-      // Check BarcodeDetector support
-      if (!('BarcodeDetector' in window)) {
-        setError('Сканирование QR недоступно в этом браузере. Введите код вручную.');
-        setStarting(false);
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-        });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-        setStarting(false);
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-
-        async function tick() {
-          if (cancelled || detectedRef.current) return;
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-          if (!video || !canvas || video.readyState < 2) {
-            rafRef.current = requestAnimationFrame(tick);
-            return;
-          }
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { rafRef.current = requestAnimationFrame(tick); return; }
-          ctx.drawImage(video, 0, 0);
-          try {
-            const barcodes = await detector.detect(canvas);
-            if (barcodes.length > 0 && !detectedRef.current) {
-              const raw = barcodes[0].rawValue as string;
-              const code = extractCode(raw);
-              if (code) {
-                detectedRef.current = true;
-                onCode(code);
-                return;
-              }
-            }
-          } catch { /* detection frame error — ignore */ }
-          rafRef.current = requestAnimationFrame(tick);
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      } catch (err) {
-        if (cancelled) return;
-        const e = err as { name?: string };
-        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-          setError('Доступ к камере запрещён. Разрешите доступ в настройках или введите код вручную.');
-        } else {
-          setError('Не удалось запустить камеру. Введите код вручную.');
-        }
-        setStarting(false);
-      }
-    }
-
-    start();
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafRef.current);
-      streamRef.current?.getTracks().forEach(t => t.stop());
-    };
-  }, []);
-
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}
-    >
-      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', flexShrink: 0 }}>
-          <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>Сканировать QR-код</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 24, color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>✕</button>
-        </div>
-
-        {/* Viewfinder area */}
-        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {error ? (
-            <div style={{ padding: '0 32px', textAlign: 'center' }}>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, marginBottom: 20 }}>{error}</div>
-              <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={onClose}>
-                Закрыть
-              </button>
-            </div>
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                muted
-                playsInline
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-              {/* Viewfinder frame */}
-              <div style={{
-                position: 'relative', zIndex: 1,
-                width: 220, height: 220,
-                border: '2px solid rgba(215,255,63,0.6)',
-                borderRadius: 16,
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
-              }}>
-                {/* Corner accents */}
-                {(['tl','tr','bl','br'] as const).map(corner => (
-                  <div key={corner} style={{
-                    position: 'absolute',
-                    width: 22, height: 22,
-                    borderColor: 'var(--accent)',
-                    borderStyle: 'solid',
-                    borderWidth: 0,
-                    ...(corner === 'tl' ? { top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderRadius: '12px 0 0 0' } : {}),
-                    ...(corner === 'tr' ? { top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderRadius: '0 12px 0 0' } : {}),
-                    ...(corner === 'bl' ? { bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderRadius: '0 0 0 12px' } : {}),
-                    ...(corner === 'br' ? { bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderRadius: '0 0 12px 0' } : {}),
-                  }} />
-                ))}
-              </div>
-              {starting && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
-                  <div className="spinner" style={{ borderTopColor: 'var(--accent)' }} />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Hint */}
-        {!error && (
-          <div style={{ padding: '16px 32px 32px', textAlign: 'center', flexShrink: 0 }}>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-              Наведите камеру на QR-код эксперта
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function ConnectTrainerScreen() {
   const navigate = useNavigate();
@@ -211,9 +43,8 @@ export default function ConnectTrainerScreen() {
   const [fullHistoryAccess, setFullHistoryAccess] = useState(false);
   const [canViewPhotos, setCanViewPhotos] = useState(true);
   const [lookupError, setLookupError] = useState('');
-  const [showQr, setShowQr] = useState(false);
+  const [qrUnavailable, setQrUnavailable] = useState(false);
 
-  // Pre-fill code from URL param or sessionStorage; handle trainerId param from trainer list
   useEffect(() => {
     const urlCode = searchParams.get('code');
     const urlTrainerId = searchParams.get('trainerId');
@@ -221,9 +52,8 @@ export default function ConnectTrainerScreen() {
     const initial = urlCode ?? sessionCode ?? '';
     if (initial) {
       sessionStorage.removeItem('pendingConnectCode');
-      setCode(initial.toUpperCase());
+      setCode(initial.replace(/\D/g, '').slice(0, 6));
     }
-    // If trainerId is provided (from trainer list), start a direct lookup
     if (urlTrainerId) {
       setTrainerId(urlTrainerId);
       setConnectMode('direct');
@@ -236,10 +66,10 @@ export default function ConnectTrainerScreen() {
     onSuccess: (data) => {
       setTrainer(data);
       setLookupError('');
-      setStep('preview');
+      setStep('rights');
     },
     onError: (err: Error) => {
-      setLookupError(err.message.includes('not found') ? 'Код не найден или истёк. Попроси эксперта обновить код.' : err.message);
+      setLookupError(err.message.includes('not found') ? 'Код не найден. Попроси эксперта уточнить код.' : err.message);
     },
   });
 
@@ -248,7 +78,7 @@ export default function ConnectTrainerScreen() {
     onSuccess: (data) => {
       setTrainer(data);
       setLookupError('');
-      setStep('preview');
+      setStep('rights');
     },
     onError: () => {
       setLookupError('Эксперт не найден или недоступен.');
@@ -265,17 +95,31 @@ export default function ConnectTrainerScreen() {
     },
   });
 
-  function handleQrCode(scannedCode: string) {
-    setShowQr(false);
-    setCode(scannedCode);
-    setConnectMode('code');
-    setLookupError('');
-    // Auto-trigger lookup
-    setTimeout(() => {
-      api.trainerLookup(scannedCode)
-        .then(data => { setTrainer(data); setStep('preview'); })
-        .catch(() => setLookupError('Код не найден или истёк.'));
-    }, 0);
+  function handleScanQr() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tg = (window as any).Telegram?.WebApp;
+    if (typeof tg?.showScanQrPopup === 'function') {
+      setQrUnavailable(false);
+      tg.showScanQrPopup(
+        { text: 'Наведите камеру на QR-код эксперта' },
+        (scannedText: string) => {
+          const parsed = extractCode(scannedText);
+          if (parsed) {
+            tg.closeScanQrPopup?.();
+            setCode(parsed);
+            setConnectMode('code');
+            setLookupError('');
+            api.trainerLookup(parsed)
+              .then(data => { setTrainer(data); setStep('rights'); })
+              .catch(() => setLookupError('Код не найден. Попробуй ввести вручную.'));
+            return true;
+          }
+          return false;
+        }
+      );
+    } else {
+      setQrUnavailable(true);
+    }
   }
 
   // ── DONE ──────────────────────────────────────────────────────────────
@@ -300,13 +144,13 @@ export default function ConnectTrainerScreen() {
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button
-          onClick={() => step === 'code' ? navigate(-1) : setStep(step === 'rights' ? 'preview' : 'code')}
+          onClick={() => step === 'code' ? navigate(-1) : setStep('code')}
           style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
         >
           ‹
         </button>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
-          {step === 'code' ? 'Подключить эксперта' : step === 'preview' ? 'Ваш эксперт' : 'Права доступа'}
+          {step === 'code' ? 'Подключить эксперта' : 'Права доступа'}
         </div>
       </div>
 
@@ -319,14 +163,18 @@ export default function ConnectTrainerScreen() {
           <div style={{ marginBottom: 16 }}>
             <input
               value={code}
-              onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5))}
-              placeholder="Например: AB3X7"
-              maxLength={5}
+              onChange={e => {
+                setQrUnavailable(false);
+                setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+              }}
+              placeholder="000000"
+              maxLength={6}
+              inputMode="numeric"
               style={{
                 width: '100%', boxSizing: 'border-box',
                 background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: 'var(--r-md)', padding: '16px', fontSize: 28,
-                fontWeight: 700, letterSpacing: 6, textAlign: 'center',
+                fontWeight: 700, letterSpacing: 8, textAlign: 'center',
                 color: 'var(--text)', outline: 'none', fontFamily: 'monospace',
               }}
             />
@@ -346,13 +194,25 @@ export default function ConnectTrainerScreen() {
           {/* QR scan button */}
           <button
             className="btn btn-secondary"
-            style={{ fontSize: 14, marginBottom: 10 }}
-            onClick={() => setShowQr(true)}
+            style={{ fontSize: 14, marginBottom: qrUnavailable ? 8 : 10 }}
+            onClick={handleScanQr}
           >
             Сканировать QR-код
           </button>
 
-          {/* Browse trainer list */}
+          {/* QR unavailable inline hint */}
+          {qrUnavailable && (
+            <div style={{
+              background: 'var(--surface)', borderRadius: 'var(--r-md)',
+              border: '1px solid var(--border)', padding: '12px 16px',
+              marginBottom: 10,
+              fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, textAlign: 'center',
+            }}>
+              Сканирование недоступно в этом браузере — введите код вручную
+            </div>
+          )}
+
+          {/* Browse expert list */}
           <button
             className="btn btn-ghost"
             style={{ fontSize: 14 }}
@@ -363,55 +223,38 @@ export default function ConnectTrainerScreen() {
         </div>
       )}
 
-      {/* Step 2: Trainer preview */}
-      {step === 'preview' && trainer && (
+      {/* Step 2: Rights selection */}
+      {step === 'rights' && (
         <div>
-          <div style={{
-            background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-            padding: 20, border: '1px solid var(--border)', marginBottom: 16,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: trainer.specialization || trainer.bio ? 14 : 0 }}>
+          {trainer && (
+            <div style={{
+              background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+              border: '1px solid var(--border)', padding: '12px 16px',
+              marginBottom: 20,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
               <div style={{
-                width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--accent-soft)', border: '2px solid rgba(215,255,63,0.2)',
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--accent-soft)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24, fontWeight: 700, color: 'var(--accent)',
+                fontSize: 16, fontWeight: 700, color: 'var(--accent)',
               }}>
                 {trainer.fullName?.charAt(0).toUpperCase() ?? '?'}
               </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {trainer.fullName ?? 'Эксперт'}
                 </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent-soft)', borderRadius: 20, padding: '3px 10px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>✓ Верифицирован</span>
-                </div>
+                {trainer.specialization && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{trainer.specialization}</div>
+                )}
+              </div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--accent-soft)', borderRadius: 20, padding: '3px 10px', flexShrink: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>✓ Верифицирован</span>
               </div>
             </div>
-            {trainer.specialization && (
-              <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: trainer.bio ? 8 : 0 }}>
-                <span style={{ color: 'var(--text-3)' }}>Специализация: </span>{trainer.specialization}
-              </div>
-            )}
-            {trainer.bio && (
-              <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{trainer.bio}</div>
-            )}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginBottom: 20 }}>
-            Это ваш эксперт? Нажмите «Продолжить» чтобы выбрать права доступа.
-          </div>
-          <button className="btn" style={{ fontSize: 15, marginBottom: 10 }} onClick={() => setStep('rights')}>
-            Продолжить →
-          </button>
-          <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={() => { setStep('code'); setTrainer(null); setConnectMode('code'); }}>
-            Это не мой эксперт
-          </button>
-        </div>
-      )}
+          )}
 
-      {/* Step 3: Rights selection */}
-      {step === 'rights' && (
-        <div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
             Выберите, какой доступ получит эксперт к вашим данным. Вы сможете изменить это позже.
           </div>
@@ -487,14 +330,6 @@ export default function ConnectTrainerScreen() {
             {connectMutation.isPending ? 'Подключаем...' : '✓ Подтвердить подключение'}
           </button>
         </div>
-      )}
-
-      {/* QR scanner overlay */}
-      {showQr && (
-        <QrScannerModal
-          onCode={handleQrCode}
-          onClose={() => setShowQr(false)}
-        />
       )}
     </div>
   );

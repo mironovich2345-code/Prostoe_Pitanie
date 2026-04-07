@@ -28,6 +28,7 @@ model UserProfile {
   city                 String?
   timezone             String?
   preferredName        String?
+  telegramUsername     String?  // Telegram @username, updated lazily on each bootstrap
   avatarData           String?  // base64 data URL for user avatar
   referralCode         String?  @unique
   referredBy           String?
