@@ -332,18 +332,16 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
 // ─── AI Insight Banner ─────────────────────────────────────────────────────
 
 function AiInsightBanner({ date, mealCount }: { date: string; mealCount: number }) {
-  const hour = new Date().getHours();
-  const bucket = hour < 14 ? 'morning' : hour < 19 ? 'afternoon' : 'evening';
-
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['nutrition-insight', date, bucket, mealCount],
+    queryKey: ['nutrition-insight', date, mealCount],
     queryFn: () => api.nutritionInsight(date),
     staleTime: Infinity,
     retry: 1,
-    enabled: date === TODAY,
+    // Show for today always; for past dates only when there are meals (backend has cache)
+    enabled: date === TODAY || mealCount > 0,
   });
 
-  if (date !== TODAY || isError) return null;
+  if (isError) return null;
 
   if (isLoading) {
     return (
@@ -464,6 +462,84 @@ function toLocalIso(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// ─── Weekly AI Insight Banner ──────────────────────────────────────────────
+
+function WeeklyInsightBanner({ from, to, mealCount }: { from: string; to: string; mealCount: number }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['nutrition-insight-week', from, to, mealCount],
+    queryFn: () => api.nutritionInsightWeek(from, to),
+    staleTime: Infinity,
+    retry: 1,
+    enabled: mealCount > 0,
+  });
+
+  if (isError || mealCount === 0) return null;
+
+  if (isLoading) {
+    return (
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+        border: '1px solid var(--border)', padding: '14px 16px',
+        marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <div className="spinner" style={{ width: 14, height: 14, flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Анализирую неделю...</span>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const dotColor = data.severity === 'good'
+    ? 'var(--accent)'
+    : data.severity === 'warning'
+    ? 'var(--danger)'
+    : 'var(--text-3)';
+  const chipBg = data.severity === 'good'
+    ? 'var(--accent-soft)'
+    : data.severity === 'warning'
+    ? 'rgba(255,87,87,0.09)'
+    : 'var(--surface-2)';
+
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+      border: '1px solid var(--border)', padding: '14px 16px',
+      marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: dotColor, letterSpacing: 0.3 }}>
+          {data.bannerTitle}
+        </span>
+      </div>
+      <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, margin: 0,
+        marginBottom: (data.nextMealSuggestion || data.mealAdvice.length > 0) ? 10 : 0 }}>
+        {data.bannerText}
+      </p>
+      {data.nextMealSuggestion && (
+        <div style={{
+          background: chipBg, borderRadius: 8, padding: '8px 11px',
+          fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45,
+          marginBottom: data.mealAdvice.length > 0 ? 8 : 0,
+        }}>
+          <span style={{ fontWeight: 600, color: dotColor }}>На следующую неделю: </span>
+          {data.nextMealSuggestion}
+        </div>
+      )}
+      {data.mealAdvice.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {data.mealAdvice.map((tip, i) => (
+            <div key={i} style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
+              · {tip}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Week View ─────────────────────────────────────────────────────────────
@@ -613,6 +689,9 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
             cal={avg(totals.cal)} p={avg(totals.p)} f={avg(totals.f)} c={avg(totals.c)}
             normCal={norms.cal} normP={norms.p} normF={norms.f} normC={norms.c}
           />
+
+          {/* Weekly AI insight */}
+          <WeeklyInsightBanner from={fromStr} to={toStr} mealCount={meals.length} />
 
           {/* Day-by-day breakdown with expandable detail */}
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>

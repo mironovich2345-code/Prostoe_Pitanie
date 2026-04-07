@@ -105,6 +105,8 @@ export const api = {
     request<{ ok: boolean; meal: import('../types').MealEntry }>('/api/nutrition/add', { method: 'POST', body: JSON.stringify(data) }),
   nutritionInsight: (date: string) =>
     request<import('../types').NutritionInsight>(`/api/nutrition/insight?date=${date}`),
+  nutritionInsightWeek: (from: string, to: string) =>
+    request<import('../types').NutritionInsight>(`/api/nutrition/insight/week?from=${from}&to=${to}`),
   myTrainerReview: () =>
     request<{ review: import('../types').TrainerReview | null }>('/api/reviews/my-trainer'),
   submitTrainerReview: (data: { rating: number; reviewText?: string; allowTrainerComment: boolean }) =>

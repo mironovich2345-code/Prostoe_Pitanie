@@ -91,6 +91,115 @@ const SYSTEM_PROMPT = `Ты — персональный нутрициолог 
 - Если нет записей — мягко предложи начать вести дневник
 - Учитывай время: до 14:00 — советы на весь день; 14–19:00 — корректировка оставшихся приёмов; после 19:00 — итоги дня и лёгкий финал`;
 
+// ─── Weekly Insight ─────────────────────────────────────────────────────────
+
+export interface WeeklyInsightDaySummary {
+  date: string;        // YYYY-MM-DD
+  kcal: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  mealCount: number;
+}
+
+export interface WeeklyInsightInput {
+  currentWeight: number | null;
+  targetWeight: number | null;
+  normCal: number | null;
+  normProtein: number | null;
+  normFat: number | null;
+  normCarbs: number | null;
+  weekFrom: string;    // YYYY-MM-DD
+  weekTo: string;      // YYYY-MM-DD
+  activeDays: number;
+  totalDays: number;
+  totalCal: number;
+  avgCal: number;
+  avgProtein: number;
+  avgFat: number;
+  avgCarbs: number;
+  days: WeeklyInsightDaySummary[];
+}
+
+const WEEKLY_SYSTEM_PROMPT = `Ты — персональный нутрициолог в premium приложении EATLYY. Анализируешь недельный рацион пользователя.
+
+Тон: спокойный, умный, без осуждения, без воды. Как наставник, а не робот.
+Язык: русский. Обращение: на "ты".
+
+Верни ТОЛЬКО валидный JSON без markdown, без пояснений, строго такой структуры:
+{"bannerTitle":"...","bannerText":"...","severity":"neutral"|"good"|"warning","nextMealSuggestion":"...","mealAdvice":["...","..."]}
+
+Правила для недельного анализа:
+- bannerTitle: 3–5 слов, про неделю (не про день)
+- bannerText: 1–2 предложения — главный итог недели
+- severity: good — стабильный рацион близко к нормам, warning — явные перекосы или много пропущенных дней, neutral — мало данных
+- nextMealSuggestion: 1 конкретная рекомендация на следующую неделю или ближайший приём
+- mealAdvice: 1–3 совета по изменению питания на следующую неделю, конкретные (блюда/подходы, не "снизь жиры")
+- Если меньше 3 активных дней — мягко отметь нестабильность данных
+- Смотри на стабильность: резкие скачки калорий — это тоже паттерн
+- Не повторяй дневной анализ — делай недельный срез`;
+
+function buildWeeklyPrompt(input: WeeklyInsightInput): string {
+  const dayRows = input.days.map(d =>
+    `  ${d.date}: ${d.mealCount > 0
+      ? `${Math.round(d.kcal)} ккал, Б${Math.round(d.protein)} Ж${Math.round(d.fat)} У${Math.round(d.carbs)}`
+      : '— нет записей'}`
+  ).join('\n');
+
+  const normLine = input.normCal
+    ? `Дневная норма: ${Math.round(input.normCal)} ккал, Б${fmtNum(input.normProtein)} Ж${fmtNum(input.normFat)} У${fmtNum(input.normCarbs)} г`
+    : 'Нормы не заданы';
+
+  return `Неделя: ${input.weekFrom} — ${input.weekTo}
+Профиль: вес ${input.currentWeight ?? '—'} кг, цель ${input.targetWeight ?? '—'} кг
+${normLine}
+
+Активных дней: ${input.activeDays} из ${input.totalDays}
+Итого за неделю: ${Math.round(input.totalCal)} ккал
+Среднее в активный день: ${Math.round(input.avgCal)} ккал, Б${Math.round(input.avgProtein)} Ж${Math.round(input.avgFat)} У${Math.round(input.avgCarbs)} г
+
+По дням:
+${dayRows}`;
+}
+
+export async function generateWeeklyInsight(input: WeeklyInsightInput): Promise<InsightResult> {
+  try {
+    const client = getClient();
+    const resp = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: WEEKLY_SYSTEM_PROMPT },
+        { role: 'user', content: buildWeeklyPrompt(input) },
+      ],
+      temperature: 0.7,
+      max_tokens: 450,
+    });
+
+    const raw = resp.choices[0]?.message?.content?.trim() ?? '';
+    let parsed: InsightResult;
+    try {
+      parsed = JSON.parse(raw) as InsightResult;
+    } catch {
+      console.error('[weeklyInsight] JSON parse failed:', raw);
+      return FALLBACK_INSIGHT;
+    }
+
+    if (typeof parsed.bannerTitle !== 'string' || typeof parsed.bannerText !== 'string') {
+      return FALLBACK_INSIGHT;
+    }
+    if (!['neutral', 'good', 'warning'].includes(parsed.severity)) parsed.severity = 'neutral';
+    if (!Array.isArray(parsed.mealAdvice)) parsed.mealAdvice = [];
+    if (typeof parsed.nextMealSuggestion !== 'string') parsed.nextMealSuggestion = '';
+
+    return parsed;
+  } catch (err) {
+    console.error('[weeklyInsight] OpenAI error:', err);
+    return FALLBACK_INSIGHT;
+  }
+}
+
+// ─── Daily Insight ───────────────────────────────────────────────────────────
+
 export async function generateNutritionInsight(input: InsightInput): Promise<InsightResult> {
   const mealsList = input.meals.length === 0
     ? 'Записей за день пока нет.'

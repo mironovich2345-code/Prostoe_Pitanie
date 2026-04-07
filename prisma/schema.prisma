@@ -159,3 +159,15 @@ model TrainerReward {
   paidAt         DateTime?
   createdAt      DateTime @default(now())
 }
+
+model NutritionInsightCache {
+  id            Int      @id @default(autoincrement())
+  chatId        String
+  period        String   // 'day' | 'week'
+  periodKey     String   // YYYY-MM-DD for day; week-start YYYY-MM-DD for week
+  mealSignature String   // "${count}_${latestCreatedAt}" — changes when data changes
+  contentJson   String   // JSON.stringify(InsightResult)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([chatId, period, periodKey])
+}

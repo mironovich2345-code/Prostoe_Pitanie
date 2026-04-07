@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
-import { generateNutritionInsight, InsightInput } from '../../ai/nutritionInsight';
+import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
 
 const router = Router();
 
@@ -152,12 +152,22 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── Insight cache helpers ────────────────────────────────────────────────────
+
+/** Signature = "count_latestCreatedAtISO" — changes whenever meals are added or removed */
+function mealSig(meals: { createdAt: Date }[]): string {
+  if (meals.length === 0) return '0_';
+  return `${meals.length}_${meals[meals.length - 1].createdAt.toISOString()}`;
+}
+
 // GET /api/nutrition/insight?date=YYYY-MM-DD
 router.get('/insight', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const dateStr = req.query.date as string | undefined;
   try {
-    const date = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+    const now = new Date();
+    const currentDate = dateStr ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const date = new Date(currentDate + 'T00:00:00');
     const start = new Date(date); start.setHours(0, 0, 0, 0);
     const end   = new Date(date); end.setHours(23, 59, 59, 999);
 
@@ -169,6 +179,16 @@ router.get('/insight', async (req: AuthRequest, res: Response) => {
       }),
     ]);
 
+    // Check cache
+    const sig = mealSig(meals);
+    const cached = await prisma.nutritionInsightCache.findUnique({
+      where: { chatId_period_periodKey: { chatId, period: 'day', periodKey: currentDate } },
+    });
+    if (cached && cached.mealSignature === sig) {
+      res.json(JSON.parse(cached.contentJson));
+      return;
+    }
+
     let consumedCal = 0, consumedProtein = 0, consumedFat = 0, consumedCarbs = 0, consumedFiber = 0;
     for (const m of meals) {
       consumedCal     += m.caloriesKcal ?? 0;
@@ -178,9 +198,7 @@ router.get('/insight', async (req: AuthRequest, res: Response) => {
       consumedFiber   += m.fiberG       ?? 0;
     }
 
-    const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const currentDate = dateStr ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const input: InsightInput = {
       currentWeight: profile?.currentWeightKg ?? null,
@@ -210,10 +228,114 @@ router.get('/insight', async (req: AuthRequest, res: Response) => {
     };
 
     const insight = await generateNutritionInsight(input);
+
+    // Store in cache
+    await prisma.nutritionInsightCache.upsert({
+      where: { chatId_period_periodKey: { chatId, period: 'day', periodKey: currentDate } },
+      create: { chatId, period: 'day', periodKey: currentDate, mealSignature: sig, contentJson: JSON.stringify(insight) },
+      update: { mealSignature: sig, contentJson: JSON.stringify(insight) },
+    });
+
     res.json(insight);
   } catch (err) {
     console.error('[nutrition/insight]', err);
     res.status(500).json({ error: 'Insight generation failed' });
+  }
+});
+
+// GET /api/nutrition/insight/week?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get('/insight/week', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const fromStr = req.query.from as string | undefined;
+  const toStr   = req.query.to   as string | undefined;
+  if (!fromStr || !toStr) {
+    res.status(400).json({ error: 'Missing from/to' });
+    return;
+  }
+  try {
+    const start = new Date(fromStr + 'T00:00:00'); start.setHours(0, 0, 0, 0);
+    const end   = new Date(toStr   + 'T00:00:00'); end.setHours(23, 59, 59, 999);
+
+    const [profile, meals] = await Promise.all([
+      prisma.userProfile.findUnique({ where: { chatId } }),
+      prisma.mealEntry.findMany({
+        where: { chatId, createdAt: { gte: start, lte: end } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    // Check cache
+    const sig = mealSig(meals);
+    const cached = await prisma.nutritionInsightCache.findUnique({
+      where: { chatId_period_periodKey: { chatId, period: 'week', periodKey: fromStr } },
+    });
+    if (cached && cached.mealSignature === sig) {
+      res.json(JSON.parse(cached.contentJson));
+      return;
+    }
+
+    // Aggregate by day
+    const byDate: Record<string, { kcal: number; protein: number; fat: number; carbs: number; count: number }> = {};
+    for (const m of meals) {
+      const d = m.createdAt.toISOString().split('T')[0];
+      if (!byDate[d]) byDate[d] = { kcal: 0, protein: 0, fat: 0, carbs: 0, count: 0 };
+      byDate[d].kcal    += m.caloriesKcal ?? 0;
+      byDate[d].protein += m.proteinG     ?? 0;
+      byDate[d].fat     += m.fatG         ?? 0;
+      byDate[d].carbs   += m.carbsG       ?? 0;
+      byDate[d].count   += 1;
+    }
+
+    // Build 7-day list
+    const days: WeeklyInsightInput['days'] = [];
+    const startDate = new Date(fromStr + 'T12:00:00');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const s = byDate[iso];
+      days.push({ date: iso, kcal: s?.kcal ?? 0, protein: s?.protein ?? 0, fat: s?.fat ?? 0, carbs: s?.carbs ?? 0, mealCount: s?.count ?? 0 });
+    }
+
+    const activeDays = days.filter(d => d.mealCount > 0).length;
+    const totalCal     = days.reduce((s, d) => s + d.kcal, 0);
+    const totalProtein = days.reduce((s, d) => s + d.protein, 0);
+    const totalFat     = days.reduce((s, d) => s + d.fat, 0);
+    const totalCarbs   = days.reduce((s, d) => s + d.carbs, 0);
+    const div = activeDays || 1;
+
+    const input: WeeklyInsightInput = {
+      currentWeight: profile?.currentWeightKg ?? null,
+      targetWeight:  profile?.desiredWeightKg ?? null,
+      normCal:       profile?.dailyCaloriesKcal ?? null,
+      normProtein:   profile?.dailyProteinG     ?? null,
+      normFat:       profile?.dailyFatG         ?? null,
+      normCarbs:     profile?.dailyCarbsG       ?? null,
+      weekFrom: fromStr,
+      weekTo:   toStr,
+      activeDays,
+      totalDays: 7,
+      totalCal,
+      avgCal:     totalCal     / div,
+      avgProtein: totalProtein / div,
+      avgFat:     totalFat     / div,
+      avgCarbs:   totalCarbs   / div,
+      days,
+    };
+
+    const insight = await generateWeeklyInsight(input);
+
+    // Store in cache
+    await prisma.nutritionInsightCache.upsert({
+      where: { chatId_period_periodKey: { chatId, period: 'week', periodKey: fromStr } },
+      create: { chatId, period: 'week', periodKey: fromStr, mealSignature: sig, contentJson: JSON.stringify(insight) },
+      update: { mealSignature: sig, contentJson: JSON.stringify(insight) },
+    });
+
+    res.json(insight);
+  } catch (err) {
+    console.error('[nutrition/insight/week]', err);
+    res.status(500).json({ error: 'Weekly insight generation failed' });
   }
 });
 
