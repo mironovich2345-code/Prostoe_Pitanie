@@ -239,6 +239,94 @@ function AnalyzingButton() {
   );
 }
 
+// ─── Confidence badge ───────────────────────────────────────────────────────
+
+function ConfidenceBadge({ confidence }: { confidence?: 'high' | 'medium' | 'low' }) {
+  if (!confidence || confidence === 'high') return null;
+  const isLow = confidence === 'low';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, fontWeight: 700,
+      padding: '3px 8px', borderRadius: 6,
+      background: isLow ? 'rgba(255,159,10,0.15)' : 'rgba(215,255,63,0.1)',
+      color: isLow ? '#FF9F0A' : 'var(--text-3)',
+      border: `1px solid ${isLow ? 'rgba(255,159,10,0.3)' : 'var(--border)'}`,
+    }}>
+      {isLow ? '⚠ Низкая уверенность' : '~ Примерная оценка'}
+    </span>
+  );
+}
+
+// ─── Ingredients list ───────────────────────────────────────────────────────
+
+function IngredientsList({ ingredients }: { ingredients?: string[] }) {
+  const [open, setOpen] = useState(false);
+  if (!ingredients || ingredients.length === 0) return null;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontSize: 12, fontWeight: 600, color: 'var(--text-3)',
+        }}
+      >
+        <span style={{ fontSize: 10, display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>›</span>
+        По ингредиентам ({ingredients.length})
+      </button>
+      {open && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {ingredients.map((ing, i) => (
+            <div key={i} style={{
+              fontSize: 12, color: 'var(--text-2)', lineHeight: 1.4,
+              padding: '4px 8px', background: 'var(--surface-2)',
+              borderRadius: 6, borderLeft: '2px solid var(--accent)',
+            }}>
+              {ing}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Clarification banner ────────────────────────────────────────────────────
+
+function ClarificationBanner({ question, onClarify }: { question: string; onClarify: () => void }) {
+  return (
+    <div style={{
+      background: 'rgba(255,159,10,0.1)', border: '1px solid rgba(255,159,10,0.3)',
+      borderRadius: 'var(--r-md)', padding: '14px 16px', marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>🤔</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#FF9F0A', marginBottom: 4 }}>
+            Уточните для точности
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+            {question}
+          </div>
+        </div>
+      </div>
+      <button
+        onClick={onClarify}
+        style={{
+          background: 'rgba(255,159,10,0.2)', border: '1px solid rgba(255,159,10,0.4)',
+          borderRadius: 8, padding: '8px 14px',
+          fontSize: 13, fontWeight: 600, color: '#FF9F0A',
+          cursor: 'pointer', width: '100%',
+        }}
+      >
+        Уточнить описание
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function AddMealScreen() {
@@ -389,6 +477,14 @@ export default function AddMealScreen() {
 
   // ── RESULT ────────────────────────────────────────────────────────────
   if (step === 'result' && result) {
+    const hasClarification = result.needsClarification && result.clarificationQuestion;
+
+    function handleClarify() {
+      // Go back to text input so user can add clarification
+      setResult(null);
+      setStep('text');
+    }
+
     return (
       <div className="screen">
         <BackBtn to={sourceType === 'text' ? 'text' : 'photo'} />
@@ -419,6 +515,11 @@ export default function AddMealScreen() {
                   {result.composition}
                 </div>
               )}
+              {result.confidence && result.confidence !== 'high' && (
+                <div style={{ marginTop: 8 }}>
+                  <ConfidenceBadge confidence={result.confidence} />
+                </div>
+              )}
             </div>
             {/* Исправить button — compact, secondary, right-aligned */}
             <button
@@ -435,7 +536,16 @@ export default function AddMealScreen() {
             </button>
           </div>
           <NutritionRow result={result} />
+          <IngredientsList ingredients={result.ingredients} />
         </div>
+
+        {/* Clarification banner */}
+        {hasClarification && (
+          <ClarificationBanner
+            question={result.clarificationQuestion!}
+            onClarify={handleClarify}
+          />
+        )}
 
         {/* Meal type picker */}
         <div style={{

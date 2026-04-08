@@ -132,6 +132,10 @@ export interface FoodAnalysis {
   carbsG: number | null;
   fiberG: number | null;
   weightG: number | null;
+  ingredients?: string[];
+  confidence?: 'high' | 'medium' | 'low';
+  needsClarification?: boolean;
+  clarificationQuestion?: string | null;
 }
 
 export interface NutritionTotals {
