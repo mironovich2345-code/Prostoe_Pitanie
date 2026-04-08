@@ -155,6 +155,14 @@ export const api = {
       aiCosts: { today: number | null; week: number | null; month: number | null; note: string };
     }>('/api/admin/stats'),
 
+  // ─── Company requisites ────────────────────────────────────────────────────
+  companyRequisites: () =>
+    request<{ requisites: Record<string, string> | null }>('/api/company/requisites'),
+  companySaveRequisites: (requisites: Record<string, string>) =>
+    request<{ ok: boolean }>('/api/company/requisites', { method: 'PATCH', body: JSON.stringify({ requisites }) }),
+  companyRecognizeRequisites: (imageData: string) =>
+    request<{ recognized: Record<string, string> }>('/api/company/requisites/recognize', { method: 'POST', body: JSON.stringify({ imageData }) }),
+
   trainerOfferLinks: () =>
     request<{ totalUniqueUsers: number; offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; earnedRub: number | null; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
 };

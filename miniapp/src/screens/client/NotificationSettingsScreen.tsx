@@ -32,21 +32,7 @@ export default function NotificationSettingsScreen() {
 
   return (
     <div className="screen">
-      <PageHeader
-        title="Уведомления"
-        onBack={() => navigate('/profile')}
-        right={
-          <button
-            onClick={() => canAddMeal && navigate('/notifications/new')}
-            style={{
-              background: 'none', border: 'none',
-              fontSize: 28, lineHeight: 1, padding: '0 2px',
-              color: canAddMeal ? 'var(--accent)' : 'var(--text-3)',
-              cursor: canAddMeal ? 'pointer' : 'default',
-            }}
-          >+</button>
-        }
-      />
+      <PageHeader title="Уведомления" onBack={() => navigate('/profile')} />
 
       {isLoading ? (
         <div className="card"><div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div></div>
@@ -73,100 +59,117 @@ export default function NotificationSettingsScreen() {
               </button>
             </div>
           ) : (
-            <div
-              style={{
-                background: 'var(--surface)',
-                borderRadius: 'var(--r-lg)',
-                overflow: 'hidden',
-                border: '1px solid var(--border)',
-                marginBottom: 10,
-              }}
-            >
-              {mealReminders.map((r: MealReminder, i: number) => (
-                <ReminderRow
-                  key={r.id}
-                  reminder={r}
-                  label={MEAL_LABELS[r.mealType as ReminderMealType] ?? r.mealType}
-                  isLast={i === mealReminders.length - 1}
-                  toggling={toggleMutation.isPending}
-                  onTap={() => navigate(`/notifications/${r.id}`)}
-                  onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
-                />
-              ))}
-            </div>
-          )}
-
-          {!canAddMeal && mealReminders.length > 0 && (
-            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
-              Максимум 5 напоминаний
-            </p>
+            <>
+              <div
+                style={{
+                  background: 'var(--surface)',
+                  borderRadius: 'var(--r-lg)',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  marginBottom: 10,
+                }}
+              >
+                {mealReminders.map((r: MealReminder, i: number) => (
+                  <ReminderRow
+                    key={r.id}
+                    reminder={r}
+                    label={MEAL_LABELS[r.mealType as ReminderMealType] ?? r.mealType}
+                    isLast={i === mealReminders.length - 1}
+                    toggling={toggleMutation.isPending}
+                    onTap={() => navigate(`/notifications/${r.id}`)}
+                    onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
+                  />
+                ))}
+              </div>
+              {canAddMeal ? (
+                <button
+                  onClick={() => navigate('/notifications/new')}
+                  style={{
+                    width: '100%', padding: '11px 0', fontSize: 13, fontWeight: 600,
+                    borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
+                    background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
+                  }}
+                >
+                  + Добавить напоминание
+                </button>
+              ) : (
+                <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
+                  Максимум 5 напоминаний
+                </p>
+              )}
+            </>
           )}
 
           {/* Weight reminders section */}
           <div style={{ marginTop: 20 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 10,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)' }}>
-                  Замер веса
-                </div>
-                <button
-                  onClick={() => setShowWeightInfo(true)}
-                  style={{
-                    background: 'none', border: '1.5px solid var(--text-3)',
-                    borderRadius: '50%', width: 16, height: 16,
-                    fontSize: 10, fontWeight: 700, color: 'var(--text-3)',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: 0, lineHeight: 1, flexShrink: 0,
-                  }}
-                  aria-label="Почему только 2 уведомления?"
-                >?</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)' }}>
+                Замер веса
               </div>
               <button
-                onClick={() => canAddWeight && navigate('/notifications/weight/new')}
+                onClick={() => setShowWeightInfo(true)}
                 style={{
-                  background: 'none', border: 'none',
-                  fontSize: 28, lineHeight: 1, padding: '0 2px',
-                  color: canAddWeight ? 'var(--accent)' : 'var(--text-3)',
-                  cursor: canAddWeight ? 'pointer' : 'default',
+                  background: 'none', border: '1.5px solid var(--text-3)',
+                  borderRadius: '50%', width: 16, height: 16,
+                  fontSize: 10, fontWeight: 700, color: 'var(--text-3)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 0, lineHeight: 1, flexShrink: 0,
                 }}
-              >+</button>
+                aria-label="Почему только 2 уведомления?"
+              >?</button>
             </div>
 
             {weightReminders.length === 0 ? (
               <div style={{
                 background: 'var(--surface)', borderRadius: 'var(--r-lg)',
-                border: '1px solid var(--border)', padding: '18px 16px',
+                border: '1px solid var(--border)', padding: '20px 16px',
                 textAlign: 'center',
               }}>
-                <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-                  Добавь напоминание о взвешивании
-                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Нет напоминаний</div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Добавь напоминание о взвешивании</div>
+                <button
+                  className="btn"
+                  style={{ width: 'auto', padding: '10px 28px' }}
+                  onClick={() => navigate('/notifications/weight/new')}
+                >
+                  Добавить
+                </button>
               </div>
             ) : (
-              <div style={{
-                background: 'var(--surface)', borderRadius: 'var(--r-lg)',
-                overflow: 'hidden', border: '1px solid var(--border)',
-              }}>
-                {weightReminders.map((r, i) => (
-                  <WeightReminderRow
-                    key={r.id}
-                    reminder={r}
-                    isLast={i === weightReminders.length - 1}
-                    toggling={toggleMutation.isPending}
-                    onTap={() => navigate(`/notifications/weight/${r.id}`)}
-                    onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
-                  />
-                ))}
-              </div>
-            )}
-
-            {!canAddWeight && weightReminders.length > 0 && (
-              <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 8 }}>
-                Максимум 2 напоминания о замере
-              </p>
+              <>
+                <div style={{
+                  background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+                  overflow: 'hidden', border: '1px solid var(--border)',
+                  marginBottom: 10,
+                }}>
+                  {weightReminders.map((r, i) => (
+                    <WeightReminderRow
+                      key={r.id}
+                      reminder={r}
+                      isLast={i === weightReminders.length - 1}
+                      toggling={toggleMutation.isPending}
+                      onTap={() => navigate(`/notifications/weight/${r.id}`)}
+                      onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
+                    />
+                  ))}
+                </div>
+                {canAddWeight ? (
+                  <button
+                    onClick={() => navigate('/notifications/weight/new')}
+                    style={{
+                      width: '100%', padding: '11px 0', fontSize: 13, fontWeight: 600,
+                      borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
+                      background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
+                    }}
+                  >
+                    + Добавить напоминание
+                  </button>
+                ) : (
+                  <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
+                    Максимум 2 напоминания о замере
+                  </p>
+                )}
+              </>
             )}
           </div>
         </>

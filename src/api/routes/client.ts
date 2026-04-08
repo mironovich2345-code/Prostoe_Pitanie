@@ -8,7 +8,7 @@ const router = Router();
 router.get('/trainers', async (_req: AuthRequest, res: Response) => {
   try {
     const trainers = await prisma.trainerProfile.findMany({
-      where: { verificationStatus: 'verified' },
+      where: { verificationStatus: 'verified', specialization: { not: 'Компания' } },
       select: { chatId: true, fullName: true, specialization: true, bio: true },
       orderBy: { verifiedAt: 'desc' },
     });

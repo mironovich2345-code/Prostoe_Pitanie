@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
+import type { DotSet } from '../../components/WeekCalendar';
 import type { MealEntry } from '../../types';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -426,12 +427,30 @@ function DayView({ norms }: { norms: { cal: number | null; p: number | null; f: 
     queryFn: () => api.nutritionDiary(date),
   });
 
+  const { data: stats60 } = useQuery({
+    queryKey: ['nutrition-stats', 60],
+    queryFn: () => api.nutritionStats(60),
+    staleTime: 5 * 60_000,
+  });
+
+  const dotsByDate = useMemo(() => {
+    const map: Record<string, DotSet> = {};
+    for (const m of (stats60?.meals ?? [])) {
+      const d = m.createdAt.slice(0, 10);
+      if (!map[d]) map[d] = { breakfast: false, lunch: false, dinner: false };
+      if (m.mealType === 'breakfast') map[d].breakfast = true;
+      else if (m.mealType === 'lunch') map[d].lunch = true;
+      else if (m.mealType === 'dinner') map[d].dinner = true;
+    }
+    return map;
+  }, [stats60]);
+
   const meals: MealEntry[] = data?.meals ?? [];
   const totals = useMemo(() => computeTotals(meals), [meals]);
 
   return (
     <>
-      <WeekCalendar selected={date} onSelect={setDate} />
+      <WeekCalendar selected={date} onSelect={setDate} dotsByDate={dotsByDate} />
 
       {isLoading ? (
         <div className="card" style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>

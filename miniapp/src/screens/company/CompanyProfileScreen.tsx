@@ -29,11 +29,11 @@ function IconPayout() {
   );
 }
 
-function IconInfo() {
+function IconRequisites() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+      <rect x="2" y="3" width="20" height="18" rx="2"/>
+      <line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/>
     </svg>
   );
 }
@@ -124,7 +124,7 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Профиль компании</h1>
         {onSwitchToClient && (
-          <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} />
+          <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} expertLabel="Компания" />
         )}
       </div>
 
@@ -204,7 +204,7 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
         ))}
       </div>
 
-      {/* Docs + Payouts section */}
+      {/* Management section */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '12px 4px 8px' }}>
         Управление
       </div>
@@ -212,6 +212,7 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', overflow: 'hidden',
       }}>
+        <ProfileRow icon={<IconRequisites />} label="Реквизиты" path="/requisites" navigate={navigate} />
         <ProfileRow icon={<IconDocs />} label="Документы" path="/documents" navigate={navigate} />
         <div style={{ borderBottom: 'none' }}>
           <ProfileRow icon={<IconPayout />} label="Вывод средств" path="/payouts" navigate={navigate} />

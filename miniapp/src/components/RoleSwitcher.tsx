@@ -1,8 +1,8 @@
 import type { AppMode } from '../types';
 
-interface Props { mode: AppMode; onChange: (m: AppMode) => void; }
+interface Props { mode: AppMode; onChange: (m: AppMode) => void; expertLabel?: string; }
 
-export default function RoleSwitcher({ mode, onChange }: Props) {
+export default function RoleSwitcher({ mode, onChange, expertLabel = 'Эксперт' }: Props) {
   return (
     <div style={{
       display: 'inline-flex',
@@ -32,7 +32,7 @@ export default function RoleSwitcher({ mode, onChange }: Props) {
               whiteSpace: 'nowrap',
             }}
           >
-            {m === 'client' ? 'Клиент' : 'Эксперт'}
+            {m === 'client' ? 'Клиент' : expertLabel}
           </button>
         );
       })}

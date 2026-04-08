@@ -25,6 +25,8 @@ import CompanyOffersScreen from './screens/company/CompanyOffersScreen';
 import CompanyStatsScreen from './screens/company/CompanyStatsScreen';
 import CompanyProfileScreen from './screens/company/CompanyProfileScreen';
 import CompanyPayoutsScreen from './screens/company/CompanyPayoutsScreen';
+import CompanyDocumentsScreen from './screens/company/CompanyDocumentsScreen';
+import CompanyRequisitesScreen from './screens/company/CompanyRequisitesScreen';
 import AdminDashboardScreen from './screens/admin/AdminDashboardScreen';
 import AdminApplicationsScreen from './screens/admin/AdminApplicationsScreen';
 import AdminExpertsScreen from './screens/admin/AdminExpertsScreen';
@@ -169,6 +171,8 @@ export default function App() {
             <Route path="/stats" element={<CompanyStatsScreen />} />
             <Route path="/profile" element={<CompanyProfileScreen bootstrap={bootstrap} onSwitchToClient={() => setMode('client')} />} />
             <Route path="/payouts" element={<CompanyPayoutsScreen />} />
+            <Route path="/documents" element={<CompanyDocumentsScreen />} />
+            <Route path="/requisites" element={<CompanyRequisitesScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

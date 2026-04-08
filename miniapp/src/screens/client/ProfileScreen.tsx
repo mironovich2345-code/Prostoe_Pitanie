@@ -71,6 +71,7 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   const p = bootstrap.profile;
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
   const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
+  const isCompany = bootstrap.trainerProfile?.specialization === 'Компания';
 
   const firstName = user?.first_name ?? '';
   const lastName = user?.last_name ?? '';
@@ -183,7 +184,7 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
         {/* Role switcher for verified trainers */}
         {isVerified && (
           <div style={{ flexShrink: 0 }}>
-            <RoleSwitcher mode="client" onChange={m => { if (m === 'coach') onSwitchToCoach!(); }} />
+            <RoleSwitcher mode="client" onChange={m => { if (m === 'coach') onSwitchToCoach!(); }} expertLabel={isCompany ? 'Компания' : 'Эксперт'} />
           </div>
         )}
       </div>

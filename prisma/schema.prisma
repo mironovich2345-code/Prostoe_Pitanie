@@ -83,6 +83,7 @@ model TrainerProfile {
   connectionCodeExpiresAt DateTime?
   avatarData              String?   // base64 data URL
   verificationPhotoData   String?   // base64 selfie for identity verification
+  requisitesData          String?   // JSON-encoded company requisites (ИП/ООО fields)
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }
