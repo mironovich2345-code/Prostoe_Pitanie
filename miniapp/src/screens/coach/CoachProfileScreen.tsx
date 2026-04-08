@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData } from '../../types';
 import StatusBadge from '../../components/StatusBadge';
-import RoleSwitcher from '../../components/RoleSwitcher';
 
 interface Props {
   bootstrap: BootstrapData;
@@ -133,7 +132,42 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', padding: '24px 20px 20px', marginBottom: 12,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
+        position: 'relative',
       }}>
+        {/* Role toggle — top-right, coach is always "on" */}
+        {onSwitchToClient && (
+          <div style={{
+            position: 'absolute', top: 14, right: 16,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+          }}>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--accent)' }}>
+              Эксперт
+            </span>
+            <button
+              onClick={onSwitchToClient}
+              aria-label="Переключить на Клиент"
+              style={{
+                width: 44, height: 26, borderRadius: 13,
+                background: 'var(--accent)',
+                border: 'none',
+                padding: 0, cursor: 'pointer',
+                display: 'flex', alignItems: 'center',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              <span style={{
+                position: 'absolute', left: 23,
+                width: 18, height: 18, borderRadius: '50%',
+                background: '#000',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+              }} />
+            </button>
+          </div>
+        )}
+
         {/* Avatar */}
         <div style={{ position: 'relative', marginBottom: 14 }}>
           <div style={{
@@ -216,12 +250,6 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
           </div>
         )}
 
-        {/* Role switcher */}
-        {onSwitchToClient && (
-          <div style={{ marginTop: 16, width: '100%' }}>
-            <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} fullWidth />
-          </div>
-        )}
       </div>
 
       {/* Finance section */}

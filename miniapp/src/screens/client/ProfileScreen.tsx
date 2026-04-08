@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData, TrainerVerificationStatus } from '../../types';
 import { Chip, ListCard, ListItem } from '../../ui';
-import RoleSwitcher from '../../components/RoleSwitcher';
 
 interface Props {
   bootstrap: BootstrapData;
@@ -33,7 +32,7 @@ function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined 
     return <Chip variant="danger" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>Отклонено</Chip>;
   if (status === 'blocked')
     return <Chip variant="muted" onClick={() => navigate('/expert/status')} style={{ cursor: 'pointer' }}>Заблокирован</Chip>;
-  if (status === 'verified') return null; // handled by RoleSwitcher
+  if (status === 'verified') return null; // handled by role toggle in UserHeroCard
   return (
     <button
       onClick={() => navigate('/expert/apply')}
@@ -97,6 +96,8 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
     avatarMutation.mutate(base64);
   };
 
+  const roleLabel = isCompany ? 'Компания' : 'Эксперт';
+
   return (
     <div style={{
       background: 'var(--surface)',
@@ -105,7 +106,43 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
       border: '1px solid var(--border)',
       marginBottom: 12,
       display: 'flex', flexDirection: 'column', alignItems: 'center',
+      position: 'relative',
     }}>
+      {/* Role toggle — top-right, only for verified trainers */}
+      {isVerified && (
+        <div style={{
+          position: 'absolute', top: 14, right: 16,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-3)' }}>
+            {roleLabel}
+          </span>
+          {/* iPhone-style toggle, always "off" in client view */}
+          <button
+            onClick={onSwitchToCoach}
+            aria-label={`Переключить на ${roleLabel}`}
+            style={{
+              width: 44, height: 26, borderRadius: 13,
+              background: 'var(--surface-2)',
+              border: '1.5px solid var(--border)',
+              padding: 0, cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+              position: 'relative',
+              transition: 'background 0.2s',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{
+              position: 'absolute', left: 3,
+              width: 18, height: 18, borderRadius: '50%',
+              background: 'var(--text-3)',
+              transition: 'left 0.2s, background 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+            }} />
+          </button>
+        </div>
+      )}
+
       {/* Avatar centered */}
       <div style={{ position: 'relative', marginBottom: 14 }}>
         <div style={{
@@ -159,18 +196,6 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
             <circle cx="12" cy="10" r="3"/>
           </svg>
           {p.city}
-        </div>
-      )}
-
-      {/* Role switcher — only for verified trainers */}
-      {isVerified && (
-        <div style={{ marginTop: 16, width: '100%' }}>
-          <RoleSwitcher
-            mode="client"
-            onChange={m => { if (m === 'coach') onSwitchToCoach!(); }}
-            expertLabel={isCompany ? 'Компания' : 'Эксперт'}
-            fullWidth
-          />
         </div>
       )}
     </div>
