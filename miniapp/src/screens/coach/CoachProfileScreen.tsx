@@ -128,28 +128,20 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
 
   return (
     <div className="screen">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Профиль эксперта</h1>
-        {onSwitchToClient && (
-          <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} />
-        )}
-      </div>
-
-      {/* Avatar + Name card */}
+      {/* Hero card — same pattern as client profile */}
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-        border: '1px solid var(--border)', padding: '24px 20px', marginBottom: 12,
-        display: 'flex', alignItems: 'center', gap: 18,
+        border: '1px solid var(--border)', padding: '24px 20px 20px', marginBottom: 12,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
         {/* Avatar */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', marginBottom: 14 }}>
           <div style={{
-            width: 72, height: 72, borderRadius: '50%',
+            width: 112, height: 112, borderRadius: '50%',
             background: localAvatar ? 'transparent' : 'var(--accent-soft)',
             border: '2px solid rgba(215,255,63,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 28, fontWeight: 700, color: 'var(--accent)',
+            fontSize: 44, fontWeight: 700, color: 'var(--accent)',
             overflow: 'hidden',
           }}>
             {localAvatar
@@ -160,81 +152,76 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 24, height: 24, borderRadius: '50%',
+              position: 'absolute', bottom: 2, right: 2,
+              width: 28, height: 28, borderRadius: '50%',
               background: 'var(--accent)', border: '2px solid var(--bg)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#000',
+              cursor: 'pointer', color: '#000', padding: 0,
             }}
           >
             <IconCamera />
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleAvatarChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
         </div>
 
-        {/* Name + status */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {editingName ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input
-                value={nameVal}
-                onChange={e => setNameVal(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && saveName()}
-                autoFocus
-                placeholder="Ваше имя"
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  fontSize: 16, fontWeight: 600,
-                  background: 'var(--surface-2)', border: '1px solid var(--accent)',
-                  borderRadius: 8, padding: '8px 10px', color: 'var(--text)',
-                  outline: 'none',
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={saveName}
-                  disabled={patchMutation.isPending}
-                  className="btn"
-                  style={{ flex: 1, fontSize: 14 }}
-                >
-                  {patchMutation.isPending ? '...' : 'Сохранить'}
-                </button>
-                <button
-                  onClick={() => { setNameVal(localName); setEditingName(false); }}
-                  style={{
-                    background: 'var(--surface-2)', border: '1px solid var(--border)',
-                    borderRadius: 8, padding: '0 14px', fontSize: 14,
-                    color: 'var(--text-2)', cursor: 'pointer',
-                  }}
-                >
-                  Отмена
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {displayName || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Имя не указано</span>}
-              </span>
+        {/* Name + edit */}
+        {editingName ? (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+            <input
+              value={nameVal}
+              onChange={e => setNameVal(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && saveName()}
+              autoFocus
+              placeholder="Ваше имя"
+              style={{
+                width: '100%', boxSizing: 'border-box', textAlign: 'center',
+                fontSize: 16, fontWeight: 600,
+                background: 'var(--surface-2)', border: '1px solid var(--accent)',
+                borderRadius: 8, padding: '8px 10px', color: 'var(--text)', outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={saveName} disabled={patchMutation.isPending} className="btn" style={{ flex: 1, fontSize: 14 }}>
+                {patchMutation.isPending ? '...' : 'Сохранить'}
+              </button>
               <button
-                onClick={() => { setNameVal(displayName); setEditingName(true); }}
-                style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
+                onClick={() => { setNameVal(localName); setEditingName(false); }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 14px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }}
               >
-                <IconEdit />
+                Отмена
               </button>
             </div>
-          )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', textAlign: 'center' }}>
+              {displayName || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Имя не указано</span>}
+            </span>
+            <button
+              onClick={() => { setNameVal(displayName); setEditingName(true); }}
+              style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
+            >
+              <IconEdit />
+            </button>
+          </div>
+        )}
+
+        {/* Status + specialization */}
+        <div style={{ marginBottom: tp?.specialization ? 4 : 0 }}>
           <StatusBadge status={tp?.verificationStatus ?? 'pending'} />
-          {tp?.specialization && (
-            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-2)' }}>{tp.specialization}</div>
-          )}
         </div>
+        {tp?.specialization && (
+          <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginBottom: 4 }}>
+            {tp.specialization}
+          </div>
+        )}
+
+        {/* Role switcher */}
+        {onSwitchToClient && (
+          <div style={{ marginTop: 16, width: '100%' }}>
+            <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} fullWidth />
+          </div>
+        )}
       </div>
 
       {/* Finance section */}

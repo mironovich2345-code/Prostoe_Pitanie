@@ -1,14 +1,20 @@
 import type { AppMode } from '../types';
 
-interface Props { mode: AppMode; onChange: (m: AppMode) => void; expertLabel?: string; }
+interface Props {
+  mode: AppMode;
+  onChange: (m: AppMode) => void;
+  expertLabel?: string;
+  fullWidth?: boolean;
+}
 
-export default function RoleSwitcher({ mode, onChange, expertLabel = 'Эксперт' }: Props) {
+export default function RoleSwitcher({ mode, onChange, expertLabel = 'Эксперт', fullWidth = false }: Props) {
   return (
     <div style={{
-      display: 'inline-flex',
+      display: fullWidth ? 'flex' : 'inline-flex',
+      width: fullWidth ? '100%' : undefined,
       background: 'var(--surface-2)',
-      borderRadius: 11,
-      padding: 3,
+      borderRadius: 12,
+      padding: 4,
       flexShrink: 0,
       border: '1px solid var(--border)',
     }}>
@@ -19,17 +25,19 @@ export default function RoleSwitcher({ mode, onChange, expertLabel = 'Экспе
             key={m}
             onClick={() => onChange(m)}
             style={{
-              padding: '4px 14px',
-              fontSize: 12,
+              flex: fullWidth ? 1 : undefined,
+              padding: '9px 20px',
+              fontSize: 13,
               fontWeight: 600,
-              borderRadius: 8,
+              borderRadius: 9,
               border: 'none',
               cursor: 'pointer',
               background: active ? 'var(--accent)' : 'transparent',
               color: active ? '#000' : 'var(--text-3)',
-              boxShadow: active ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
+              boxShadow: active ? '0 1px 4px rgba(0,0,0,0.35)' : 'none',
               transition: 'background 0.15s, color 0.15s',
               whiteSpace: 'nowrap',
+              letterSpacing: -0.1,
             }}
           >
             {m === 'client' ? 'Клиент' : expertLabel}

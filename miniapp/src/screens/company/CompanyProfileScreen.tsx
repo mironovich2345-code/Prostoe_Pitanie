@@ -120,28 +120,20 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
 
   return (
     <div className="screen">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Профиль компании</h1>
-        {onSwitchToClient && (
-          <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} expertLabel="Компания" />
-        )}
-      </div>
-
-      {/* Company name card */}
+      {/* Hero card — same pattern as client/coach profile */}
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-        border: '1px solid var(--border)', padding: '24px 20px', marginBottom: 12,
-        display: 'flex', alignItems: 'center', gap: 18,
+        border: '1px solid var(--border)', padding: '24px 20px 20px', marginBottom: 12,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
         {/* Avatar */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', marginBottom: 14 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: 16,
+            width: 112, height: 112, borderRadius: 24,
             background: localAvatar ? 'transparent' : 'var(--accent-soft)',
             border: '2px solid rgba(215,255,63,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 24, fontWeight: 700, color: 'var(--accent)',
+            fontSize: 44, fontWeight: 700, color: 'var(--accent)',
             overflow: 'hidden',
           }}>
             {localAvatar
@@ -152,11 +144,11 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 22, height: 22, borderRadius: '50%',
+              position: 'absolute', bottom: 2, right: 2,
+              width: 28, height: 28, borderRadius: '50%',
               background: 'var(--accent)', border: '2px solid var(--bg)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#000',
+              cursor: 'pointer', color: '#000', padding: 0,
             }}
           >
             <IconCamera />
@@ -164,18 +156,25 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
         </div>
 
-        {/* Name + status */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {companyName || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Название не указано</span>}
-          </div>
-          <StatusBadge status={tp?.verificationStatus ?? 'pending'} />
-          {tp?.socialLink && (
-            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {tp.socialLink}
-            </div>
-          )}
+        {/* Company name */}
+        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', textAlign: 'center', marginBottom: 6, lineHeight: 1.2 }}>
+          {companyName || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>Название не указано</span>}
         </div>
+
+        <StatusBadge status={tp?.verificationStatus ?? 'pending'} />
+
+        {tp?.socialLink && (
+          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-3)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+            {tp.socialLink}
+          </div>
+        )}
+
+        {/* Role switcher */}
+        {onSwitchToClient && (
+          <div style={{ marginTop: 16, width: '100%' }}>
+            <RoleSwitcher mode="coach" onChange={(m) => { if (m === 'client') onSwitchToClient(); }} expertLabel="Компания" fullWidth />
+          </div>
+        )}
       </div>
 
       {/* Реквизиты section */}

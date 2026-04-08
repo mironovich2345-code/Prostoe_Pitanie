@@ -109,11 +109,11 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
       {/* Avatar centered */}
       <div style={{ position: 'relative', marginBottom: 14 }}>
         <div style={{
-          width: 96, height: 96, borderRadius: '50%',
+          width: 112, height: 112, borderRadius: '50%',
           background: displayAvatar ? 'transparent' : 'var(--accent-soft)',
           border: '2px solid rgba(215,255,63,0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 38, fontWeight: 700, color: 'var(--accent)',
+          fontSize: 44, fontWeight: 700, color: 'var(--accent)',
           overflow: 'hidden',
         }}>
           {displayAvatar
@@ -125,7 +125,7 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
           onClick={() => fileInputRef.current?.click()}
           style={{
             position: 'absolute', bottom: 2, right: 2,
-            width: 26, height: 26, borderRadius: '50%',
+            width: 28, height: 28, borderRadius: '50%',
             background: 'var(--accent)', border: '2px solid var(--bg)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', color: '#000', padding: 0,
@@ -164,11 +164,12 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
 
       {/* Role switcher — only for verified trainers */}
       {isVerified && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16, width: '100%' }}>
           <RoleSwitcher
             mode="client"
             onChange={m => { if (m === 'coach') onSwitchToCoach!(); }}
             expertLabel={isCompany ? 'Компания' : 'Эксперт'}
+            fullWidth
           />
         </div>
       )}

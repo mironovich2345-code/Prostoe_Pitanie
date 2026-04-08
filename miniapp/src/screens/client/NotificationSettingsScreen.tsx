@@ -52,7 +52,7 @@ export default function NotificationSettingsScreen() {
               <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20 }}>Добавь первое напоминание о приёме пищи</div>
               <button
                 className="btn"
-                style={{ width: 'auto', padding: '10px 28px' }}
+                style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
                 onClick={() => navigate('/notifications/new')}
               >
                 Добавить
@@ -85,7 +85,7 @@ export default function NotificationSettingsScreen() {
                 <button
                   onClick={() => navigate('/notifications/new')}
                   style={{
-                    width: '100%', padding: '11px 0', fontSize: 13, fontWeight: 600,
+                    width: '100%', padding: '13px 0', fontSize: 14, fontWeight: 600,
                     borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
                     background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
                   }}
@@ -129,7 +129,7 @@ export default function NotificationSettingsScreen() {
                 <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>Добавь напоминание о взвешивании</div>
                 <button
                   className="btn"
-                  style={{ width: 'auto', padding: '10px 28px' }}
+                  style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
                   onClick={() => navigate('/notifications/weight/new')}
                 >
                   Добавить
@@ -157,7 +157,7 @@ export default function NotificationSettingsScreen() {
                   <button
                     onClick={() => navigate('/notifications/weight/new')}
                     style={{
-                      width: '100%', padding: '11px 0', fontSize: 13, fontWeight: 600,
+                      width: '100%', padding: '13px 0', fontSize: 14, fontWeight: 600,
                       borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
                       background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
                     }}
