@@ -25,9 +25,9 @@ export default function RoleSwitcher({ mode, onChange, expertLabel = 'Экспе
               borderRadius: 8,
               border: 'none',
               cursor: 'pointer',
-              background: active ? 'var(--surface-3)' : 'transparent',
-              color: active ? 'var(--text)' : 'var(--text-3)',
-              boxShadow: active ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
+              background: active ? 'var(--accent)' : 'transparent',
+              color: active ? '#000' : 'var(--text-3)',
+              boxShadow: active ? '0 1px 3px rgba(0,0,0,0.3)' : 'none',
               transition: 'background 0.15s, color 0.15s',
               whiteSpace: 'nowrap',
             }}

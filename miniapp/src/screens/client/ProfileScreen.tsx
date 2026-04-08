@@ -76,17 +76,10 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   const firstName = user?.first_name ?? '';
   const lastName = user?.last_name ?? '';
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Пользователь';
-  // Use preferredName as display name when set; fall back to Telegram name
   const displayName = p?.preferredName?.trim() || fullName;
-  const initial = fullName.charAt(0).toUpperCase() || displayName.charAt(0).toUpperCase();
+  const initial = (displayName.charAt(0) || fullName.charAt(0)).toUpperCase();
 
-  const age = p?.birthDate
-    ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : null;
-
-  // localAvatar: only the freshly uploaded data URL (null = use bootstrap value)
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
-  // Derived: prefer in-session upload, then fall back to persisted value from bootstrap
   const displayAvatar = localAvatar ?? p?.avatarData ?? null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
@@ -108,117 +101,75 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
     <div style={{
       background: 'var(--surface)',
       borderRadius: 'var(--r-xl)',
-      padding: '20px',
+      padding: '24px 20px 20px',
       border: '1px solid var(--border)',
       marginBottom: 12,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
     }}>
-      {/* Top row: avatar + info + role switcher */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: (p?.currentWeightKg || p?.desiredWeightKg) ? 16 : 0 }}>
-
-        {/* Avatar with upload button */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: displayAvatar ? 'transparent' : 'var(--accent-soft)',
-            border: '2px solid rgba(215,255,63,0.2)',
+      {/* Avatar centered */}
+      <div style={{ position: 'relative', marginBottom: 14 }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: '50%',
+          background: displayAvatar ? 'transparent' : 'var(--accent-soft)',
+          border: '2px solid rgba(215,255,63,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 38, fontWeight: 700, color: 'var(--accent)',
+          overflow: 'hidden',
+        }}>
+          {displayAvatar
+            ? <img src={displayAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : initial
+          }
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            position: 'absolute', bottom: 2, right: 2,
+            width: 26, height: 26, borderRadius: '50%',
+            background: 'var(--accent)', border: '2px solid var(--bg)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, fontWeight: 700, color: 'var(--accent)',
-            overflow: 'hidden',
-          }}>
-            {displayAvatar
-              ? <img src={displayAvatar} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initial
-            }
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 22, height: 22, borderRadius: '50%',
-              background: 'var(--accent)', border: '2px solid var(--bg)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#000', padding: 0,
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleAvatarChange}
-          />
-        </div>
-
-        {/* Name + meta */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', lineHeight: 1.15, marginBottom: 4 }}>
-            {displayName}
-          </div>
-          {/* Show Telegram username or full name as subtitle when preferredName is set */}
-          {user?.username ? (
-            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>@{user.username}</div>
-          ) : p?.preferredName && fullName !== displayName ? (
-            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 4 }}>{fullName}</div>
-          ) : null}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {p?.city && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--text-3)' }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  {p.city}
-                </span>
-            )}
-            {age && (
-              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{age} лет</span>
-            )}
-          </div>
-        </div>
-
-        {/* Role switcher for verified trainers */}
-        {isVerified && (
-          <div style={{ flexShrink: 0 }}>
-            <RoleSwitcher mode="client" onChange={m => { if (m === 'coach') onSwitchToCoach!(); }} expertLabel={isCompany ? 'Компания' : 'Эксперт'} />
-          </div>
-        )}
+            cursor: 'pointer', color: '#000', padding: 0,
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
       </div>
 
-      {/* Mini stat tiles: weight + target */}
-      {(p?.currentWeightKg || p?.desiredWeightKg) && (
-        <div style={{ display: 'flex', gap: 8 }}>
-          {p?.currentWeightKg && (
-            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Вес</div>
-              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1 }}>
-                {p.currentWeightKg}
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
-              </div>
-            </div>
-          )}
-          {p?.desiredWeightKg && (
-            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Цель</div>
-              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--accent)', lineHeight: 1 }}>
-                {p.desiredWeightKg}
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
-              </div>
-            </div>
-          )}
-          {p?.dailyCaloriesKcal && (
-            <div style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 14px', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.7, color: 'var(--text-3)', marginBottom: 4 }}>Норма</div>
-              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1 }}>
-                {p.dailyCaloriesKcal}
-                <span style={{ fontSize: 9, fontWeight: 500, color: 'var(--text-3)' }}> кк</span>
-              </div>
-            </div>
-          )}
+      {/* Name */}
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', textAlign: 'center', marginBottom: 4, lineHeight: 1.2 }}>
+        {displayName}
+      </div>
+
+      {/* @username */}
+      {user?.username && (
+        <div style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginBottom: 4 }}>
+          @{user.username}
+        </div>
+      )}
+
+      {/* City */}
+      {p?.city && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-3)', marginBottom: 4 }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          {p.city}
+        </div>
+      )}
+
+      {/* Role switcher — only for verified trainers */}
+      {isVerified && (
+        <div style={{ marginTop: 16 }}>
+          <RoleSwitcher
+            mode="client"
+            onChange={m => { if (m === 'coach') onSwitchToCoach!(); }}
+            expertLabel={isCompany ? 'Компания' : 'Эксперт'}
+          />
         </div>
       )}
     </div>
