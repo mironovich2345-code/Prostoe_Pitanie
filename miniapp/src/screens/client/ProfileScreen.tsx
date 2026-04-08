@@ -9,6 +9,7 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 interface Props {
   bootstrap: BootstrapData;
   onSwitchToCoach?: () => void;
+  onSwitchToAdmin?: () => void;
 }
 
 type ProfileTab = 'weight' | 'trainer';
@@ -792,7 +793,7 @@ function ReferralSection() {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
-export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
+export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAdmin }: Props) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<ProfileTab>('weight');
 
@@ -848,6 +849,19 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach }: Props) {
       )}
 
       <ReferralSection />
+
+      {onSwitchToAdmin && (
+        <button
+          onClick={onSwitchToAdmin}
+          style={{
+            width: '100%', marginTop: 16, padding: '14px 16px', borderRadius: 'var(--r-xl)',
+            background: 'rgba(52,199,89,0.15)', border: '1px solid rgba(52,199,89,0.4)',
+            color: '#34C759', fontSize: 14, fontWeight: 700, cursor: 'pointer', letterSpacing: -0.2,
+          }}
+        >
+          Панель администратора
+        </button>
+      )}
 
     </div>
   );

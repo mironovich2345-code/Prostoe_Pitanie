@@ -129,6 +129,32 @@ export const api = {
     request<{ invited: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }>('/api/referral/my-invited'),
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
+  // ─── Admin API ──────────────────────────────────────────────────────────────
+  adminApplications: () =>
+    request<{ applications: Array<{ chatId: string; fullName: string | null; socialLink: string | null; specialization: string | null; bio: string | null; verificationPhotoData: string | null; appliedAt: string | null }> }>('/api/admin/applications'),
+  adminApprove: (chatId: string) =>
+    request<{ ok: boolean; verificationStatus: string }>(`/api/admin/applications/${encodeURIComponent(chatId)}/approve`, { method: 'POST' }),
+  adminReject: (chatId: string, note?: string) =>
+    request<{ ok: boolean; verificationStatus: string }>(`/api/admin/applications/${encodeURIComponent(chatId)}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+  adminExperts: () =>
+    request<{ experts: Array<{ chatId: string; fullName: string | null; specialization: string | null; verifiedAt: string | null; socialLink: string | null }> }>('/api/admin/experts'),
+  adminRevokeExpert: (chatId: string) =>
+    request<{ ok: boolean }>(`/api/admin/experts/${encodeURIComponent(chatId)}/revoke`, { method: 'POST' }),
+  adminPayouts: () =>
+    request<{ payouts: Array<{ id: number; trainerId: string; trainerName: string | null; referredChatId: string; planId: string; amountRub: number; status: string; holdUntil: string | null; paidAt: string | null; createdAt: string }> }>('/api/admin/payouts'),
+  adminUpdatePayoutStatus: (id: number, status: string) =>
+    request<{ ok: boolean }>(`/api/admin/payouts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  adminTrainerRewards: (trainerId: string) =>
+    request<{ rewards: Array<{ id: number; amountRub: number; status: string; planId: string; createdAt: string }>; summary: { total: number; available: number; paidOut: number } }>(`/api/admin/rewards/${encodeURIComponent(trainerId)}`),
+  adminStats: () =>
+    request<{
+      users: { total: number; experts: number; companies: number; clients: number; newToday: number; newWeek: number; newMonth: number };
+      experts: { total: number; newToday: number; newWeek: number; newMonth: number };
+      subscriptions: { total: number; active: number; expired: number; neverPaid: number };
+      payments: { total: number; today: number; week: number; month: number };
+      aiCosts: { today: number | null; week: number | null; month: number | null; note: string };
+    }>('/api/admin/stats'),
+
   trainerOfferLinks: () =>
     request<{ totalUniqueUsers: number; offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; earnedRub: number | null; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
 };

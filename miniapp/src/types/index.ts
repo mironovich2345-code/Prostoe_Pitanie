@@ -9,7 +9,7 @@ export interface MealReminder {
   enabled: boolean;
 }
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'past_due' | 'canceled';
-export type AppMode = 'client' | 'coach' | 'company';
+export type AppMode = 'client' | 'coach' | 'company' | 'admin';
 
 export interface TelegramUser {
   id: number;

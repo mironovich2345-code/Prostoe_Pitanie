@@ -25,6 +25,12 @@ import CompanyOffersScreen from './screens/company/CompanyOffersScreen';
 import CompanyStatsScreen from './screens/company/CompanyStatsScreen';
 import CompanyProfileScreen from './screens/company/CompanyProfileScreen';
 import CompanyPayoutsScreen from './screens/company/CompanyPayoutsScreen';
+import AdminDashboardScreen from './screens/admin/AdminDashboardScreen';
+import AdminApplicationsScreen from './screens/admin/AdminApplicationsScreen';
+import AdminExpertsScreen from './screens/admin/AdminExpertsScreen';
+import AdminPayoutsScreen from './screens/admin/AdminPayoutsScreen';
+import AdminStatsScreen from './screens/admin/AdminStatsScreen';
+import AdminRewardsScreen from './screens/admin/AdminRewardsScreen';
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
@@ -77,6 +83,10 @@ export default function App() {
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
   const isCompany = isVerifiedTrainer && bootstrap.trainerProfile?.specialization === 'Компания';
 
+  const adminIds = (import.meta.env.VITE_ADMIN_USER_IDS ?? '')
+    .split(',').map((s: string) => s.trim()).filter(Boolean);
+  const isAdmin = adminIds.includes(String(bootstrap.telegramUser?.id ?? ''));
+
   if (mode === 'coach' || mode === 'company') {
     if (trainerStatus === 'pending') return <TrainerPendingScreen onBack={() => setMode('client')} />;
     if (trainerStatus === 'rejected') return <TrainerRejectedScreen onBack={() => setMode('client')} />;
@@ -104,6 +114,7 @@ export default function App() {
                 <ProfileScreen
                   bootstrap={bootstrap}
                   onSwitchToCoach={isVerifiedTrainer ? () => setMode(isCompany ? 'company' : 'coach') : undefined}
+                  onSwitchToAdmin={isAdmin ? () => setMode('admin') : undefined}
                 />
               }
             />
@@ -140,6 +151,16 @@ export default function App() {
             <Route path="/reviews" element={<CoachReviewsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
+        </Routes>
+      ) : mode === 'admin' ? (
+        <Routes>
+          <Route path="/" element={<AdminDashboardScreen onBack={() => setMode('client')} />} />
+          <Route path="/applications" element={<AdminApplicationsScreen />} />
+          <Route path="/experts" element={<AdminExpertsScreen />} />
+          <Route path="/payouts" element={<AdminPayoutsScreen />} />
+          <Route path="/stats" element={<AdminStatsScreen />} />
+          <Route path="/rewards/:trainerId" element={<AdminRewardsScreen />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
         <Routes>

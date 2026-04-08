@@ -14,6 +14,7 @@ import referralRouter from './routes/referral';
 import trainerConnectRouter from './routes/trainerConnect';
 import ratingsRouter from './routes/ratings';
 import reviewsRouter from './routes/reviews';
+import adminRouter from './routes/admin';
 
 export function createApiServer() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApiServer() {
   app.use('/api/trainer/my-code', trainerConnectRouter);
   app.use('/api/ratings', ratingsRouter);
   app.use('/api/reviews', reviewsRouter);
+  app.use('/api/admin', adminRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');
