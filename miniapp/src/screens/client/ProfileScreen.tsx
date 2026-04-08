@@ -785,6 +785,10 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
         <ListItem label="Подписка"     onClick={() => navigate('/subscription')} />
         <ListItem label="Уведомления"  onClick={() => navigate('/notifications')} />
         <ListItem label="Документы"    onClick={() => navigate('/documents')} />
+        <ListItem
+          label={<span style={{ color: 'var(--accent)', fontWeight: 600 }}>Поддержка</span>}
+          onClick={() => window.open('https://t.me/EATLYY_help', '_blank')}
+        />
       </ListCard>
 
       {/* Expert status / apply (only for non-verified trainers) */}
