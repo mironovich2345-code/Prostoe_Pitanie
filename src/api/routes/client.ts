@@ -82,7 +82,7 @@ router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) =
     });
   } catch (err) {
     console.error('[client/trainer/connect-direct]', err);
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -240,8 +240,7 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
     });
   } catch (err) {
     console.error('[client/trainer/connect]', err);
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

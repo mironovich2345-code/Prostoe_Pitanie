@@ -4,6 +4,15 @@ import prisma from '../../db';
 
 const router = Router();
 
+/** Returns true only if the caller has an active verified trainer profile. */
+async function isVerifiedTrainer(chatId: string): Promise<boolean> {
+  const tp = await prisma.trainerProfile.findUnique({
+    where: { chatId },
+    select: { verificationStatus: true },
+  });
+  return tp?.verificationStatus === 'verified';
+}
+
 /** Derive a human display name for a client, preferring trainer alias > preferredName > short fallback */
 function clientDisplayName(alias: string | null | undefined, preferredName: string | null | undefined, chatId: string): string {
   if (alias?.trim()) return alias.trim();
@@ -45,7 +54,16 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
     });
     const clientIds = links.map(l => l.clientId);
     const [profiles, subscriptions] = await Promise.all([
-      prisma.userProfile.findMany({ where: { chatId: { in: clientIds } } }),
+      prisma.userProfile.findMany({
+        where: { chatId: { in: clientIds } },
+        select: {
+          chatId: true,
+          preferredName: true,      // display name fallback
+          currentWeightKg: true,    // shown in client card
+          goalType: true,           // shown in client card
+          dailyCaloriesKcal: true,  // shown in client card
+        },
+      }),
       prisma.subscription.findMany({ where: { chatId: { in: clientIds } } }),
     ]);
     const profileMap = Object.fromEntries(profiles.map(p => [p.chatId, p]));
@@ -77,6 +95,10 @@ router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const clientId = req.params['clientId'] as string;
   try {
+    if (!await isVerifiedTrainer(chatId)) {
+      res.status(403).json({ error: 'Not a verified trainer' });
+      return;
+    }
     const link = await prisma.trainerClientLink.findFirst({
       where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
     });
@@ -111,6 +133,10 @@ router.patch('/clients/:clientId/alias', async (req: AuthRequest, res: Response)
   const clientId = req.params['clientId'] as string;
   const { alias } = req.body as { alias?: string };
   try {
+    if (!await isVerifiedTrainer(chatId)) {
+      res.status(403).json({ error: 'Not a verified trainer' });
+      return;
+    }
     const link = await prisma.trainerClientLink.findFirst({
       where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
     });
@@ -131,6 +157,10 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
   const chatId = req.chatId!;
   const clientId = req.params['clientId'] as string;
   try {
+    if (!await isVerifiedTrainer(chatId)) {
+      res.status(403).json({ error: 'Not a verified trainer' });
+      return;
+    }
     const link = await prisma.trainerClientLink.findFirst({
       where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
     });
@@ -186,6 +216,10 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
     res.status(400).json({ error: 'from and to must be YYYY-MM-DD' }); return;
   }
   try {
+    if (!await isVerifiedTrainer(chatId)) {
+      res.status(403).json({ error: 'Not a verified trainer' });
+      return;
+    }
     const link = await prisma.trainerClientLink.findFirst({
       where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
     });
