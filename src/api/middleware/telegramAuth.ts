@@ -13,32 +13,54 @@ export interface AuthRequest extends Request {
   chatId?: string;
 }
 
-export function validateTelegramInitData(initData: string, botToken: string): TelegramUser | null {
+type ValidationResult =
+  | { ok: true; user: TelegramUser }
+  | { ok: false; reason: 'invalid' | 'expired' };
+
+// Reject initData older than 1 hour
+const MAX_AUTH_AGE_SECONDS = 3600;
+
+export function validateTelegramInitData(initData: string, botToken: string): ValidationResult {
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-    if (!hash) return null;
+    if (!hash) return { ok: false, reason: 'invalid' };
     params.delete('hash');
+
     const dataCheckString = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
+
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expectedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (hash !== expectedHash) return null;
+    if (hash !== expectedHash) return { ok: false, reason: 'invalid' };
+
+    // Check auth_date to reject replayed or stale tokens
+    const authDateStr = params.get('auth_date');
+    if (authDateStr) {
+      const authDate = parseInt(authDateStr, 10);
+      if (!isNaN(authDate)) {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        if (nowSeconds - authDate > MAX_AUTH_AGE_SECONDS) {
+          return { ok: false, reason: 'expired' };
+        }
+      }
+    }
+
     const userStr = params.get('user');
-    if (!userStr) return null;
-    return JSON.parse(userStr) as TelegramUser;
+    if (!userStr) return { ok: false, reason: 'invalid' };
+    return { ok: true, user: JSON.parse(userStr) as TelegramUser };
   } catch {
-    return null;
+    return { ok: false, reason: 'invalid' };
   }
 }
 
 export function telegramAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
-  // In dev mode with no initData, allow with mock user if DEV_CHAT_ID is set
   const initData = req.headers['x-telegram-init-data'] as string | undefined;
   const botToken = process.env.BOT_TOKEN ?? '';
 
+  // In dev mode with no initData, allow mock user if DEV_CHAT_ID is set
   if (!initData) {
     const devChatId = process.env.DEV_CHAT_ID;
     if (devChatId && process.env.NODE_ENV !== 'production') {
@@ -46,16 +68,21 @@ export function telegramAuthMiddleware(req: AuthRequest, res: Response, next: Ne
       req.chatId = devChatId;
       return next();
     }
-    res.status(401).json({ error: 'Missing auth' });
+    res.status(401).json({ error: 'Unauthorized' });
     return;
   }
 
-  const user = validateTelegramInitData(initData, botToken);
-  if (!user) {
-    res.status(401).json({ error: 'Invalid auth' });
+  const result = validateTelegramInitData(initData, botToken);
+  if (!result.ok) {
+    if (result.reason === 'expired') {
+      res.status(401).json({ error: 'Expired auth_date' });
+    } else {
+      res.status(401).json({ error: 'Invalid initData' });
+    }
     return;
   }
-  req.telegramUser = user;
-  req.chatId = String(user.id);
+
+  req.telegramUser = result.user;
+  req.chatId = String(result.user.id);
   next();
 }
