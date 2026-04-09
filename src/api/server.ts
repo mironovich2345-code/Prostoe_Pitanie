@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { telegramAuthMiddleware } from './middleware/telegramAuth';
+import { preAuthRateLimit, generalRateLimit, authRateLimit, aiRateLimit } from './middleware/rateLimit';
 import bootstrapRouter from './routes/bootstrap';
 import nutritionRouter from './routes/nutrition';
 import profileRouter from './routes/profile';
@@ -29,8 +30,19 @@ export function createApiServer() {
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
+  // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
+  app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
+
   // All /api routes require Telegram auth
   app.use('/api', telegramAuthMiddleware as express.RequestHandler);
+
+  // Rate limiting (runs after auth so req.chatId is already set)
+  app.use('/api', generalRateLimit as express.RequestHandler);
+  app.use('/api/bootstrap', authRateLimit as express.RequestHandler);
+  app.use('/api/nutrition/analyze', aiRateLimit as express.RequestHandler);
+  app.use('/api/nutrition/insight', aiRateLimit as express.RequestHandler);
+  app.use('/api/company/requisites/recognize', aiRateLimit as express.RequestHandler);
+
   app.use('/api/bootstrap', bootstrapRouter);
   app.use('/api/nutrition', nutritionRouter);
   app.use('/api/profile', profileRouter);
