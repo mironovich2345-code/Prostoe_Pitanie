@@ -42,10 +42,18 @@ router.patch('/requisites', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/company/requisites/recognize — AI recognition from photo/document
+// Requires caller to have a trainerProfile (trainers and companies only)
 router.post('/requisites/recognize', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
   const { imageData } = req.body as { imageData?: string };
   if (!imageData) { res.status(400).json({ error: 'imageData required' }); return; }
   try {
+    const tp = await prisma.trainerProfile.findUnique({
+      where: { chatId },
+      select: { chatId: true },
+    });
+    if (!tp) { res.status(403).json({ error: 'Access denied' }); return; }
+
     const result = await recognizeRequisites(imageData);
     res.json({ recognized: result });
   } catch (err) {
