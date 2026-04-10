@@ -50,7 +50,7 @@ router.get('/diary', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/nutrition/meals/:id/media — fetch Telegram file URL for a meal
+// GET /api/nutrition/meals/:id/media — returns media info for a meal
 router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const id = parseInt(String(req.params.id), 10);
@@ -62,27 +62,67 @@ router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
     });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
 
-    // Mini-app photo: stored as base64 data URL in photoData
+    // Mini-app photo: stored as base64 data URL — return directly
     if (meal.sourceType === 'photo' && meal.photoData) {
       res.json({ url: meal.photoData, type: 'photo' }); return;
     }
 
-    // Bot photo/voice: stored as Telegram file ID
+    // Bot photo/voice: redirect to stream endpoint (never expose bot token to client)
+    const hasTelegramFile = meal.sourceType === 'photo' ? !!meal.photoFileId
+                          : meal.sourceType === 'voice' ? !!meal.voiceFileId
+                          : false;
+    if (!hasTelegramFile) { res.status(404).json({ error: 'No media source' }); return; }
+
+    res.json({ url: `/api/nutrition/meals/${id}/media/stream`, type: meal.sourceType });
+  } catch (err) {
+    console.error('[nutrition/meals/:id/media]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/nutrition/meals/:id/media/stream — proxy-stream Telegram file server-side
+router.get('/meals/:id/media/stream', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const meal = await prisma.mealEntry.findFirst({
+      where: { id, chatId },
+      select: { sourceType: true, photoFileId: true, voiceFileId: true },
+    });
+    if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
+
     const fileId = meal.sourceType === 'photo' ? meal.photoFileId
                  : meal.sourceType === 'voice' ? meal.voiceFileId
                  : null;
     if (!fileId) { res.status(404).json({ error: 'No media source' }); return; }
+
     const botToken = process.env.BOT_TOKEN;
     if (!botToken) { res.status(500).json({ error: 'Bot not configured' }); return; }
+
+    // Resolve file_path server-side — bot token never leaves the server
     const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
     const tgData = await tgRes.json() as { ok: boolean; result?: { file_path: string } };
     if (!tgData.ok || !tgData.result?.file_path) {
       res.status(404).json({ error: 'File not available' }); return;
     }
-    res.json({ url: `https://api.telegram.org/file/bot${botToken}/${tgData.result.file_path}`, type: meal.sourceType });
+
+    // Fetch the actual file server-side and stream to client
+    const fileRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${tgData.result.file_path}`);
+    if (!fileRes.ok || !fileRes.body) {
+      res.status(502).json({ error: 'Upstream fetch failed' }); return;
+    }
+
+    const contentType = fileRes.headers.get('content-type') ?? 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, no-store');
+
+    // Stream response body to client using Node.js readable stream
+    const { Readable } = await import('stream');
+    Readable.fromWeb(fileRes.body as import('stream/web').ReadableStream).pipe(res);
   } catch (err) {
-    console.error('[nutrition/meals/:id/media]', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[nutrition/meals/:id/media/stream]', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
@@ -185,6 +185,13 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   const [mediaUrl, setMediaUrl] = useState<string | null>(meal.photoData ?? null);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState(false);
+
+  // Revoke blob URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (mediaUrl?.startsWith('blob:')) URL.revokeObjectURL(mediaUrl);
+    };
+  }, [mediaUrl]);
 
   const srcIcon = SOURCE_ICONS[meal.sourceType] ?? '📝';
   const isMediaType = meal.sourceType === 'photo' || meal.sourceType === 'voice';

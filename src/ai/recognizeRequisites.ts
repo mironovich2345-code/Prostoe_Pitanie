@@ -53,7 +53,9 @@ export async function recognizeRequisites(imageData: string): Promise<Partial<Re
 
   // Extract base64 content (strip data URL prefix if present)
   const base64 = imageData.includes(',') ? imageData.split(',')[1] : imageData;
-  const mimeType = imageData.startsWith('data:') ? imageData.split(';')[0].slice(5) : 'image/jpeg';
+  const rawMime = imageData.startsWith('data:') ? imageData.split(';')[0].slice(5) : 'image/jpeg';
+  const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const mimeType = ALLOWED_MIME.includes(rawMime) ? rawMime : 'image/jpeg';
 
   const response = await ai.chat.completions.create({
     model: 'gpt-4o',

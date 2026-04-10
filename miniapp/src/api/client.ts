@@ -99,8 +99,20 @@ export const api = {
     request<{ ratings: import('../types').TrainerRating[] }>(`/api/ratings/for-client/${clientId}`),
   myRatings: () =>
     request<{ ratings: import('../types').TrainerRating[] }>('/api/ratings/my'),
-  nutritionMealMedia: (mealId: number) =>
-    request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`),
+  nutritionMealMedia: async (mealId: number): Promise<{ url: string; type: string }> => {
+    const result = await request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`);
+    // If the server returned a backend stream URL, fetch it with auth headers and create a blob URL
+    // so <img> and <audio> elements can use it without auth headers.
+    if (result.url.startsWith('/api/')) {
+      const streamRes = await fetch(`${BASE_URL}${result.url}`, {
+        headers: { 'x-telegram-init-data': getTelegramInitData() },
+      });
+      if (!streamRes.ok) throw new Error('Media stream failed');
+      const blob = await streamRes.blob();
+      return { url: URL.createObjectURL(blob), type: result.type };
+    }
+    return result;
+  },
   nutritionAnalyze: (text: string) =>
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze', { method: 'POST', body: JSON.stringify({ text }) }),
   nutritionAnalyzePhoto: (imageData: string) =>
