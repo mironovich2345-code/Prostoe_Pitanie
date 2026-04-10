@@ -54,7 +54,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const code = await ensurePermanentCode(req.chatId!);
     res.json({ code, link: buildConnectLink(code) });
   } catch (err: any) {
-    if (err.code === 403) { res.status(403).json({ error: err.message }); return; }
+    if (err.code === 403) { res.status(403).json({ error: 'Not a verified trainer' }); return; }
     console.error('[trainer/my-code GET]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -66,7 +66,7 @@ router.post('/refresh', async (req: AuthRequest, res: Response) => {
     const code = await ensurePermanentCode(req.chatId!);
     res.json({ code, link: buildConnectLink(code) });
   } catch (err: any) {
-    if (err.code === 403) { res.status(403).json({ error: err.message }); return; }
+    if (err.code === 403) { res.status(403).json({ error: 'Not a verified trainer' }); return; }
     console.error('[trainer/my-code POST /refresh]', err);
     res.status(500).json({ error: 'Internal server error' });
   }

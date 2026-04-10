@@ -180,7 +180,7 @@ export async function generateWeeklyInsight(input: WeeklyInsightInput): Promise<
     try {
       parsed = JSON.parse(raw) as InsightResult;
     } catch {
-      console.error('[weeklyInsight] JSON parse failed:', raw);
+      console.error('[weeklyInsight] JSON parse failed, raw length:', raw.length);
       return FALLBACK_INSIGHT;
     }
 
@@ -241,7 +241,7 @@ ${mealsList}`;
     try {
       parsed = JSON.parse(raw) as InsightResult;
     } catch {
-      console.error('[nutritionInsight] JSON parse failed:', raw);
+      console.error('[nutritionInsight] JSON parse failed, raw length:', raw.length);
       return FALLBACK_INSIGHT;
     }
 
