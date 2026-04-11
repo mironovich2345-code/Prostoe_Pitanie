@@ -1365,6 +1365,7 @@ bot.action(/^trainer_approve_(.+)$/, async (ctx) => {
         verifiedAt: new Date(),
         verifiedByAdminId: String(ctx.from?.id ?? ''),
         referralCode: code,
+        verificationPhotoData: null,
       },
     });
     await bot.telegram.sendMessage(
@@ -1389,6 +1390,7 @@ bot.action(/^trainer_reject_(.+)$/, async (ctx) => {
       data: {
         verificationStatus: 'rejected',
         rejectedAt: new Date(),
+        verificationPhotoData: null,
       },
     });
     await bot.telegram.sendMessage(

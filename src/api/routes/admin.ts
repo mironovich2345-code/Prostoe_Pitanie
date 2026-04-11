@@ -56,7 +56,7 @@ router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Respo
   try {
     const updated = await prisma.trainerProfile.update({
       where: { chatId },
-      data: { verificationStatus: 'verified', verifiedAt: new Date(), rejectedAt: null },
+      data: { verificationStatus: 'verified', verifiedAt: new Date(), rejectedAt: null, verificationPhotoData: null },
     });
     res.json({ ok: true, verificationStatus: updated.verificationStatus });
   } catch (err) {
@@ -73,7 +73,7 @@ router.post('/applications/:chatId/reject', async (req: AuthRequest, res: Respon
   try {
     const updated = await prisma.trainerProfile.update({
       where: { chatId },
-      data: { verificationStatus: 'rejected', rejectedAt: new Date(), verificationNote: note?.trim() || null },
+      data: { verificationStatus: 'rejected', rejectedAt: new Date(), verificationNote: note?.trim() || null, verificationPhotoData: null },
     });
     res.json({ ok: true, verificationStatus: updated.verificationStatus });
   } catch (err) {
