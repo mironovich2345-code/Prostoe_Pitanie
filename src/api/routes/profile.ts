@@ -83,7 +83,26 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     await tryAutoCalcNorms(chatIdNum);
 
     const updated = await prisma.userProfile.findUnique({ where: { chatId } });
-    res.json({ ok: true, profile: updated });
+    res.json({
+      ok: true,
+      profile: updated ? {
+        heightCm: updated.heightCm,
+        currentWeightKg: updated.currentWeightKg,
+        desiredWeightKg: updated.desiredWeightKg,
+        dailyCaloriesKcal: updated.dailyCaloriesKcal,
+        dailyProteinG: updated.dailyProteinG,
+        dailyFatG: updated.dailyFatG,
+        dailyCarbsG: updated.dailyCarbsG,
+        dailyFiberG: updated.dailyFiberG,
+        goalType: updated.goalType,
+        city: updated.city,
+        timezone: updated.timezone,
+        preferredName: updated.preferredName,
+        sex: updated.sex,
+        birthDate: updated.birthDate,
+        activityLevel: updated.activityLevel,
+      } : null,
+    });
   } catch (err) {
     console.error('[profile/data]', err);
     res.status(500).json({ error: 'Internal server error' });
