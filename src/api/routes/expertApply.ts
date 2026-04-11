@@ -4,6 +4,10 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const router = Router();
 
 // POST /api/expert/apply — submit trainer application
@@ -68,13 +72,13 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
       const card = [
         `<b>🎓 Новая заявка тренера</b>`,
         ``,
-        `👤 Пользователь: ${userName}`,
+        `👤 Пользователь: ${escapeHtml(userName)}`,
         `🆔 Chat ID: <code>${chatId}</code>`,
-        `📛 Имя: ${fullName.trim()}`,
-        `🔗 Соцсеть: ${socialLink.trim()}`,
+        `📛 Имя: ${escapeHtml(fullName.trim())}`,
+        `🔗 Соцсеть: ${escapeHtml(socialLink.trim())}`,
         verificationPhotoData ? `📸 Фото верификации: прикреплено (base64)` : `📸 Фото верификации: не прикреплено`,
-        specialization?.trim() ? `🏷 Специализация: ${specialization.trim()}` : null,
-        bio?.trim() ? `📝 Bio: ${bio.trim()}` : null,
+        specialization?.trim() ? `🏷 Специализация: ${escapeHtml(specialization.trim())}` : null,
+        bio?.trim() ? `📝 Bio: ${escapeHtml(bio.trim())}` : null,
         ``,
         `📅 Дата: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`,
       ].filter(line => line !== null).join('\n');
