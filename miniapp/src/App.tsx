@@ -59,6 +59,9 @@ export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
+    // Prevent Telegram from intercepting vertical swipe gestures on Android
+    // (would otherwise compete with in-app scroll and require two-finger scroll)
+    (window.Telegram?.WebApp as any)?.disableVerticalSwipes?.();
 
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
     if (startParam?.startsWith('trf_')) {
