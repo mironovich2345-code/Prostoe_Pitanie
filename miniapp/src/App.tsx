@@ -97,8 +97,14 @@ export default function App() {
     console.error('[TG] Fallback shown: bootstrap request failed.', error?.message ?? 'no data');
     return (
       <div className="loading">
-        <div>Не удалось загрузить приложение</div>
-        <div style={{ fontSize: 13, marginTop: 8 }}>Открой через Telegram</div>
+        <div>Не удалось загрузить данные</div>
+        <div style={{ fontSize: 13, marginTop: 8 }}>Проверь соединение и попробуй снова</div>
+        <button
+          style={{ marginTop: 16, padding: '8px 20px', fontSize: 14, borderRadius: 8, border: 'none', background: 'var(--tg-theme-button-color, #3390ec)', color: 'var(--tg-theme-button-text-color, #fff)', cursor: 'pointer' }}
+          onClick={() => window.location.reload()}
+        >
+          Повторить
+        </button>
       </div>
     );
   }
