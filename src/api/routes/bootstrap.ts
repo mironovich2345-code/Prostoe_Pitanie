@@ -7,27 +7,57 @@ const router = Router();
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {
-    // Lazily sync Telegram username and userId (fire-and-forget)
+    // Lazily sync Telegram username and userId (fire-and-forget, non-fatal)
     const tgUsername = req.telegramUser?.username ?? null;
     const userId = req.userId;
     prisma.userProfile.upsert({
       where: { chatId },
       update: { telegramUsername: tgUsername, ...(userId ? { userId } : {}) },
       create: { chatId, telegramUsername: tgUsername, ...(userId ? { userId } : {}) },
-    }).catch(() => null);
+    }).catch((e) => console.warn('[bootstrap] fire-and-forget upsert failed:', (e as Error).message));
 
-
+    // Use explicit select on every query to avoid touching new nullable columns
+    // (userId, trainerUserId, clientUserId) that may not exist if migrations are pending.
+    let step = 'parallel queries';
     const [profile, trainerProfile, subscription, clientLink] = await Promise.all([
-      prisma.userProfile.findUnique({ where: { chatId } }),
-      prisma.trainerProfile.findUnique({ where: { chatId } }),
-      prisma.subscription.findUnique({ where: { chatId } }),
+      prisma.userProfile.findUnique({
+        where: { chatId },
+        select: {
+          heightCm: true, currentWeightKg: true, desiredWeightKg: true,
+          dailyCaloriesKcal: true, dailyProteinG: true, dailyFatG: true,
+          dailyCarbsG: true, dailyFiberG: true, goalType: true,
+          notificationsEnabled: true, notificationCount: true, notificationTimes: true,
+          city: true, timezone: true, preferredName: true,
+          referralCode: true, avatarData: true,
+        },
+      }),
+      prisma.trainerProfile.findUnique({
+        where: { chatId },
+        select: {
+          verificationStatus: true, bio: true, specialization: true,
+          referralCode: true, fullName: true, socialLink: true,
+          documentLink: true, appliedAt: true, avatarData: true,
+        },
+      }),
+      prisma.subscription.findUnique({
+        where: { chatId },
+        select: {
+          planId: true, status: true, trialEndsAt: true,
+          currentPeriodEnd: true, autoRenew: true,
+        },
+      }),
       prisma.trainerClientLink.findFirst({
-        where: { clientId: chatId, status: 'active' }
+        where: { clientId: chatId, status: 'active' },
+        select: {
+          trainerId: true, fullHistoryAccess: true,
+          canViewPhotos: true, connectedAt: true,
+        },
       }),
     ]);
 
     let connectedTrainerProfile: { fullName: string | null; avatarData: string | null } | null = null;
     if (clientLink) {
+      step = 'connectedTrainerProfile';
       connectedTrainerProfile = await prisma.trainerProfile.findUnique({
         where: { chatId: clientLink.trainerId },
         select: { fullName: true, avatarData: true },
@@ -84,7 +114,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       } : null,
     });
   } catch (err) {
-    console.error('[bootstrap]', err);
+    const e = err as Error;
+    console.error('[bootstrap] 500 error:', {
+      message: e.message,
+      stack: e.stack?.split('\n').slice(0, 5).join(' | '),
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
