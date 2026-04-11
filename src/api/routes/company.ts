@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { recognizeRequisites } from '../../ai/recognizeRequisites';
+import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
@@ -47,6 +48,9 @@ router.post('/requisites/recognize', async (req: AuthRequest, res: Response) => 
   const chatId = req.chatId!;
   const { imageData } = req.body as { imageData?: string };
   if (!imageData) { res.status(400).json({ error: 'imageData required' }); return; }
+  if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
   try {
     const tp = await prisma.trainerProfile.findUnique({
       where: { chatId },

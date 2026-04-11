@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { upsertProfile } from '../../state/profileStore';
 import { tryAutoCalcNorms } from '../../utils/normsCalc';
+import { validateImageDataUrl, AVATAR_MAX_BYTES } from '../utils/validateImage';
 import { resolveTimezone } from '../../utils/timezone';
 
 const router = Router();
@@ -141,7 +142,7 @@ router.patch('/notifications', async (req: AuthRequest, res: Response) => {
 router.patch('/avatar', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const { avatarData } = req.body as { avatarData?: string | null };
-  if (avatarData !== null && avatarData !== undefined && typeof avatarData !== 'string') {
+  if (avatarData != null && !validateImageDataUrl(avatarData, AVATAR_MAX_BYTES)) {
     res.status(400).json({ error: 'Invalid avatarData' });
     return;
   }

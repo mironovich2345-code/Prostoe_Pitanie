@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { validateImageDataUrl, AVATAR_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
@@ -24,6 +25,10 @@ function clientDisplayName(alias: string | null | undefined, preferredName: stri
 router.patch('/profile', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const { fullName, avatarData } = req.body as { fullName?: string; avatarData?: string | null };
+  if (avatarData != null && !validateImageDataUrl(avatarData, AVATAR_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid avatarData' });
+    return;
+  }
   try {
     const tp = await prisma.trainerProfile.findUnique({ where: { chatId } });
     if (!tp) { res.status(404).json({ error: 'Trainer profile not found' }); return; }

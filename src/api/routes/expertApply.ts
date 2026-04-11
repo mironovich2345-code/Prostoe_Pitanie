@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { Telegram } from 'telegraf';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
@@ -18,6 +19,10 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
 
   if (!fullName?.trim() || !socialLink?.trim()) {
     res.status(400).json({ error: 'fullName and socialLink are required' });
+    return;
+  }
+  if (verificationPhotoData != null && !validateImageDataUrl(verificationPhotoData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid verificationPhotoData' });
     return;
   }
 

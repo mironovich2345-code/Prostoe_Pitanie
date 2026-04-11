@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
+import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
@@ -143,6 +144,9 @@ router.post('/analyze', async (req: AuthRequest, res: Response) => {
 router.post('/analyze-photo', async (req: AuthRequest, res: Response) => {
   const { imageData } = req.body as { imageData?: string };
   if (!imageData) { res.status(400).json({ error: 'Missing imageData' }); return; }
+  if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
   try {
     const result = await analyzeFoodPhoto(imageData);
     res.json(result);
@@ -170,6 +174,9 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
     imageData?: string; // base64 data URL for photo entries from mini app
   };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+  if (sourceType === 'photo' && imageData && !validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
   try {
     const meal = await prisma.mealEntry.create({
       data: {
