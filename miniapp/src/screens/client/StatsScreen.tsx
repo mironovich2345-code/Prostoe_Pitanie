@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
@@ -180,6 +180,14 @@ function CompactDaySummary({ cal, p, f, c }: { cal: number; p: number; f: number
 
 function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const qc = useQueryClient();
+  const deleteMeal = useMutation({
+    mutationFn: () => api.nutritionDeleteMeal(meal.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['diary'] });
+      qc.invalidateQueries({ queryKey: ['nutrition-stats-range'] });
+    },
+  });
   // Mini-app photos: photoData is already in the meal object (returned by Prisma findMany).
   // Bot photos: only have photoFileId — need a separate API call.
   const [mediaUrl, setMediaUrl] = useState<string | null>(meal.photoData ?? null);
@@ -261,16 +269,28 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
             </div>
           )}
         </div>
-        {isMediaType && (
-          <span style={{
-            fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 2,
-            padding: '2px 7px', borderRadius: 6,
-            background: expanded ? 'var(--surface-2)' : 'var(--accent-soft)',
-            color: expanded ? 'var(--text-3)' : 'var(--accent)',
-          }}>
-            {expanded ? '▲' : SOURCE_LABELS[meal.sourceType]}
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {isMediaType && (
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              padding: '2px 7px', borderRadius: 6,
+              background: expanded ? 'var(--surface-2)' : 'var(--accent-soft)',
+              color: expanded ? 'var(--text-3)' : 'var(--accent)',
+            }}>
+              {expanded ? '▲' : SOURCE_LABELS[meal.sourceType]}
+            </span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); deleteMeal.mutate(); }}
+            disabled={deleteMeal.isPending}
+            style={{
+              background: 'none', border: 'none', padding: '2px 4px',
+              color: 'var(--text-3)', fontSize: 16, lineHeight: 1,
+              cursor: deleteMeal.isPending ? 'default' : 'pointer',
+              opacity: deleteMeal.isPending ? 0.3 : 0.6,
+            }}
+          >×</button>
+        </div>
       </div>
 
       {/* Expanded media */}

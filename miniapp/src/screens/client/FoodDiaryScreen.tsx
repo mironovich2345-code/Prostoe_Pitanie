@@ -172,22 +172,9 @@ export default function FoodDiaryScreen() {
               <div key={meal.id} className="meal-item">
                 <div className="meal-item-header">
                   <span>{MEAL_LABELS[meal.mealType] ?? meal.mealType}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: meal.caloriesKcal != null ? 'var(--text)' : 'var(--text-3)' }}>
-                      {meal.caloriesKcal != null ? `${meal.caloriesKcal} ккал` : '—'}
-                    </span>
-                    <button
-                      onClick={() => deleteMeal.mutate(meal.id)}
-                      disabled={deleteMeal.isPending}
-                      style={{
-                        background: 'none', border: 'none', padding: '2px 4px',
-                        color: 'var(--text-3)', fontSize: 16, lineHeight: 1,
-                        cursor: deleteMeal.isPending ? 'default' : 'pointer',
-                        opacity: deleteMeal.isPending ? 0.4 : 1,
-                        flexShrink: 0,
-                      }}
-                    >×</button>
-                  </div>
+                  <span style={{ color: meal.caloriesKcal != null ? 'var(--text)' : 'var(--text-3)' }}>
+                    {meal.caloriesKcal != null ? `${meal.caloriesKcal} ккал` : '—'}
+                  </span>
                 </div>
                 <div className="meal-item-meta">
                   {meal.text}
