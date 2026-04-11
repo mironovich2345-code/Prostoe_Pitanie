@@ -194,8 +194,8 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
     for (const m of todayMeals) todayCal += m.caloriesKcal ?? 0;
 
     const maskPhotos = !link.canViewPhotos;
-    const maskMeal = <T extends { photoFileId: string | null }>(m: T): T =>
-      maskPhotos ? { ...m, photoFileId: null } : m;
+    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T =>
+      maskPhotos ? { ...m, photoFileId: null, photoData: null } : m;
 
     res.json({
       todayMeals: todayMeals.map(maskMeal),
@@ -243,8 +243,8 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
     });
 
     const maskPhotos = !link.canViewPhotos;
-    const maskMeal = <T extends { photoFileId: string | null }>(m: T): T =>
-      maskPhotos ? { ...m, photoFileId: null } : m;
+    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T =>
+      maskPhotos ? { ...m, photoFileId: null, photoData: null } : m;
 
     res.json({ meals: meals.map(maskMeal) });
   } catch (err) {
