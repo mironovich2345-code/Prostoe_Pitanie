@@ -51,10 +51,28 @@ import DocumentsScreen from './screens/client/DocumentsScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import { api } from './api/client';
+import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
 
+function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: string; bsError?: string }) {
+  const lines = [
+    `tg: ${diag.hasTelegram ? 'yes' : 'NO'}`,
+    `webapp: ${diag.hasWebApp ? 'yes' : 'NO'}`,
+    `version: ${diag.version ?? '—'}`,
+    `initData: ${diag.initDataLen > 0 ? `${diag.initDataLen} chars` : 'EMPTY'}`,
+    `user: ${diag.hasUser ? 'yes' : 'no'}`,
+    `bootstrap: ${bsStatus}`,
+    ...(bsError ? [`error: ${bsError}`] : []),
+  ];
+  return (
+    <pre style={{ marginTop: 16, padding: '8px 12px', background: 'rgba(0,0,0,0.18)', borderRadius: 6, fontSize: 11, textAlign: 'left', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: 280 }}>
+      {lines.join('\n')}
+    </pre>
+  );
+}
+
 export default function App() {
-  const tgState = useTelegramReady();
+  const { state: tgState, diag: tgDiag } = useTelegramReady();
   const { data: bootstrap, isLoading, error } = useBootstrap(tgState === 'ready');
   const [mode, setMode] = useState<AppMode>('client');
 
@@ -78,33 +96,40 @@ export default function App() {
 
   if (tgState === 'waiting' || isLoading) return <LoadingScreen />;
 
-  if (tgState === 'timeout') {
-    console.error(
-      '[TG] Fallback shown: Telegram WebApp did not initialise.',
-      '| window.Telegram:', !!window.Telegram,
-      '| window.Telegram.WebApp:', !!(window.Telegram?.WebApp),
-      '| initData:', JSON.stringify(window.Telegram?.WebApp?.initData ?? null),
-    );
+  if (tgState === 'no_bridge') {
+    console.error('[TG] no_bridge — WebApp object absent after timeout.', tgDiag);
     return (
       <div className="loading">
         <div>Не удалось загрузить приложение</div>
         <div style={{ fontSize: 13, marginTop: 8 }}>Открой через Telegram</div>
+        <TgDebugBlock diag={tgDiag} bsStatus="idle" />
       </div>
     );
   }
 
   if (error || !bootstrap) {
-    console.error('[TG] Fallback shown: bootstrap request failed.', error?.message ?? 'no data');
+    const errMsg = (error as Error | null)?.message ?? 'no data';
+    const isExpired = errMsg === 'Expired auth_date';
+    const isAuthErr = errMsg === 'Unauthorized' || errMsg === 'Invalid initData' || isExpired;
+    const subtitle = isExpired
+      ? 'Сессия устарела — закрой и открой снова'
+      : isAuthErr && tgDiag.initDataLen === 0
+        ? 'Telegram не передал данные авторизации'
+        : isAuthErr
+          ? 'Ошибка авторизации Telegram'
+          : 'Проверь соединение и попробуй снова';
+    console.error('[TG] bootstrap_failed:', errMsg, '| diag:', tgDiag);
     return (
       <div className="loading">
         <div>Не удалось загрузить данные</div>
-        <div style={{ fontSize: 13, marginTop: 8 }}>Проверь соединение и попробуй снова</div>
+        <div style={{ fontSize: 13, marginTop: 8 }}>{subtitle}</div>
         <button
           style={{ marginTop: 16, padding: '8px 20px', fontSize: 14, borderRadius: 8, border: 'none', background: 'var(--tg-theme-button-color, #3390ec)', color: 'var(--tg-theme-button-text-color, #fff)', cursor: 'pointer' }}
           onClick={() => window.location.reload()}
         >
           Повторить
         </button>
+        <TgDebugBlock diag={tgDiag} bsStatus="error" bsError={errMsg} />
       </div>
     );
   }
