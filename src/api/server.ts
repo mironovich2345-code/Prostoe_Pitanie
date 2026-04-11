@@ -39,6 +39,12 @@ export function createApiServer() {
   // Rate limiting (runs after auth so req.chatId is already set)
   app.use('/api', generalRateLimit as express.RequestHandler);
   app.use('/api/bootstrap', authRateLimit as express.RequestHandler);
+
+  // All /api responses carry personal data — prevent caching by proxies and browsers
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   app.use('/api/nutrition/analyze', aiRateLimit as express.RequestHandler);
   app.use('/api/nutrition/insight', aiRateLimit as express.RequestHandler);
   app.use('/api/company/requisites/recognize', aiRateLimit as express.RequestHandler);
