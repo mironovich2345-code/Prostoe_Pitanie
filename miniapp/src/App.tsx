@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useBootstrap } from './hooks/useBootstrap';
+import { useTelegramReady } from './hooks/useTelegramReady';
 import ClientLayout from './layouts/ClientLayout';
 import CoachLayout from './layouts/CoachLayout';
 import LoadingScreen from './components/LoadingScreen';
@@ -53,7 +54,8 @@ import { api } from './api/client';
 import type { AppMode } from './types';
 
 export default function App() {
-  const { data: bootstrap, isLoading, error } = useBootstrap();
+  const tgState = useTelegramReady();
+  const { data: bootstrap, isLoading, error } = useBootstrap(tgState === 'ready');
   const [mode, setMode] = useState<AppMode>('client');
 
   useEffect(() => {
@@ -74,8 +76,25 @@ export default function App() {
     }
   }, []);
 
-  if (isLoading) return <LoadingScreen />;
+  if (tgState === 'waiting' || isLoading) return <LoadingScreen />;
+
+  if (tgState === 'timeout') {
+    console.error(
+      '[TG] Fallback shown: Telegram WebApp did not initialise.',
+      '| window.Telegram:', !!window.Telegram,
+      '| window.Telegram.WebApp:', !!(window.Telegram?.WebApp),
+      '| initData:', JSON.stringify(window.Telegram?.WebApp?.initData ?? null),
+    );
+    return (
+      <div className="loading">
+        <div>Не удалось загрузить приложение</div>
+        <div style={{ fontSize: 13, marginTop: 8 }}>Открой через Telegram</div>
+      </div>
+    );
+  }
+
   if (error || !bootstrap) {
+    console.error('[TG] Fallback shown: bootstrap request failed.', error?.message ?? 'no data');
     return (
       <div className="loading">
         <div>Не удалось загрузить приложение</div>
