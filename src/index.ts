@@ -1426,7 +1426,16 @@ bot.command('test_meal_reminder', async (ctx) => {
   return ctx.reply('Тест: напоминание отправлено тебе.');
 });
 
-// Catch-all для неподдерживаемых типов сообщений в режиме ожидания еды
+// Явный отказ для неподдерживаемых типов вложений
+const UNSUPPORTED_MSG = 'Этот тип вложения не поддерживается.\nОтправь описание еды текстом, фото блюда или голосовое сообщение.';
+bot.on(message('document'),   (ctx) => ctx.reply(UNSUPPORTED_MSG));
+bot.on(message('video'),      (ctx) => ctx.reply(UNSUPPORTED_MSG));
+bot.on(message('audio'),      (ctx) => ctx.reply(UNSUPPORTED_MSG));
+bot.on(message('sticker'),    (ctx) => ctx.reply(UNSUPPORTED_MSG));
+bot.on(message('animation'),  (ctx) => ctx.reply(UNSUPPORTED_MSG));
+bot.on(message('video_note'), (ctx) => ctx.reply(UNSUPPORTED_MSG));
+
+// Catch-all для прочих неподдерживаемых типов сообщений
 bot.on('message', async (ctx) => {
   const chatId = ctx.chat?.id;
   if (!chatId) return;
