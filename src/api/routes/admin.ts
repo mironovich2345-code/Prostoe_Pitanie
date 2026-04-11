@@ -31,6 +31,16 @@ router.get('/applications', async (_req: AuthRequest, res: Response) => {
     const pending = await prisma.trainerProfile.findMany({
       where: { verificationStatus: 'pending' },
       orderBy: { appliedAt: 'desc' },
+      select: {
+        chatId: true,
+        fullName: true,
+        socialLink: true,
+        specialization: true,
+        bio: true,
+        verificationPhotoData: true,
+        appliedAt: true,
+        verificationStatus: true,
+      },
     });
     res.json({ applications: pending });
   } catch (err) {
@@ -79,6 +89,14 @@ router.get('/experts', async (_req: AuthRequest, res: Response) => {
     const experts = await prisma.trainerProfile.findMany({
       where: { verificationStatus: 'verified' },
       orderBy: { verifiedAt: 'desc' },
+      select: {
+        chatId: true,
+        fullName: true,
+        specialization: true,
+        verifiedAt: true,
+        socialLink: true,
+        verificationStatus: true,
+      },
     });
     res.json({ experts });
   } catch (err) {
