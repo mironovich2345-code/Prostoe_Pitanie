@@ -99,6 +99,8 @@ export const api = {
     request<{ ratings: import('../types').TrainerRating[] }>(`/api/ratings/for-client/${clientId}`),
   myRatings: () =>
     request<{ ratings: import('../types').TrainerRating[] }>('/api/ratings/my'),
+  nutritionDeleteMeal: (mealId: number) =>
+    request<{ ok: boolean }>(`/api/nutrition/meals/${mealId}`, { method: 'DELETE' }),
   nutritionMealMedia: async (mealId: number): Promise<{ url: string; type: string }> => {
     const result = await request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`);
     // If the server returned a backend stream URL, fetch it with auth headers and create a blob URL

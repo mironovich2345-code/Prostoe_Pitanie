@@ -51,6 +51,22 @@ router.get('/diary', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// DELETE /api/nutrition/meals/:id — delete a meal entry (owner only)
+router.delete('/meals/:id', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const meal = await prisma.mealEntry.findFirst({ where: { id, chatId } });
+    if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
+    await prisma.mealEntry.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[nutrition/meals/:id DELETE]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/nutrition/meals/:id/media — returns media info for a meal
 router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;

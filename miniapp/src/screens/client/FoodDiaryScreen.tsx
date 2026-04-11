@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { Card } from '../../ui';
 import type { MealEntry } from '../../types';
@@ -32,9 +32,17 @@ export default function FoodDiaryScreen() {
   const [date, setDate] = useState(today);
   const isToday = date === today;
 
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['diary', date],
     queryFn: () => api.nutritionDiary(date),
+  });
+
+  const deleteMeal = useMutation({
+    mutationFn: (mealId: number) => api.nutritionDeleteMeal(mealId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['diary', date] });
+    },
   });
 
   const meals = data?.meals ?? [];
@@ -164,9 +172,22 @@ export default function FoodDiaryScreen() {
               <div key={meal.id} className="meal-item">
                 <div className="meal-item-header">
                   <span>{MEAL_LABELS[meal.mealType] ?? meal.mealType}</span>
-                  <span style={{ color: meal.caloriesKcal != null ? 'var(--text)' : 'var(--text-3)' }}>
-                    {meal.caloriesKcal != null ? `${meal.caloriesKcal} ккал` : '—'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: meal.caloriesKcal != null ? 'var(--text)' : 'var(--text-3)' }}>
+                      {meal.caloriesKcal != null ? `${meal.caloriesKcal} ккал` : '—'}
+                    </span>
+                    <button
+                      onClick={() => deleteMeal.mutate(meal.id)}
+                      disabled={deleteMeal.isPending}
+                      style={{
+                        background: 'none', border: 'none', padding: '2px 4px',
+                        color: 'var(--text-3)', fontSize: 16, lineHeight: 1,
+                        cursor: deleteMeal.isPending ? 'default' : 'pointer',
+                        opacity: deleteMeal.isPending ? 0.4 : 1,
+                        flexShrink: 0,
+                      }}
+                    >×</button>
+                  </div>
                 </div>
                 <div className="meal-item-meta">
                   {meal.text}
