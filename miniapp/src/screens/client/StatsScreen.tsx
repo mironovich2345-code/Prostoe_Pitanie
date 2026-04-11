@@ -180,12 +180,15 @@ function CompactDaySummary({ cal, p, f, c }: { cal: number; p: number; f: number
 
 function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const qc = useQueryClient();
   const deleteMeal = useMutation({
     mutationFn: () => api.nutritionDeleteMeal(meal.id),
     onSuccess: () => {
+      setShowConfirm(false);
       qc.invalidateQueries({ queryKey: ['diary'] });
       qc.invalidateQueries({ queryKey: ['nutrition-stats-range'] });
+      qc.invalidateQueries({ queryKey: ['nutrition-stats', 60] });
     },
   });
   // Mini-app photos: photoData is already in the meal object (returned by Prisma findMany).
@@ -281,17 +284,72 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
             </span>
           )}
           <button
-            onClick={(e) => { e.stopPropagation(); deleteMeal.mutate(); }}
-            disabled={deleteMeal.isPending}
+            onClick={(e) => { e.stopPropagation(); setShowConfirm(true); }}
             style={{
-              background: 'none', border: 'none', padding: '2px 4px',
-              color: 'var(--text-3)', fontSize: 16, lineHeight: 1,
-              cursor: deleteMeal.isPending ? 'default' : 'pointer',
-              opacity: deleteMeal.isPending ? 0.3 : 0.6,
+              background: 'none', border: 'none', padding: '2px 6px',
+              color: 'var(--text-3)', fontSize: 11, fontWeight: 500,
+              cursor: 'pointer', lineHeight: 1, flexShrink: 0,
             }}
-          >×</button>
+          >Удалить</button>
         </div>
       </div>
+
+      {/* Confirm dialog */}
+      {showConfirm && (
+        <div
+          onClick={() => setShowConfirm(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--surface)',
+              borderRadius: 'var(--r-lg) var(--r-lg) 0 0',
+              padding: '24px 20px 32px',
+              width: '100%', maxWidth: 480,
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+              Удалить запись?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.4 }}>
+              {meal.text || 'Эта запись будет удалена без возможности восстановления.'}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => deleteMeal.mutate()}
+                disabled={deleteMeal.isPending}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: 'var(--r-md)',
+                  background: 'var(--danger, #e53935)', color: '#fff',
+                  border: 'none', fontSize: 14, fontWeight: 600,
+                  cursor: deleteMeal.isPending ? 'default' : 'pointer',
+                  opacity: deleteMeal.isPending ? 0.6 : 1,
+                }}
+              >
+                {deleteMeal.isPending ? 'Удаляем...' : 'Да, удалить'}
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={deleteMeal.isPending}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: 'var(--r-md)',
+                  background: 'var(--surface-2, var(--border))', color: 'var(--text-2)',
+                  border: 'none', fontSize: 14, fontWeight: 500,
+                  cursor: deleteMeal.isPending ? 'default' : 'pointer',
+                }}
+              >
+                Нет, оставить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Expanded media */}
       {expanded && isMediaType && (
