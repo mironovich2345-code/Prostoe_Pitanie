@@ -7,6 +7,12 @@ import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
+/** Strip photoData from bulk meal responses — photos are served via /media endpoint */
+function omitPhotoData<T extends { photoData?: unknown }>(meal: T): Omit<T, 'photoData'> {
+  const { photoData: _dropped, ...rest } = meal;
+  return rest;
+}
+
 // GET /api/nutrition/today — today's meals and totals
 router.get('/today', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
@@ -27,7 +33,7 @@ router.get('/today', async (req: AuthRequest, res: Response) => {
       totalFiber += m.fiberG ?? 0;
       if (m.mealType in counts) counts[m.mealType]++;
     }
-    res.json({ meals, totals: { calories: Math.round(totalCal), protein: totalProt, fat: totalFat, carbs: totalCarbs, fiber: totalFiber }, counts });
+    res.json({ meals: meals.map(omitPhotoData), totals: { calories: Math.round(totalCal), protein: totalProt, fat: totalFat, carbs: totalCarbs, fiber: totalFiber }, counts });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -45,7 +51,7 @@ router.get('/diary', async (req: AuthRequest, res: Response) => {
       where: { chatId, createdAt: { gte: start, lte: end } },
       orderBy: { createdAt: 'asc' },
     });
-    res.json({ date: date.toISOString().split('T')[0], meals });
+    res.json({ date: date.toISOString().split('T')[0], meals: meals.map(omitPhotoData) });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -208,7 +214,7 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         fiberG: fiberG ?? null,
       },
     });
-    res.json({ ok: true, meal });
+    res.json({ ok: true, meal: omitPhotoData(meal) });
   } catch (err) {
     console.error('[nutrition/add]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -422,7 +428,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       where: { chatId, createdAt: { gte: since, lte: until } },
       orderBy: { createdAt: 'asc' },
     });
-    res.json({ days: 7, meals });
+    res.json({ days: 7, meals: meals.map(omitPhotoData) });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

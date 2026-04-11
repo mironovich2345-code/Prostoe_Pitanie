@@ -191,9 +191,8 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
       qc.invalidateQueries({ queryKey: ['nutrition-stats', 60] });
     },
   });
-  // Mini-app photos: photoData is already in the meal object (returned by Prisma findMany).
-  // Bot photos: only have photoFileId — need a separate API call.
-  const [mediaUrl, setMediaUrl] = useState<string | null>(meal.photoData ?? null);
+  // Photos are always loaded via /media endpoint — photoData is not included in bulk responses.
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState(false);
 
@@ -213,16 +212,7 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
 
   async function loadMedia() {
     if (mediaUrl || mediaLoading || mediaError) return;
-    if (!hasTelegramFile) {
-      // No Telegram file and no photoData — nothing to show
-      console.warn('[MealCard] no media source for meal', meal.id,
-        '| sourceType:', meal.sourceType,
-        '| photoFileId:', meal.photoFileId,
-        '| photoData present:', !!meal.photoData);
-      setMediaError(true);
-      return;
-    }
-    console.log('[MealCard] fetching Telegram media for meal', meal.id);
+    console.log('[MealCard] fetching media for meal', meal.id);
     setMediaLoading(true);
     try {
       const result = await api.nutritionMealMedia(meal.id);
@@ -239,7 +229,6 @@ function MealCard({ meal, isLast }: { meal: MealEntry; isLast: boolean }) {
   function toggle() {
     console.log('[MealCard] toggle', meal.id,
       '| sourceType:', meal.sourceType,
-      '| photoData:', !!meal.photoData,
       '| photoFileId:', !!meal.photoFileId,
       '| mediaUrl already set:', !!mediaUrl,
       '| expanded →', !expanded);
