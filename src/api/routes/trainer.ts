@@ -112,7 +112,16 @@ router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
       return;
     }
     const [profile, subscription] = await Promise.all([
-      prisma.userProfile.findUnique({ where: { chatId: clientId } }),
+      prisma.userProfile.findUnique({
+        where: { chatId: clientId },
+        select: {
+          preferredName: true,
+          currentWeightKg: true,
+          desiredWeightKg: true,
+          dailyCaloriesKcal: true,
+          goalType: true,
+        },
+      }),
       prisma.subscription.findUnique({ where: { chatId: clientId } }),
     ]);
     res.json({
@@ -189,7 +198,19 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
         take: 20,
       }),
     ]);
-    const profile = await prisma.userProfile.findUnique({ where: { chatId: clientId } });
+    const profile = await prisma.userProfile.findUnique({
+      where: { chatId: clientId },
+      select: {
+        preferredName: true,
+        currentWeightKg: true,
+        desiredWeightKg: true,
+        dailyCaloriesKcal: true,
+        dailyProteinG: true,
+        dailyFatG: true,
+        dailyCarbsG: true,
+        goalType: true,
+      },
+    });
     let todayCal = 0;
     for (const m of todayMeals) todayCal += m.caloriesKcal ?? 0;
 
