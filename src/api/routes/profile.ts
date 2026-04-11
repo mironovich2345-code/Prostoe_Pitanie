@@ -11,9 +11,16 @@ const router = Router();
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {
+    const userId = req.userId;
+    // Read weights by userId OR legacy chatId (records not yet backfilled have userId=null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const weightWhere: any = userId
+      ? { OR: [{ userId }, { chatId, userId: null }] }
+      : { chatId };
+
     const [profile, weights] = await Promise.all([
       prisma.userProfile.findUnique({ where: { chatId } }),
-      prisma.weightEntry.findMany({ where: { chatId }, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.weightEntry.findMany({ where: weightWhere, orderBy: { createdAt: 'desc' }, take: 10 }),
     ]);
     res.json({
       profile: profile ? {
@@ -79,7 +86,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     if (preferredName !== undefined) data.preferredName = preferredName.trim() || undefined;
 
     const chatIdNum = parseInt(chatId, 10);
-    await upsertProfile(chatIdNum, data);
+    await upsertProfile(chatIdNum, data, req.userId);
     await tryAutoCalcNorms(chatIdNum);
 
     const updated = await prisma.userProfile.findUnique({ where: { chatId } });
@@ -119,12 +126,15 @@ router.post('/weight', async (req: AuthRequest, res: Response) => {
     return;
   }
   try {
+    const userId = req.userId;
     const [entry] = await Promise.all([
-      prisma.weightEntry.create({ data: { chatId, weightKg: w } }),
+      // userId absent from stale Prisma client; remove cast after prisma generate
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      prisma.weightEntry.create({ data: { chatId, weightKg: w, ...(userId ? { userId } : {}) } as any }),
       prisma.userProfile.upsert({
         where: { chatId },
-        update: { currentWeightKg: w },
-        create: { chatId, currentWeightKg: w },
+        update: { currentWeightKg: w, ...(userId ? { userId } : {}) },
+        create: { chatId, currentWeightKg: w, ...(userId ? { userId } : {}) },
       }),
     ]);
     res.json({ ok: true, weightEntry: entry });
@@ -142,10 +152,12 @@ router.patch('/notifications', async (req: AuthRequest, res: Response) => {
     notificationTimes?: string;
   };
   try {
+    const userId = req.userId;
     const data: Record<string, unknown> = {};
     if (notificationsEnabled !== undefined) data.notificationsEnabled = notificationsEnabled;
     if (notificationCount !== undefined) data.notificationCount = notificationCount;
     if (notificationTimes !== undefined) data.notificationTimes = notificationTimes;
+    if (userId) data.userId = userId;
     await prisma.userProfile.upsert({
       where: { chatId },
       update: data,
@@ -166,10 +178,11 @@ router.patch('/avatar', async (req: AuthRequest, res: Response) => {
     return;
   }
   try {
+    const userId = req.userId;
     await prisma.userProfile.upsert({
       where: { chatId },
-      update: { avatarData: avatarData ?? null },
-      create: { chatId, avatarData: avatarData ?? null },
+      update: { avatarData: avatarData ?? null, ...(userId ? { userId } : {}) },
+      create: { chatId, avatarData: avatarData ?? null, ...(userId ? { userId } : {}) },
     });
     res.json({ ok: true });
   } catch (err) {

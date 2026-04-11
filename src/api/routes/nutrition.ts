@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
+import { requirePremiumAccess } from '../middleware/requirePremiumAccess';
 import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
@@ -13,6 +14,35 @@ function omitPhotoData<T extends { photoData?: unknown }>(meal: T): Omit<T, 'pho
   return rest;
 }
 
+/**
+ * Build a Prisma where-filter for MealEntry reads.
+ *
+ * userId present → read records where userId matches (new/backfilled) OR where
+ *   chatId matches and userId is still null (legacy records not yet backfilled).
+ *   After full backfill the second branch never fires.
+ * userId absent (legacy/dev path) → read by chatId only.
+ *
+ * Cast to `any` because userId is absent from the stale Prisma client;
+ * remove the cast after `prisma generate` runs on the server.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mealFilter(chatId: string, userId?: string): any {
+  if (userId) return { OR: [{ userId }, { chatId, userId: null }] };
+  return { chatId };
+}
+
+/**
+ * Ownership filter for a single meal record (DELETE / media endpoints).
+ * Prevents accessing another user's record even if their chatId is known.
+ * userId present → match by id + (userId OR chatId+userId=null).
+ * Fallback to id+chatId when userId is unavailable (legacy/dev path).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ownerFilter(id: number, chatId: string, userId?: string): any {
+  if (userId) return { id, OR: [{ userId }, { chatId, userId: null }] };
+  return { id, chatId };
+}
+
 // GET /api/nutrition/today — today's meals and totals
 router.get('/today', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
@@ -20,7 +50,7 @@ router.get('/today', async (req: AuthRequest, res: Response) => {
     const start = new Date(); start.setHours(0,0,0,0);
     const end = new Date(); end.setHours(23,59,59,999);
     const meals = await prisma.mealEntry.findMany({
-      where: { chatId, createdAt: { gte: start, lte: end } },
+      where: { ...mealFilter(chatId, req.userId), createdAt: { gte: start, lte: end } },
       orderBy: { createdAt: 'asc' },
     });
     let totalCal = 0, totalProt = 0, totalFat = 0, totalCarbs = 0, totalFiber = 0;
@@ -48,7 +78,7 @@ router.get('/diary', async (req: AuthRequest, res: Response) => {
     const start = new Date(date); start.setHours(0,0,0,0);
     const end = new Date(date); end.setHours(23,59,59,999);
     const meals = await prisma.mealEntry.findMany({
-      where: { chatId, createdAt: { gte: start, lte: end } },
+      where: { ...mealFilter(chatId, req.userId), createdAt: { gte: start, lte: end } },
       orderBy: { createdAt: 'asc' },
     });
     res.json({ date: date.toISOString().split('T')[0], meals: meals.map(omitPhotoData) });
@@ -63,7 +93,7 @@ router.delete('/meals/:id', async (req: AuthRequest, res: Response) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
-    const meal = await prisma.mealEntry.findFirst({ where: { id, chatId } });
+    const meal = await prisma.mealEntry.findFirst({ where: ownerFilter(id, chatId, req.userId) });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
     await prisma.mealEntry.delete({ where: { id } });
     res.json({ ok: true });
@@ -80,7 +110,7 @@ router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
     const meal = await prisma.mealEntry.findFirst({
-      where: { id, chatId },
+      where: ownerFilter(id, chatId, req.userId),
       select: { sourceType: true, photoFileId: true, voiceFileId: true, photoData: true },
     });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
@@ -110,7 +140,7 @@ router.get('/meals/:id/media/stream', async (req: AuthRequest, res: Response) =>
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
     const meal = await prisma.mealEntry.findFirst({
-      where: { id, chatId },
+      where: ownerFilter(id, chatId, req.userId),
       select: { sourceType: true, photoFileId: true, voiceFileId: true },
     });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
@@ -149,8 +179,8 @@ router.get('/meals/:id/media/stream', async (req: AuthRequest, res: Response) =>
   }
 });
 
-// POST /api/nutrition/analyze — analyze meal text via AI
-router.post('/analyze', async (req: AuthRequest, res: Response) => {
+// POST /api/nutrition/analyze — analyze meal text via AI [premium]
+router.post('/analyze', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   try {
@@ -162,8 +192,8 @@ router.post('/analyze', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/nutrition/analyze-photo — analyze meal photo (base64 data URL) via AI
-router.post('/analyze-photo', async (req: AuthRequest, res: Response) => {
+// POST /api/nutrition/analyze-photo — analyze meal photo (base64 data URL) via AI [premium]
+router.post('/analyze-photo', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
   const { imageData } = req.body as { imageData?: string };
   if (!imageData) { res.status(400).json({ error: 'Missing imageData' }); return; }
   if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
@@ -201,8 +231,11 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   }
   try {
     const meal = await prisma.mealEntry.create({
+      // userId is absent from stale Prisma client; cast removed after prisma generate
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         chatId,
+        userId: req.userId ?? null,
         text: text.trim(),
         mealType: mealType ?? 'unknown',
         sourceType: sourceType ?? 'text',
@@ -212,7 +245,7 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         fatG: fatG ?? null,
         carbsG: carbsG ?? null,
         fiberG: fiberG ?? null,
-      },
+      } as any,
     });
     res.json({ ok: true, meal: omitPhotoData(meal) });
   } catch (err) {
@@ -229,8 +262,8 @@ function mealSig(meals: { createdAt: Date }[]): string {
   return `${meals.length}_${meals[meals.length - 1].createdAt.toISOString()}`;
 }
 
-// GET /api/nutrition/insight?date=YYYY-MM-DD
-router.get('/insight', async (req: AuthRequest, res: Response) => {
+// GET /api/nutrition/insight?date=YYYY-MM-DD [premium]
+router.get('/insight', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const dateStr = req.query.date as string | undefined;
   try {
@@ -243,7 +276,7 @@ router.get('/insight', async (req: AuthRequest, res: Response) => {
     const [profile, meals] = await Promise.all([
       prisma.userProfile.findUnique({ where: { chatId } }),
       prisma.mealEntry.findMany({
-        where: { chatId, createdAt: { gte: start, lte: end } },
+        where: { ...mealFilter(chatId, req.userId), createdAt: { gte: start, lte: end } },
         orderBy: { createdAt: 'asc' },
       }),
     ]);
@@ -312,8 +345,8 @@ router.get('/insight', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/nutrition/insight/week?from=YYYY-MM-DD&to=YYYY-MM-DD
-router.get('/insight/week', async (req: AuthRequest, res: Response) => {
+// GET /api/nutrition/insight/week?from=YYYY-MM-DD&to=YYYY-MM-DD [premium]
+router.get('/insight/week', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const fromStr = req.query.from as string | undefined;
   const toStr   = req.query.to   as string | undefined;
@@ -328,7 +361,7 @@ router.get('/insight/week', async (req: AuthRequest, res: Response) => {
     const [profile, meals] = await Promise.all([
       prisma.userProfile.findUnique({ where: { chatId } }),
       prisma.mealEntry.findMany({
-        where: { chatId, createdAt: { gte: start, lte: end } },
+        where: { ...mealFilter(chatId, req.userId), createdAt: { gte: start, lte: end } },
         orderBy: { createdAt: 'asc' },
       }),
     ]);
@@ -425,7 +458,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       until = new Date(); until.setHours(23,59,59,999);
     }
     const meals = await prisma.mealEntry.findMany({
-      where: { chatId, createdAt: { gte: since, lte: until } },
+      where: { ...mealFilter(chatId, req.userId), createdAt: { gte: since, lte: until } },
       orderBy: { createdAt: 'asc' },
     });
     res.json({ days: 7, meals: meals.map(omitPhotoData) });

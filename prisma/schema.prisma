@@ -7,9 +7,96 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Platform-independent user identity ──────────────────────────────────────
+
+model User {
+  id             String            @id @default(uuid())
+  createdAt      DateTime          @default(now())
+  mergedAt       DateTime?
+  identities     UserIdentity[]
+  profile        UserProfile?
+  trainerProfile TrainerProfile?
+  subscription   UserSubscription?
+  payments       Payment[]
+}
+
+model UserIdentity {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  platform   String   // 'telegram' | 'max'
+  platformId String   // chatId for telegram, userId for MAX
+  username   String?
+  firstName  String?
+  linkedAt   DateTime @default(now())
+
+  @@unique([platform, platformId])
+  @@unique([userId, platform])
+}
+
+// ─── Subscription & payments (keyed by userId) ───────────────────────────────
+
+model UserSubscription {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  planId          String    // 'client_monthly' | 'trial'
+  status          String    // 'active' | 'past_due' | 'canceled' | 'expired'
+  currentPeriodEnd DateTime?
+  trialEndsAt     DateTime?
+  gracePeriodEnd  DateTime?
+  autoRenew       Boolean   @default(true)
+  providerSubId   String?   // external subscription ID from payment provider
+  paymentProvider String?   // 'yookassa' | 'cloudpayments' — set when provider is connected
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  payments        Payment[]
+}
+
+model Payment {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+  subscriptionId    String?
+  subscription      UserSubscription? @relation(fields: [subscriptionId], references: [id])
+  provider          String            // 'yookassa' | 'cloudpayments' | 'manual'
+  providerPaymentId String?           @unique
+  planId            String
+  amountRub         Float
+  status            String            // 'pending' | 'succeeded' | 'failed' | 'canceled' | 'refunded'
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  attempts          PaymentAttempt[]
+}
+
+model PaymentAttempt {
+  id               String   @id @default(uuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  status           String   // 'pending' | 'succeeded' | 'failed'
+  providerResponse String?  // raw JSON response from provider
+  createdAt        DateTime @default(now())
+}
+
+model WebhookLog {
+  id          String    @id @default(uuid())
+  provider    String    // 'yookassa' | 'cloudpayments'
+  eventType   String
+  payloadJson String
+  processedAt DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+}
+
+// ─── Existing models (still keyed by chatId during transition) ────────────────
+
 model UserProfile {
   id                  Int      @id @default(autoincrement())
   chatId              String   @unique
+  userId              String?  @unique  // platform-independent ID; null for legacy records not yet backfilled
+  user                User?    @relation(fields: [userId], references: [id])
   heightCm            Float?
   currentWeightKg     Float?
   goalType            String?
@@ -31,7 +118,8 @@ model UserProfile {
   telegramUsername     String?  // Telegram @username, updated lazily on each bootstrap
   avatarData           String?  // base64 data URL for user avatar
   referralCode         String?  @unique
-  referredBy           String?
+  referredBy           String?          // chatId (legacy)
+  referredByUserId     String?          // platform-independent; null for legacy records not yet backfilled
   referredByRole       String?
   trainerOfferType     String?
   referralLockedAt     DateTime?
@@ -41,7 +129,8 @@ model UserProfile {
 
 model MealEntry {
   id            Int      @id @default(autoincrement())
-  chatId        String
+  chatId        String   // legacy; kept for backward compatibility
+  userId        String?  // platform-independent; null for records created by Telegram bot or not yet backfilled
   text          String
   mealType      String   @default("unknown")
   sourceType    String   @default("text")
@@ -54,18 +143,23 @@ model MealEntry {
   carbsG        Float?
   fiberG        Float?
   createdAt     DateTime @default(now())
+  @@index([userId])
 }
 
 model WeightEntry {
   id        Int      @id @default(autoincrement())
-  chatId    String
+  chatId    String   // legacy; kept for backward compatibility
+  userId    String?  // platform-independent; null for records not yet backfilled
   weightKg  Float
   createdAt DateTime @default(now())
+  @@index([userId])
 }
 
 model TrainerProfile {
   id                      Int       @id @default(autoincrement())
   chatId                  String    @unique
+  userId                  String?   @unique  // platform-independent ID; null for legacy records not yet backfilled
+  user                    User?     @relation(fields: [userId], references: [id])
   verificationStatus      String    @default("pending")
   bio                     String?
   specialization          String?
@@ -90,8 +184,10 @@ model TrainerProfile {
 
 model TrainerClientLink {
   id                Int      @id @default(autoincrement())
-  trainerId         String
-  clientId          String
+  trainerId         String   // chatId (legacy)
+  clientId          String   // chatId (legacy)
+  trainerUserId     String?  // platform-independent; null for legacy records not yet backfilled
+  clientUserId      String?  // platform-independent; null for legacy records not yet backfilled
   status            String   @default("active")
   fullHistoryAccess Boolean  @default(false)
   canViewPhotos     Boolean  @default(true)
@@ -102,14 +198,16 @@ model TrainerClientLink {
 }
 
 model TrainerRating {
-  id         Int      @id @default(autoincrement())
-  trainerId  String
-  clientId   String
-  targetType String
-  targetId   String
-  rating     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  trainerId     String   // chatId (legacy)
+  clientId      String   // chatId (legacy)
+  trainerUserId String?  // platform-independent; null for legacy records not yet backfilled
+  clientUserId  String?  // platform-independent; null for legacy records not yet backfilled
+  targetType    String
+  targetId      String
+  rating        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   @@unique([trainerId, clientId, targetType, targetId])
 }
 
@@ -151,8 +249,10 @@ model TrainerReview {
 
 model TrainerReward {
   id             Int      @id @default(autoincrement())
-  trainerId      String
-  referredChatId String
+  trainerId      String   // chatId (legacy)
+  referredChatId String   // chatId (legacy)
+  trainerUserId  String?  // platform-independent; null for legacy records not yet backfilled
+  referredUserId String?  // platform-independent; null for legacy records not yet backfilled
   planId         String
   amountRub      Float    @default(0)
   status         String   @default("pending_hold")

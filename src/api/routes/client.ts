@@ -52,11 +52,15 @@ router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) =
     });
     if (existing) { res.status(409).json({ error: 'Already have an active trainer' }); return; }
 
-    const tp = await prisma.trainerProfile.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tp = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
       where: { chatId: trainerId, verificationStatus: 'verified' },
-      select: { chatId: true, fullName: true, specialization: true },
+      select: { chatId: true, fullName: true, specialization: true, userId: true },
     });
     if (!tp) { res.status(404).json({ error: 'Trainer not found or not verified' }); return; }
+
+    const clientUserId = req.userId ?? null;
+    const trainerUserId = (tp.userId as string | null) ?? null;
 
     const link = await prisma.trainerClientLink.upsert({
       where: { trainerId_clientId: { trainerId: tp.chatId, clientId: chatId } },
@@ -66,14 +70,19 @@ router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) =
         canViewPhotos: canViewPhotos ?? true,
         connectedAt: new Date(),
         disconnectedAt: { set: null },
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(clientUserId ? { clientUserId } : {} as any),
+        ...(trainerUserId ? { trainerUserId } : {}),
+      } as any, // new fields absent from stale Prisma client; remove cast after prisma generate
       create: {
         trainerId: tp.chatId,
         clientId: chatId,
         status: 'active',
         fullHistoryAccess: fullHistoryAccess ?? false,
         canViewPhotos: canViewPhotos ?? true,
-      },
+        clientUserId,
+        trainerUserId,
+      } as any,
     });
     res.json({
       ok: true,
@@ -199,15 +208,16 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
     }
 
     // Find trainer by permanent code (no TTL)
-    const tp = await prisma.trainerProfile.findFirst({
-      where: {
-        connectionCode: normalizedCode,
-        verificationStatus: 'verified',
-      },
-      select: { chatId: true, fullName: true, specialization: true },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tp = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+      where: { connectionCode: normalizedCode, verificationStatus: 'verified' },
+      select: { chatId: true, fullName: true, specialization: true, userId: true },
     });
     if (!tp) { res.status(404).json({ error: 'Code not found' }); return; }
     if (tp.chatId === chatId) { res.status(400).json({ error: 'Cannot connect to yourself' }); return; }
+
+    const clientUserId = req.userId ?? null;
+    const trainerUserId = (tp.userId as string | null) ?? null;
 
     // Create or reactivate link
     const link = await prisma.trainerClientLink.upsert({
@@ -218,14 +228,18 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
         canViewPhotos: canViewPhotos ?? true,
         connectedAt: new Date(),
         disconnectedAt: { set: null },
-      },
+        ...(clientUserId ? { clientUserId } : {}),
+        ...(trainerUserId ? { trainerUserId } : {}),
+      } as any, // new fields absent from stale Prisma client; remove cast after prisma generate
       create: {
         trainerId: tp.chatId,
         clientId: chatId,
         status: 'active',
         fullHistoryAccess: fullHistoryAccess ?? false,
         canViewPhotos: canViewPhotos ?? true,
-      },
+        clientUserId,
+        trainerUserId,
+      } as any,
     });
 
     res.json({

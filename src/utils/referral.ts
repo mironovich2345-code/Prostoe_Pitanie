@@ -52,9 +52,10 @@ export async function applyReferral(
 ): Promise<'ok' | 'not_found' | 'self' | 'already_locked'> {
   const code = rawCode.trim().toUpperCase();
 
-  const referrer = await prisma.userProfile.findFirst({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const referrer = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)({
     where: { referralCode: code },
-    select: { chatId: true },
+    select: { chatId: true, userId: true },
   });
   if (!referrer) return 'not_found';
   if (referrer.chatId === chatId) return 'self';
@@ -70,11 +71,13 @@ export async function applyReferral(
     select: { verificationStatus: true },
   });
   const role = trainerProfile?.verificationStatus === 'verified' ? 'trainer' : 'client';
+  const referredByUserId: string | null = referrer.userId ?? null;
 
-  await prisma.userProfile.upsert({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (prisma.userProfile.upsert as (args: any) => Promise<any>)({
     where: { chatId },
-    update: { referredBy: referrer.chatId, referredByRole: role, referralLockedAt: new Date() },
-    create: { chatId, referredBy: referrer.chatId, referredByRole: role, referralLockedAt: new Date() },
+    update: { referredBy: referrer.chatId, referredByUserId, referredByRole: role, referralLockedAt: new Date() },
+    create: { chatId, referredBy: referrer.chatId, referredByUserId, referredByRole: role, referralLockedAt: new Date() },
   });
 
   return 'ok';
@@ -125,9 +128,10 @@ export async function applyTrainerReferral(
   const { code, offerId } = parsed;
 
   // Find trainer by UserProfile.referralCode
-  const referrer = await prisma.userProfile.findFirst({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const referrer = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)({
     where: { referralCode: code },
-    select: { chatId: true },
+    select: { chatId: true, userId: true },
   });
   if (!referrer) return 'not_found';
   if (referrer.chatId === chatId) return 'self';
@@ -147,11 +151,14 @@ export async function applyTrainerReferral(
   if (me?.referralLockedAt) return 'already_locked';
 
   const offerType = TRAINER_OFFERS[offerId].key;
+  const referredByUserId: string | null = referrer.userId ?? null;
 
-  await prisma.userProfile.upsert({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (prisma.userProfile.upsert as (args: any) => Promise<any>)({
     where: { chatId },
     update: {
       referredBy: referrer.chatId,
+      referredByUserId,
       referredByRole: 'trainer',
       trainerOfferType: offerType,
       referralLockedAt: new Date(),
@@ -159,6 +166,7 @@ export async function applyTrainerReferral(
     create: {
       chatId,
       referredBy: referrer.chatId,
+      referredByUserId,
       referredByRole: 'trainer',
       trainerOfferType: offerType,
       referralLockedAt: new Date(),

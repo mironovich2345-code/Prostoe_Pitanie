@@ -5,6 +5,51 @@ import { validateImageDataUrl, AVATAR_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
+// ─── userId-aware helpers ─────────────────────────────────────────────────────
+
+/**
+ * TrainerClientLink shape extended with userId fields (absent from stale Prisma
+ * client; remove the interface and casts after `prisma generate` runs).
+ */
+interface TrainerClientLinkFull {
+  id: number;
+  status: string;
+  fullHistoryAccess: boolean;
+  canViewPhotos: boolean;
+  connectedAt: Date;
+  clientAlias: string | null;
+  clientUserId: string | null;  // platform-independent; null until backfilled
+  trainerUserId: string | null;
+}
+
+/**
+ * Fetch an active/frozen trainer-client link including userId fields.
+ * Uses `as any` because clientUserId / trainerUserId are absent from the
+ * stale Prisma client; remove the cast after `prisma generate` runs.
+ */
+async function findActiveLink(
+  trainerId: string,
+  clientId: string,
+  statuses: string[] = ['active', 'frozen'],
+): Promise<TrainerClientLinkFull | null> {
+  return (prisma.trainerClientLink.findFirst as (args: unknown) => Promise<TrainerClientLinkFull | null>)({
+    where: { trainerId, clientId, status: { in: statuses } },
+  });
+}
+
+/**
+ * Build a Prisma where-filter for client data (MealEntry / WeightEntry).
+ * clientUserId present → OR: [userId match (new/backfilled), chatId+userId=null (legacy)]
+ * clientUserId absent  → chatId-only (safe: TG chatIds are stable)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function clientDataFilter(clientId: string, clientUserId?: string | null): any {
+  if (clientUserId) return { OR: [{ userId: clientUserId }, { chatId: clientId, userId: null }] };
+  return { chatId: clientId };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Returns true only if the caller has an active verified trainer profile. */
 async function isVerifiedTrainer(chatId: string): Promise<boolean> {
   const tp = await prisma.trainerProfile.findUnique({
@@ -175,9 +220,7 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await prisma.trainerClientLink.findFirst({
-      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
-    });
+    const link = await findActiveLink(chatId, clientId);
     if (!link) {
       res.status(403).json({ error: 'Access denied' });
       return;
@@ -185,15 +228,16 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
     const since = link.fullHistoryAccess ? undefined : link.connectedAt;
     const start = new Date(); start.setHours(0,0,0,0);
     const end = new Date(); end.setHours(23,59,59,999);
+    const baseFilter = clientDataFilter(clientId, link.clientUserId);
     const [todayMeals, recentMeals, weights] = await Promise.all([
-      prisma.mealEntry.findMany({ where: { chatId: clientId, createdAt: { gte: start, lte: end } } }),
+      prisma.mealEntry.findMany({ where: { ...baseFilter, createdAt: { gte: start, lte: end } } }),
       prisma.mealEntry.findMany({
-        where: { chatId: clientId, ...(since ? { createdAt: { gte: since } } : {}) },
+        where: { ...baseFilter, ...(since ? { createdAt: { gte: since } } : {}) },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
       prisma.weightEntry.findMany({
-        where: { chatId: clientId, ...(since ? { createdAt: { gte: since } } : {}) },
+        where: { ...baseFilter, ...(since ? { createdAt: { gte: since } } : {}) },
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
@@ -246,9 +290,7 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await prisma.trainerClientLink.findFirst({
-      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
-    });
+    const link = await findActiveLink(chatId, clientId);
     if (!link) { res.status(403).json({ error: 'Access denied' }); return; }
 
     const since = link.fullHistoryAccess ? undefined : link.connectedAt;
@@ -259,7 +301,7 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
     const effectiveFrom = since && fromDate < since ? since : fromDate;
 
     const meals = await prisma.mealEntry.findMany({
-      where: { chatId: clientId, createdAt: { gte: effectiveFrom, lte: toDate } },
+      where: { ...clientDataFilter(clientId, link.clientUserId), createdAt: { gte: effectiveFrom, lte: toDate } },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -275,6 +317,7 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
 });
 
 // GET /api/trainer/alerts — dashboard alerts
+// NOTE: meal lookups here stay on chatId (batch OR-of-ORs for N clients adds complexity; safe to harden later)
 router.get('/alerts', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {

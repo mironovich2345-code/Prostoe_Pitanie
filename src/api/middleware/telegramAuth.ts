@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
+import { resolveUserId } from '../utils/resolveUser';
 
 export interface TelegramUser {
   id: number;
@@ -11,6 +12,7 @@ export interface TelegramUser {
 export interface AuthRequest extends Request {
   telegramUser?: TelegramUser;
   chatId?: string;
+  userId?: string; // platform-independent internal ID (User.id)
 }
 
 type ValidationResult =
@@ -56,7 +58,7 @@ export function validateTelegramInitData(initData: string, botToken: string): Va
   }
 }
 
-export function telegramAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
+export async function telegramAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const initData = req.headers['x-telegram-init-data'] as string | undefined;
   const botToken = process.env.BOT_TOKEN ?? '';
 
@@ -66,6 +68,11 @@ export function telegramAuthMiddleware(req: AuthRequest, res: Response, next: Ne
     if (devChatId && process.env.NODE_ENV !== 'production') {
       req.telegramUser = { id: Number(devChatId), first_name: 'Dev' };
       req.chatId = devChatId;
+      try {
+        req.userId = await resolveUserId('telegram', devChatId, { firstName: 'Dev' });
+      } catch {
+        // non-fatal: userId resolution failure does not break existing chatId-based logic
+      }
       return next();
     }
     res.status(401).json({ error: 'Unauthorized' });
@@ -84,5 +91,16 @@ export function telegramAuthMiddleware(req: AuthRequest, res: Response, next: Ne
 
   req.telegramUser = result.user;
   req.chatId = String(result.user.id);
+
+  // Resolve platform-independent userId (non-fatal — existing chatId logic is unchanged)
+  try {
+    req.userId = await resolveUserId('telegram', req.chatId, {
+      firstName: result.user.first_name,
+      username: result.user.username,
+    });
+  } catch {
+    // userId unavailable but chatId is set — all existing routes continue to work
+  }
+
   next();
 }

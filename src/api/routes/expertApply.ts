@@ -31,10 +31,12 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    const userId = req.userId;
     const trainerProfile = await prisma.trainerProfile.upsert({
       where: { chatId },
       create: {
         chatId,
+        ...(userId ? { userId } : {}),
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),
@@ -45,6 +47,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         rejectedAt: null,
       },
       update: {
+        ...(userId ? { userId } : {}),
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),

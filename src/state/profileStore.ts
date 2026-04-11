@@ -27,11 +27,12 @@ export async function getProfile(chatId: number) {
   });
 }
 
-export async function upsertProfile(chatId: number, data: UpdateProfileData) {
+export async function upsertProfile(chatId: number, data: UpdateProfileData, userId?: string) {
+  const connectUser = userId ? { user: { connect: { id: userId } } } : {};
   return prisma.userProfile.upsert({
     where: { chatId: String(chatId) },
-    update: data,
-    create: { chatId: String(chatId), ...data },
+    update: { ...data, ...(userId ? { userId } : {}) },
+    create: { chatId: String(chatId), ...data, ...connectUser },
   });
 }
 
