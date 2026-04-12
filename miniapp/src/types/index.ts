@@ -125,6 +125,8 @@ export interface MealEntry {
 
 export interface FoodAnalysis {
   name: string;
+  mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'unknown';
+  items?: string[];
   composition?: string;
   caloriesKcal: number | null;
   proteinG: number | null;
