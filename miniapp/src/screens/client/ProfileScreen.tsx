@@ -202,92 +202,14 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   );
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function weightDeltaColor(delta: number, goalType: string | null | undefined): string {
-  if (Math.abs(delta) < 0.01) return 'var(--text-3)';
-  if (!goalType || goalType === 'maintain' || goalType === 'track') return 'var(--text-2)';
-  if (goalType === 'gain') return delta > 0 ? 'var(--accent)' : 'var(--danger)';
-  return delta < 0 ? 'var(--accent)' : 'var(--danger)'; // 'lose'
-}
-
-function deriveGoal(current: number | null | undefined, target: number | null | undefined): 'lose' | 'gain' | 'maintain' | null {
-  if (!current || !target) return null;
-  if (current > target + 0.05) return 'lose';
-  if (current < target - 0.05) return 'gain';
-  return 'maintain';
-}
-
-// ─── BMI Info Overlay ──────────────────────────────────────────────────────
-
-function BmiInfoOverlay({ onClose }: { onClose: () => void }) {
-  const BMI_RANGES = [
-    { range: '< 18.5',     label: 'Дефицит веса', color: 'var(--warn)'   },
-    { range: '18.5 – 24.9', label: 'Норма',        color: 'var(--accent)' },
-    { range: '25 – 29.9',  label: 'Избыток веса',  color: 'var(--warn)'   },
-    { range: '≥ 30',       label: 'Ожирение',      color: 'var(--danger)' },
-  ];
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
-      <div className="bottom-sheet">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>
-            Индекс массы тела
-          </span>
-          <button
-            onClick={onClose}
-            style={{
-              width: 28, height: 28, borderRadius: 8,
-              background: 'var(--surface-2)', border: 'none',
-              color: 'var(--text-3)', fontSize: 16, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: 0, lineHeight: 1,
-            }}
-            aria-label="Закрыть"
-          >✕</button>
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65 }}>
-          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Что такое ИМТ</p>
-          <p style={{ margin: '0 0 12px' }}>
-            Ориентировочный показатель соотношения веса и роста. Не учитывает мышечную массу и индивидуальные особенности состава тела.
-          </p>
-          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Формула</p>
-          <div style={{
-            margin: '0 0 12px', padding: '8px 12px',
-            background: 'var(--surface-2)', borderRadius: 10,
-            fontSize: 12, color: 'var(--accent)', fontWeight: 600, letterSpacing: 0.1,
-          }}>
-            ИМТ = вес (кг) ÷ рост² (м)
-          </div>
-          <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Диапазоны</p>
-          {BMI_RANGES.map(row => (
-            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{row.range}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
 // ─── Tab: Вес ──────────────────────────────────────────────────────────────
 
 function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
   const navigate = useNavigate();
   const p = bootstrap.profile;
-  const { data, isLoading } = useQuery({
-    queryKey: ['profile-full'],
-    queryFn: api.profile,
-  });
-  const history = data?.weightHistory ?? [];
-
   const weight = p?.currentWeightKg;
-  const target = p?.desiredWeightKg;
 
-  if (!weight && !isLoading) {
+  if (!weight) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 16px' }}>
         <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
@@ -310,69 +232,13 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
 
   return (
     <div>
-      {/* Weight history */}
-      {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-          <div className="spinner" />
-        </div>
-      ) : history.length > 0 ? (
-        <>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '8px 2px 10px' }}>
-            История
-          </div>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 10 }}>
-            {/* API returns DESC (newest first) — show last 3 only */}
-            {[...history].slice(0, 3).map((entry, i, arr) => {
-              const prev = arr[i + 1]; // older entry (DESC order)
-              const delta = prev ? entry.weightKg - prev.weightKg : null;
-              const dt = new Date(entry.createdAt);
-              const dateLabel = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-              const timeLabel = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-              const goal = deriveGoal(weight, target);
-              return (
-                <div
-                  key={entry.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: 'var(--text)', lineHeight: 1 }}>
-                      {entry.weightKg.toFixed(1)}
-                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}> кг</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
-                      {dateLabel}
-                      <span style={{ color: 'var(--accent)', marginLeft: 5 }}>{timeLabel}</span>
-                    </div>
-                  </div>
-                  {delta !== null && (
-                    <span style={{
-                      fontSize: 13, fontWeight: 600,
-                      color: weightDeltaColor(delta, goal),
-                    }}>
-                      {delta > 0 ? '+' : ''}{delta.toFixed(1)} кг
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: 14 }}
-            onClick={() => navigate('/stats', { state: { tab: 'weight' } })}
-          >
-            Перейти в статистику
-          </button>
-        </>
-      ) : (
-        <div style={{ padding: '20px 0', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>История взвешиваний появится здесь</div>
-        </div>
-      )}
+      <button
+        className="btn btn-secondary"
+        style={{ fontSize: 14 }}
+        onClick={() => navigate('/stats', { state: { tab: 'weight' } })}
+      >
+        Перейти в статистику
+      </button>
     </div>
   );
 }

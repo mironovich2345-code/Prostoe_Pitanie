@@ -1008,7 +1008,7 @@ function WeightView() {
       {/* Main weight + target — tappable cards */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <div
-          onClick={() => navigate('/profile/pick/weight')}
+          onClick={() => navigate('/profile/pick/weight', { state: { returnTo: '/stats', returnTab: 'weight' } })}
           style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -1022,7 +1022,7 @@ function WeightView() {
           {height && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>Рост {height} см</div>}
         </div>
         <div
-          onClick={() => navigate('/profile/pick/desired-weight')}
+          onClick={() => navigate('/profile/pick/desired-weight', { state: { returnTo: '/stats', returnTab: 'weight' } })}
           style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>

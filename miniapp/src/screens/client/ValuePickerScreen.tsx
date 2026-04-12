@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { PageHeader } from '../../ui';
@@ -80,6 +80,7 @@ function isValidField(s: string | undefined): s is Field {
 export default function ValuePickerScreen() {
   const { field } = useParams<{ field: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
 
   const config = isValidField(field) ? FIELD_CONFIG[field] : null;
@@ -128,7 +129,12 @@ export default function ValuePickerScreen() {
       await config.save(effectiveValue, qc);
       await qc.invalidateQueries({ queryKey: ['bootstrap'] });
       await qc.invalidateQueries({ queryKey: ['profile-full'] });
-      navigate(-1);
+      const returnState = (location.state as { returnTo?: string; returnTab?: string } | null);
+      if (returnState?.returnTo) {
+        navigate(returnState.returnTo, { state: { tab: returnState.returnTab }, replace: true });
+      } else {
+        navigate(-1);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка сохранения');
       setSaving(false);
