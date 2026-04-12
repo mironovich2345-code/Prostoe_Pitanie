@@ -21,12 +21,14 @@ const GOAL_LABELS: Record<string, string> = {
   lose: 'Похудение', maintain: 'Поддержание', gain: 'Набор массы', track: 'Контроль',
 };
 
-const SUB_ACTIONS = [
-  { key: 'trial',   label: 'Триал',       danger: false },
-  { key: 'monthly', label: 'Ежемесячная', danger: false },
-  { key: 'extend',  label: 'Продлить',    danger: false },
-  { key: 'cancel',  label: 'Отменить',    danger: true  },
-  { key: 'expire',  label: 'Истекла',     danger: true  },
+const SUB_ACTIONS_POSITIVE = [
+  { key: 'trial',   label: 'Активировать триал'  },
+  { key: 'monthly', label: 'Активировать месяц'  },
+] as const;
+
+const SUB_ACTIONS_DANGER = [
+  { key: 'cancel', label: 'Отменить подписку' },
+  { key: 'expire', label: 'Пометить истёкшей' },
 ] as const;
 
 function fmtDate(iso: string | null | undefined) {
@@ -106,34 +108,75 @@ function ResultView({ data, extendDays, setExtendDays, onAction, actionPending }
 
         {chatId && (
           <>
-            <div style={{ borderTop: '1px solid var(--border)', margin: '10px 0 10px' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0 }}>Дней:</span>
-              <input
-                type="number"
-                value={extendDays}
-                onChange={e => setExtendDays(e.target.value)}
-                min={1} max={365}
-                style={{
-                  width: 58, padding: '5px 8px', fontSize: 13, borderRadius: 7,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  color: 'var(--text)', outline: 'none', textAlign: 'center',
-                }}
-              />
+            <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+
+            {/* Days input */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
+                Срок в днях — для триала, месяца и продления:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="number"
+                  value={extendDays}
+                  onChange={e => setExtendDays(e.target.value)}
+                  min={1} max={365}
+                  style={{
+                    width: 72, padding: '8px 10px', fontSize: 15, borderRadius: 8,
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    color: 'var(--text)', outline: 'none', textAlign: 'center', fontWeight: 600,
+                  }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--text-3)' }}>дней</span>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {SUB_ACTIONS.map(a => (
+
+            {/* Positive actions */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              {SUB_ACTIONS_POSITIVE.map(a => (
                 <button
                   key={a.key}
                   disabled={actionPending}
                   onClick={() => onAction(chatId, a.key)}
                   style={{
-                    padding: '7px 13px', fontSize: 12, fontWeight: 600, borderRadius: 8,
+                    padding: '11px 8px', fontSize: 13, fontWeight: 600, borderRadius: 10,
                     cursor: actionPending ? 'default' : 'pointer',
                     opacity: actionPending ? 0.6 : 1,
-                    background: a.danger ? 'rgba(255,59,48,0.10)' : 'var(--accent-soft)',
-                    border: a.danger ? '1px solid rgba(255,59,48,0.25)' : '1px solid transparent',
-                    color: a.danger ? 'var(--danger)' : 'var(--accent)',
+                    background: 'var(--accent-soft)', border: '1px solid transparent',
+                    color: 'var(--accent)', lineHeight: 1.3,
+                  }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+            <button
+              disabled={actionPending}
+              onClick={() => onAction(chatId, 'extend')}
+              style={{
+                width: '100%', padding: '11px', fontSize: 13, fontWeight: 600, borderRadius: 10,
+                cursor: actionPending ? 'default' : 'pointer',
+                opacity: actionPending ? 0.6 : 1,
+                background: 'var(--accent-soft)', border: '1px solid transparent',
+                color: 'var(--accent)', marginBottom: 8,
+              }}
+            >
+              Продлить на {extendDays || '…'} дней
+            </button>
+
+            {/* Danger actions */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {SUB_ACTIONS_DANGER.map(a => (
+                <button
+                  key={a.key}
+                  disabled={actionPending}
+                  onClick={() => onAction(chatId, a.key)}
+                  style={{
+                    padding: '11px 8px', fontSize: 13, fontWeight: 600, borderRadius: 10,
+                    cursor: actionPending ? 'default' : 'pointer',
+                    opacity: actionPending ? 0.6 : 1,
+                    background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.25)',
+                    color: 'var(--danger)', lineHeight: 1.3,
                   }}
                 >
                   {a.label}
@@ -230,14 +273,15 @@ export default function AdminUserSearchScreen() {
         Введите Chat ID или @username
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
           placeholder="123456789 или @username"
           style={{
-            flex: 1, padding: '11px 14px', fontSize: 14, borderRadius: 10,
+            width: '100%', boxSizing: 'border-box',
+            padding: '12px 14px', fontSize: 15, borderRadius: 10,
             background: 'var(--surface-2)', border: '1px solid var(--border)',
             color: 'var(--text)', outline: 'none', fontFamily: 'inherit',
           }}
@@ -246,9 +290,9 @@ export default function AdminUserSearchScreen() {
           onClick={handleSearch}
           disabled={lookupMutation.isPending || !query.trim()}
           className="btn"
-          style={{ flexShrink: 0, fontSize: 14 }}
+          style={{ width: '100%', fontSize: 15 }}
         >
-          {lookupMutation.isPending ? '...' : 'Найти'}
+          {lookupMutation.isPending ? 'Загрузка...' : 'Найти'}
         </button>
       </div>
 
