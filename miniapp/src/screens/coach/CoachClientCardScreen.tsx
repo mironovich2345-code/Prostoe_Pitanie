@@ -113,6 +113,14 @@ export default function CoachClientCardScreen() {
   const defaultName = p?.preferredName?.trim() || `Клиент …${clientId?.slice(-4)}`;
   const initial = displayName.charAt(0).toUpperCase();
 
+  const GOAL_LABELS: Record<string, string> = {
+    lose: 'Похудение', maintain: 'Поддержание', gain: 'Набор массы', track: 'Контроль питания',
+  };
+  const goalParts: string[] = [];
+  if (p?.goalType) goalParts.push(`Цель: ${GOAL_LABELS[p.goalType] ?? p.goalType}`);
+  if (p?.dailyCaloriesKcal) goalParts.push(`${p.dailyCaloriesKcal} ккал/день`);
+  const goalLine = goalParts.join(' · ') || null;
+
   return (
     <div className="screen">
       {/* Header */}
@@ -167,6 +175,9 @@ export default function CoachClientCardScreen() {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{displayName}</div>
           <StatusBadge status={sub?.status ?? 'free'} />
+          {goalLine && (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>{goalLine}</div>
+          )}
         </div>
       </div>
 

@@ -349,9 +349,10 @@ const DAY_RATING_CHIP: Record<string, { label: string; color: string; bg: string
   improve:   { label: 'Улучшить', color: 'var(--warn, #F0A07A)', bg: 'rgba(240,160,122,0.12)' },
 };
 
-function WeekView({ clientId, norms, ratingByDay }: {
+function WeekView({ clientId, norms, ratingByMeal, ratingByDay }: {
   clientId: string;
   norms: { cal: number | null; p: number | null; f: number | null; c: number | null };
+  ratingByMeal: Record<string, string>;
   ratingByDay: Record<string, string>;
 }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -556,7 +557,7 @@ function WeekView({ clientId, norms, ratingByDay }: {
                     <div style={{ background: 'var(--surface-2)', borderBottom: !isLast ? '1px solid var(--border)' : 'none' }}>
                       <CompactDaySummary {...computeTotals(dayMeals)} />
                       <div style={{ padding: '10px 12px' }}>
-                        <MealList meals={dayMeals} ratingByMeal={{}} />
+                        <MealList meals={dayMeals} ratingByMeal={ratingByMeal} />
                         <div style={{ marginTop: 8, background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 14px', border: '1px solid var(--border)' }}>
                           <DayRatingBar date={day} clientId={clientId} existingRating={ratingByDay[day]} />
                         </div>
@@ -746,7 +747,7 @@ export default function CoachClientStatsScreen() {
       </div>
 
       {tab === 'day'    && <DayView    clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} />}
-      {tab === 'week'   && <WeekView   clientId={clientId!} norms={norms} ratingByDay={ratingByDay} />}
+      {tab === 'week'   && <WeekView   clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} />}
       {tab === 'weight' && <WeightView history={weightHistory} profile={profile} />}
     </div>
   );

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
 interface ClientRef {
@@ -12,6 +13,7 @@ interface ExpiringSub extends ClientRef {
 }
 
 export default function CoachAlertsDashboardScreen() {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ['trainer-alerts'], queryFn: api.trainerAlerts });
   if (isLoading) return <div className="loading"><div className="spinner" /></div>;
 
@@ -48,10 +50,11 @@ export default function CoachAlertsDashboardScreen() {
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             {notLoggedToday.map((c: ClientRef, i) => (
-              <div key={c.chatId} style={{
+              <div key={c.chatId} onClick={() => navigate(`/client/${c.chatId}/stats`)} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 16px',
                 borderBottom: i < notLoggedToday.length - 1 ? '1px solid var(--border)' : 'none',
+                cursor: 'pointer',
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',
@@ -75,10 +78,11 @@ export default function CoachAlertsDashboardScreen() {
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             {expiringSoon.map((s: ExpiringSub, i) => (
-              <div key={s.id} style={{
+              <div key={s.id} onClick={() => navigate(`/client/${s.chatId}/stats`)} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 16px',
                 borderBottom: i < expiringSoon.length - 1 ? '1px solid var(--border)' : 'none',
+                cursor: 'pointer',
               }}>
                 <span style={{ fontSize: 14, color: 'var(--text-2)' }}>{s.displayName}</span>
                 <span style={{ fontSize: 13, color: 'var(--warn)', fontWeight: 600 }}>

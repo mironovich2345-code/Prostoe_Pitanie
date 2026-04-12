@@ -261,9 +261,6 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12,
       }}>
         <FinanceRow icon={<IconReferral />} label="Рефералы" path="/referrals" navigate={navigate} />
-        <div style={{ borderBottom: 'none' }}>
-          <FinanceRow icon={<IconPayout />} label="Начисления и вывод" path="/payouts" navigate={navigate} />
-        </div>
       </div>
 
       {/* Reviews section */}
