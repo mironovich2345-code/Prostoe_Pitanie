@@ -62,9 +62,13 @@ function normalizePlanId(planId: string | undefined | null): 'pro' | 'optimal' |
   return 'free';
 }
 
+function isActiveStatus(status: SubscriptionStatus | 'free'): boolean {
+  return status === 'active' || status === 'trial';
+}
+
 function statusBarColor(status: SubscriptionStatus | 'free'): string {
   if (status === 'active' || status === 'trial') return 'var(--accent)';
-  if (status === 'expired' || status === 'past_due') return 'var(--danger)';
+  if (status === 'expired' || status === 'past_due' || status === 'canceled') return 'var(--danger)';
   return 'rgba(255,255,255,0.1)';
 }
 
@@ -73,12 +77,22 @@ function statusBarColor(status: SubscriptionStatus | 'free'): string {
 function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
   const sub = bootstrap.subscription;
   const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
+  const active = isActiveStatus(statusKey);
 
   const PLAN_LABELS: Record<string, string> = {
     free: 'Бесплатный', intro: 'Pro Intro', trial: 'Pro Intro',
     basic: 'Optimal', client_monthly: 'Optimal', optimal: 'Optimal', pro: 'Pro',
   };
-  const planLabel = sub ? (PLAN_LABELS[sub.planId] ?? sub.planId) : 'Бесплатный';
+
+  // When inactive, show the plan name only as historical context, not as the current active plan
+  const planLabel = sub
+    ? (PLAN_LABELS[sub.planId] ?? sub.planId)
+    : 'Бесплатный';
+
+  // Only show date rows if subscription is currently active
+  const showIntroDate = active && !!sub?.trialEndsAt;
+  const showPeriodDate = active && !!sub?.currentPeriodEnd && !sub?.trialEndsAt;
+  const showDateRow = showIntroDate || showPeriodDate;
 
   return (
     <div style={{
@@ -91,36 +105,41 @@ function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
       <div style={{ height: 3, background: statusBarColor(statusKey) }} />
       <div style={{ padding: '18px 18px 20px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 10 }}>
-          Текущий тариф
+          {active ? 'Текущий тариф' : 'Тариф'}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (sub?.trialEndsAt || sub?.currentPeriodEnd) ? 14 : 0 }}>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showDateRow ? 14 : 0 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, color: active ? 'var(--text)' : 'var(--text-3)', lineHeight: 1 }}>
             {planLabel}
           </div>
           <StatusBadge status={statusKey} />
         </div>
-        {sub?.trialEndsAt && (
+        {showIntroDate && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Intro до</span>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-              {new Date(sub.trialEndsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+              {new Date(sub!.trialEndsAt!).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
             </span>
           </div>
         )}
-        {sub?.currentPeriodEnd && !sub?.trialEndsAt && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sub.autoRenew ? 6 : 0 }}>
+        {showPeriodDate && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sub!.autoRenew ? 6 : 0 }}>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Действует до</span>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-              {new Date(sub.currentPeriodEnd).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date(sub!.currentPeriodEnd!).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
         )}
-        {sub?.autoRenew && (
+        {active && sub?.autoRenew && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Автопродление</span>
             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent)' }}>
               Включено
             </span>
+          </div>
+        )}
+        {!active && sub && (
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
+            Подписка неактивна — выберите тариф ниже для повторного подключения
           </div>
         )}
       </div>
@@ -136,10 +155,12 @@ function PlanCard({
   plan,
   cardState,
   onSubscribe,
+  showIntroOffer = false,
 }: {
   plan: PlanDef;
   cardState: CardState;
   onSubscribe: (id: PlanDef['id']) => void;
+  showIntroOffer?: boolean;
 }) {
   const isPro    = plan.popular;
   const isActive = cardState === 'active';
@@ -246,6 +267,28 @@ function PlanCard({
           ))}
         </div>
 
+        {/* Pro Intro offer — first purchase only */}
+        {showIntroOffer && !isActive && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(215,255,63,0.10) 0%, rgba(215,255,63,0.04) 100%)',
+            border: '1px solid rgba(215,255,63,0.25)',
+            borderRadius: 12,
+            padding: '12px 14px',
+            marginBottom: 14,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 13 }}>✨</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Специальное предложение</span>
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: 'var(--accent)', lineHeight: 1.1 }}>
+              3 дня за 1 ₽
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+              Затем 499 ₽/мес · Только для новых пользователей
+            </div>
+          </div>
+        )}
+
         {/* CTA */}
         {isActive ? (
           <button
@@ -278,7 +321,7 @@ function PlanCard({
             className={isPro ? 'btn' : 'btn btn-secondary'}
             style={{ fontSize: 15, fontWeight: 600 }}
           >
-            Подключить
+            {showIntroOffer ? 'Начать за 1 ₽' : 'Подключить'}
           </button>
         )}
       </div>
@@ -314,13 +357,23 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
   const [toastVisible, setToastVisible] = useState(false);
 
-  const activePlan = normalizePlanId(bootstrap.subscription?.planId);
+  const sub = bootstrap.subscription;
+  const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
+  const subIsActive = isActiveStatus(statusKey);
+  const activePlan = subIsActive ? normalizePlanId(sub?.planId) : 'free';
+
+  /**
+   * First-purchase heuristic: user has no subscription record at all.
+   * NOTE: users who migrated from legacy chatId-only flow may also have null here
+   * until backfill runs. Conservative — only show intro offer when truly no record.
+   */
+  const isFirstPurchase = sub === null;
 
   /** Determine card state for each plan */
   function getCardState(planId: 'pro' | 'optimal'): CardState {
-    if (activePlan === planId) return 'active';
-    // User is on Pro → downgrade to Optimal not available
-    if (activePlan === 'pro' && planId === 'optimal') return 'unavailable';
+    if (subIsActive && activePlan === planId) return 'active';
+    // Pro is active → downgrade to Optimal not allowed
+    if (subIsActive && activePlan === 'pro' && planId === 'optimal') return 'unavailable';
     return 'available';
   }
 
@@ -351,6 +404,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
           plan={plan}
           cardState={getCardState(plan.id)}
           onSubscribe={handleSubscribe}
+          showIntroOffer={isFirstPurchase && plan.id === 'pro'}
         />
       ))}
 
