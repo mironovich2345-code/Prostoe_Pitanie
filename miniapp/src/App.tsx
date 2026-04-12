@@ -50,6 +50,7 @@ import TrainerReviewScreen from './screens/client/TrainerReviewScreen';
 import ShopScreen from './screens/client/ShopScreen';
 import TrainerListScreen from './screens/client/TrainerListScreen';
 import DocumentsScreen from './screens/client/DocumentsScreen';
+import OnboardingScreen from './screens/client/OnboardingScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import { api } from './api/client';
@@ -158,12 +159,24 @@ export default function App() {
     if (mode === 'company' && !isCompany) { setMode('coach'); return null; }
   }
 
+  const needsOnboarding = mode === 'client' && (
+    !bootstrap.profile?.heightCm ||
+    !bootstrap.profile?.currentWeightKg ||
+    !bootstrap.profile?.sex ||
+    !bootstrap.profile?.birthDate ||
+    !bootstrap.profile?.activityLevel
+  );
+
   return (
     <BrowserRouter>
       {mode === 'client' ? (
         <Routes>
+          <Route path="/onboarding" element={<OnboardingScreen />} />
           <Route element={<ClientLayout />}>
-            <Route path="/" element={<HomeScreen bootstrap={bootstrap} />} />
+            <Route
+              path="/"
+              element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <HomeScreen bootstrap={bootstrap} />}
+            />
             <Route path="/stats" element={<StatsScreen />} />
             <Route path="/diary" element={<FoodDiaryScreen />} />
             <Route

@@ -54,7 +54,7 @@ export const api = {
     request<{ reminder: import('../types').MealReminder }>(`/api/reminders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteReminder: (id: number) =>
     request<{ ok: boolean }>(`/api/reminders/${id}`, { method: 'DELETE' }),
-  patchProfileData: (data: { heightCm?: number; currentWeightKg?: number; desiredWeightKg?: number; sex?: string; birthDate?: string; activityLevel?: number; city?: string; timezone?: string; preferredName?: string }) =>
+  patchProfileData: (data: { heightCm?: number; currentWeightKg?: number; desiredWeightKg?: number; sex?: string; birthDate?: string; activityLevel?: number; city?: string; timezone?: string; preferredName?: string; goalType?: string }) =>
     request<{ ok: boolean; profile: import('../types').UserProfile | null }>('/api/profile/data', { method: 'PATCH', body: JSON.stringify(data) }),
   patchProfileAvatar: (avatarData: string | null) =>
     request<{ ok: boolean }>('/api/profile/avatar', { method: 'PATCH', body: JSON.stringify({ avatarData }) }),

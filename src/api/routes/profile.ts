@@ -53,7 +53,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // PATCH /api/profile/data — update physical profile fields, recalculate norms
 router.patch('/data', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { heightCm, currentWeightKg, desiredWeightKg, sex, birthDate, activityLevel, city, timezone, preferredName } = req.body as {
+  const { heightCm, currentWeightKg, desiredWeightKg, sex, birthDate, activityLevel, city, timezone, preferredName, goalType } = req.body as {
     heightCm?: number;
     currentWeightKg?: number;
     desiredWeightKg?: number;
@@ -63,6 +63,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     city?: string;
     timezone?: string;
     preferredName?: string;
+    goalType?: string;
   };
 
   try {
@@ -84,6 +85,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
       data.timezone = timezone;
     }
     if (preferredName !== undefined) data.preferredName = preferredName.trim() || undefined;
+    if (goalType !== undefined) data.goalType = goalType;
 
     const chatIdNum = parseInt(chatId, 10);
     await upsertProfile(chatIdNum, data, req.userId);

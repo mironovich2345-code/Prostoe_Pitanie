@@ -314,8 +314,8 @@ async function buildDaySummaryText(chatId: number): Promise<string> {
   ].join('\n');
 }
 
-function isOnboardingComplete(profile: { heightCm: number | null; currentWeightKg: number | null; desiredWeightKg?: number | null; sex?: string | null; activityLevel?: number | null } | null): boolean {
-  return !!(profile?.heightCm && profile?.currentWeightKg && profile?.desiredWeightKg != null && profile?.sex && profile?.activityLevel);
+function isOnboardingComplete(profile: { heightCm: number | null; currentWeightKg: number | null; sex?: string | null; birthDate?: Date | null; activityLevel?: number | null } | null): boolean {
+  return !!(profile?.heightCm && profile?.currentWeightKg && profile?.sex && profile?.birthDate && profile?.activityLevel);
 }
 
 async function startOnboarding(ctx: { message: { chat: { id: number } }; reply: Function }): Promise<void> {
