@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
-import type { BootstrapData, SubscriptionStatus } from '../../types';
+import type { BootstrapData, SubscriptionStatus, TrainerOfferType } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
 
@@ -151,16 +151,24 @@ function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
 
 type CardState = 'active' | 'available' | 'unavailable';
 
+/**
+ * introOffer controls the Pro price slot:
+ *   null          → show standard price (499 ₽/мес)
+ *   'pro_3day'    → show "3 дня за 1 ₽"  (no trainer offer, first purchase)
+ *   'month_1rub'  → show "1 месяц за 1 ₽" (trainer month_1rub offer)
+ */
+type IntroOffer = 'pro_3day' | 'month_1rub' | null;
+
 function PlanCard({
   plan,
   cardState,
   onSubscribe,
-  showIntroOffer = false,
+  introOffer = null,
 }: {
   plan: PlanDef;
   cardState: CardState;
   onSubscribe: (id: PlanDef['id']) => void;
-  showIntroOffer?: boolean;
+  introOffer?: IntroOffer;
 }) {
   const isPro    = plan.popular;
   const isActive = cardState === 'active';
@@ -244,11 +252,11 @@ function PlanCard({
         </div>
 
         {/* Price */}
-        {showIntroOffer && !isActive ? (
+        {introOffer && !isActive ? (
           <div style={{ marginTop: 14, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
               <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--accent)', lineHeight: 1 }}>
-                3 дня за 1 ₽
+                {introOffer === 'month_1rub' ? '1 месяц за 1 ₽' : '3 дня за 1 ₽'}
               </span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 5 }}>
@@ -312,7 +320,7 @@ function PlanCard({
             className={isPro ? 'btn' : 'btn btn-secondary'}
             style={{ fontSize: 15, fontWeight: 600 }}
           >
-            {showIntroOffer ? 'Начать за 1 ₽' : 'Подключить'}
+            {introOffer ? 'Начать за 1 ₽' : 'Подключить'}
           </button>
         )}
       </div>
@@ -359,6 +367,22 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
    * until backfill runs. Conservative — only show intro offer when truly no record.
    */
   const isFirstPurchase = sub === null;
+  const trainerOffer: TrainerOfferType | null = bootstrap.trainerOfferType ?? null;
+
+  /**
+   * Resolve which intro offer to show on the Pro card:
+   *   month_1rub trainer offer + first purchase → '1 месяц за 1 ₽'
+   *   no trainer offer + first purchase          → '3 дня за 1 ₽'
+   *   one_time / lifetime trainer offer          → null (client sees normal price)
+   *   not first purchase                         → null
+   */
+  function getProIntroOffer(): IntroOffer {
+    if (!isFirstPurchase) return null;
+    if (trainerOffer === 'month_1rub') return 'month_1rub';
+    if (trainerOffer === 'one_time' || trainerOffer === 'lifetime') return null;
+    return 'pro_3day';
+  }
+  const proIntroOffer = getProIntroOffer();
 
   /** Determine card state for each plan */
   function getCardState(planId: 'pro' | 'optimal'): CardState {
@@ -395,7 +419,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
           plan={plan}
           cardState={getCardState(plan.id)}
           onSubscribe={handleSubscribe}
-          showIntroOffer={isFirstPurchase && plan.id === 'pro'}
+          introOffer={plan.id === 'pro' ? proIntroOffer : null}
         />
       ))}
 

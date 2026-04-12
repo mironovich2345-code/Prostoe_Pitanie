@@ -88,11 +88,27 @@ export async function applyReferral(
 export const TRAINER_OFFER_IDS = ['1', '2', '3'] as const;
 export type TrainerOfferId = typeof TRAINER_OFFER_IDS[number];
 
-export const TRAINER_OFFERS: Record<TrainerOfferId, { key: string; title: string; desc: string; emoji: string }> = {
-  '1': { key: 'first_payment',    title: '100% от первой оплаты', desc: 'Тренер получает 100% суммы первого платежа клиента',             emoji: '💰' },
-  '2': { key: 'lifetime_20',      title: '20% пожизненно',        desc: 'Тренер получает 20% с каждого платежа клиента навсегда',          emoji: '♾️' },
-  '3': { key: 'first_month_1rub', title: 'Первый месяц за 1 ₽',   desc: 'Клиент получает первый месяц за 1 рубль — мощный оффер для привлечения', emoji: '🎁' },
+/** Canonical offer type keys used throughout the system. */
+export type TrainerOfferType = 'one_time' | 'lifetime' | 'month_1rub';
+
+export const TRAINER_OFFERS: Record<TrainerOfferId, { key: TrainerOfferType; title: string; desc: string; emoji: string }> = {
+  '1': { key: 'one_time',   title: '100% от первой оплаты', desc: 'Тренер получает 100% суммы первого платежа клиента',             emoji: '💰' },
+  '2': { key: 'lifetime',   title: '20% пожизненно',        desc: 'Тренер получает 20% с каждого платежа клиента навсегда',          emoji: '♾️' },
+  '3': { key: 'month_1rub', title: 'Первый месяц за 1 ₽',   desc: 'Клиент получает первый месяц за 1 рубль — мощный оффер для привлечения', emoji: '🎁' },
 };
+
+/**
+ * Normalize any stored offerType string to the canonical TrainerOfferType.
+ * Handles legacy keys saved before the rename (first_payment, lifetime_20, first_month_1rub).
+ * Returns null for unrecognised or absent values.
+ */
+export function normalizeOfferType(raw: string | null | undefined): TrainerOfferType | null {
+  if (!raw) return null;
+  if (raw === 'one_time'   || raw === 'first_payment')    return 'one_time';
+  if (raw === 'lifetime'   || raw === 'lifetime_20')      return 'lifetime';
+  if (raw === 'month_1rub' || raw === 'first_month_1rub') return 'month_1rub';
+  return null;
+}
 
 /** Build a trainer offer deep link: trf_{code}_{offerId} */
 export function buildTrainerOfferLink(referralCode: string, offerId: TrainerOfferId): string {

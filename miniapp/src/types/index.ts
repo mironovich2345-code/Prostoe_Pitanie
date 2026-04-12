@@ -97,6 +97,8 @@ export interface TrainerRating {
   mealCreatedAt?: string | null;
 }
 
+export type TrainerOfferType = 'one_time' | 'lifetime' | 'month_1rub';
+
 export interface BootstrapData {
   chatId: string;
   telegramUser: TelegramUser;
@@ -104,6 +106,8 @@ export interface BootstrapData {
   trainerProfile: TrainerProfileInfo | null;
   subscription: SubscriptionInfo | null;
   connectedTrainer: ConnectedTrainerInfo | null;
+  /** Canonical trainer offer type for this user; null if no trainer referral. */
+  trainerOfferType: TrainerOfferType | null;
 }
 
 export interface MealEntry {

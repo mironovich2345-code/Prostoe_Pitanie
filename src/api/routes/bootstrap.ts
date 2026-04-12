@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { normalizeOfferType } from '../../utils/referral';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
           dailyCarbsG: true, dailyFiberG: true, goalType: true,
           notificationsEnabled: true, notificationCount: true, notificationTimes: true,
           city: true, timezone: true, preferredName: true,
-          referralCode: true, avatarData: true,
+          referralCode: true, avatarData: true, trainerOfferType: true,
         },
       }),
       prisma.trainerProfile.findUnique({
@@ -86,6 +87,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         referralCode: profile.referralCode,
         avatarData: profile.avatarData ?? null,
       } : null,
+      trainerOfferType: normalizeOfferType(profile?.trainerOfferType),
       trainerProfile: trainerProfile ? {
         verificationStatus: trainerProfile.verificationStatus,
         bio: trainerProfile.bio,

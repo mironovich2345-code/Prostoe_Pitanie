@@ -7,6 +7,7 @@ import {
   applyReferral,
   buildTrainerOfferLink,
   applyTrainerReferral,
+  normalizeOfferType,
   TRAINER_OFFER_IDS,
   TRAINER_OFFERS,
 } from '../../utils/referral';
@@ -73,7 +74,8 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
     const usersByKey: Record<string, Array<{ displayName: string | null; username: string | null; joinedAt: string }>> = {};
     const clientIdsByKey: Record<string, string[]> = {};
     for (const u of referredUsers) {
-      const key = u.trainerOfferType ?? '';
+      // Normalize to canonical key so legacy DB values (first_payment etc.) still aggregate correctly
+      const key = normalizeOfferType(u.trainerOfferType) ?? '';
       if (!usersByKey[key]) { usersByKey[key] = []; clientIdsByKey[key] = []; }
       usersByKey[key].push({
         displayName: u.preferredName?.trim() || null,
@@ -103,13 +105,13 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
     }
 
     function computeEarned(offerKey: string, clientIds: string[]): number | null {
-      if (offerKey === 'first_payment') {
+      if (offerKey === 'one_time') {
         return clientIds.reduce((s, id) => s + (firstRewardByClient[id] ?? 0), 0);
       }
-      if (offerKey === 'lifetime_20') {
+      if (offerKey === 'lifetime') {
         return clientIds.reduce((s, id) => s + (totalRewardByClient[id] ?? 0), 0);
       }
-      return null; // first_month_1rub: no further payment display
+      return null; // month_1rub: no trainer payment display
     }
 
     const offers = TRAINER_OFFER_IDS.map(offerId => {
