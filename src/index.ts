@@ -46,6 +46,11 @@ const onboardingCancelMenu = Markup.inlineKeyboard([
   [Markup.button.callback('❌ Отмена', 'onboarding_cancel')],
 ]);
 
+const miniAppWelcomeMenu = Markup.inlineKeyboard([
+  ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Заполнить анкету', process.env.MINIAPP_URL)]] : []),
+  [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
+]);
+
 const draftActionsMenu = Markup.inlineKeyboard([
   [Markup.button.callback('✅ Сохранить', 'draft_save'), Markup.button.callback('❌ Отменить', 'draft_cancel')],
   [Markup.button.callback('📅 За прошлый день', 'draft_save_yesterday'), Markup.button.callback('✏️ Редактировать', 'draft_edit')],
@@ -392,7 +397,12 @@ bot.start(async (ctx) => {
   if (isOnboardingComplete(profile)) {
     return ctx.reply('👋 Привет! Выбери действие:', mainMenu);
   }
-  return startOnboarding(ctx);
+  return ctx.reply(
+    '👋 Привет! Добро пожаловать в EATLY.\n\n' +
+    'Чтобы начать — открой приложение и заполни небольшую анкету. Это займёт меньше минуты.\n\n' +
+    'После этого бот будет помогать тебе вести дневник питания прямо в чате.',
+    miniAppWelcomeMenu,
+  );
 });
 
 bot.help((ctx) => {
@@ -440,7 +450,10 @@ bot.command('cancel', (ctx) => {
 
 bot.command('onboarding', (ctx) => {
   clearPending(ctx.message.chat.id);
-  return startOnboarding(ctx);
+  return ctx.reply(
+    '📱 Анкета заполняется в приложении.\nОткрой его по кнопке ниже.',
+    miniAppWelcomeMenu,
+  );
 });
 
 bot.command('profile', async (ctx) => {

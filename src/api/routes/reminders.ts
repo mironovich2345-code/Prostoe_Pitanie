@@ -4,6 +4,11 @@ import prisma from '../../db';
 
 const router = Router();
 
+async function isPremiumUser(chatId: string): Promise<boolean> {
+  const sub = await prisma.subscription.findUnique({ where: { chatId }, select: { status: true } });
+  return sub?.status === 'active' || sub?.status === 'trial';
+}
+
 const MAX_REMINDERS = 5;
 const MAX_PER_TYPE: Record<string, number> = {
   breakfast: 1,
@@ -23,6 +28,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: 'asc' },
     });
 
+    // Legacy migration: convert old notificationTimes string to MealReminder rows
     if (reminders.length === 0) {
       const profile = await prisma.userProfile.findUnique({
         where: { chatId },
@@ -38,6 +44,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         }
         reminders = await prisma.mealReminder.findMany({ where: { chatId }, orderBy: { createdAt: 'asc' } });
       }
+    }
+
+    // Seed defaults: 13:00 lunch + 18:00 dinner if still no meal reminders
+    const hasMealReminders = reminders.some(r => r.mealType !== 'weight');
+    if (!hasMealReminders) {
+      await prisma.mealReminder.create({ data: { chatId, mealType: 'lunch',  time: '13:00', enabled: true } }).catch(() => {});
+      await prisma.mealReminder.create({ data: { chatId, mealType: 'dinner', time: '18:00', enabled: true } }).catch(() => {});
+      reminders = await prisma.mealReminder.findMany({ where: { chatId }, orderBy: { createdAt: 'asc' } });
     }
 
     res.json({ reminders });
@@ -67,6 +81,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 
   try {
+    if (mealType !== 'weight' && !(await isPremiumUser(chatId))) {
+      res.status(403).json({ error: 'Требуется подписка' });
+      return;
+    }
+
     const existing = await prisma.mealReminder.findMany({ where: { chatId } });
 
     if (existing.length >= MAX_REMINDERS) {
@@ -104,6 +123,11 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const existing = await prisma.mealReminder.findFirst({ where: { id, chatId } });
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
+
+    if (existing.mealType !== 'weight' && !(await isPremiumUser(chatId))) {
+      res.status(403).json({ error: 'Требуется подписка' });
+      return;
+    }
 
     const data: { time?: string; enabled?: boolean; dayOfWeek?: string } = {};
     if (time !== undefined) data.time = time;

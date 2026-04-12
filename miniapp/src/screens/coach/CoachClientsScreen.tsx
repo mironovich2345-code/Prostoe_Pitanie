@@ -9,6 +9,11 @@ function isClientActive(sub: SubscriptionInfo | null | undefined): boolean {
   return sub.status === 'active' || sub.status === 'trial';
 }
 
+function isClientPro(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!isClientActive(sub)) return false;
+  return sub!.planId === 'pro' || sub!.planId === 'intro';
+}
+
 interface LinkData {
   id: number;
   clientId: string;
@@ -90,8 +95,14 @@ export default function CoachClientsScreen() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                {isClientActive(c.subscription) ? (
+                {isClientPro(c.subscription) ? (
                   <StatusBadge status={c.subscription!.status} />
+                ) : isClientActive(c.subscription) ? (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+                    background: 'rgba(255,180,0,0.12)', color: 'var(--warning, #b88000)',
+                    border: '1px solid rgba(255,180,0,0.30)',
+                  }}>не тот тариф</span>
                 ) : (
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20,

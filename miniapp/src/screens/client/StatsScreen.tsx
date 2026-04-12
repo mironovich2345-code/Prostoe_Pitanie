@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import PaywallCard from '../../components/PaywallCard';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
@@ -912,9 +912,46 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
   );
 }
 
+// ─── BMI Info Overlay ──────────────────────────────────────────────────────
+
+function BmiInfoOverlay({ onClose }: { onClose: () => void }) {
+  const BMI_RANGES = [
+    { range: '< 18.5',      label: 'Дефицит веса', color: 'var(--warn)'   },
+    { range: '18.5 – 24.9', label: 'Норма',         color: 'var(--accent)' },
+    { range: '25 – 29.9',   label: 'Избыток веса',  color: 'var(--warn)'   },
+    { range: '≥ 30',        label: 'Ожирение',      color: 'var(--danger)' },
+  ];
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }} />
+      <div className="bottom-sheet">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>Индекс массы тела</span>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--surface-2)', border: 'none', color: 'var(--text-3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} aria-label="Закрыть">✕</button>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65 }}>
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Что такое ИМТ</p>
+          <p style={{ margin: '0 0 12px' }}>Ориентировочный показатель соотношения веса и роста. Не учитывает мышечную массу и индивидуальные особенности состава тела.</p>
+          <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Формула</p>
+          <div style={{ margin: '0 0 12px', padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 10, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>ИМТ = вес (кг) ÷ рост² (м)</div>
+          <p style={{ margin: '0 0 8px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>Диапазоны</p>
+          {BMI_RANGES.map(row => (
+            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{row.range}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Weight View ───────────────────────────────────────────────────────────
 
 function WeightView() {
+  const navigate = useNavigate();
+  const [showBmiInfo, setShowBmiInfo] = useState(false);
   const qc = useQueryClient();
   const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
   const isPremium = isPremiumTier(bs?.subscription);
@@ -948,24 +985,78 @@ function WeightView() {
     ? Math.max(0, Math.min(100, Math.round(((startWeight! - currentWeight) / totalSpan) * 100)))
     : null;
 
+  const weight = current;
+  const height = profile?.heightCm;
+  const bmi = weight && height ? weight / ((height / 100) ** 2) : null;
+  const bmiLabel = bmi == null ? null
+    : bmi < 18.5 ? 'Дефицит веса'
+    : bmi < 25   ? 'Норма'
+    : bmi < 30   ? 'Избыток веса'
+    : 'Ожирение';
+  const bmiColor = bmi == null ? 'var(--text-2)'
+    : bmi < 18.5 ? 'var(--warn)'
+    : bmi < 25   ? 'var(--accent)'
+    : bmi < 30   ? 'var(--warn)'
+    : 'var(--danger)';
+
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '16px', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 6 }}>Текущий</div>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
-            {current != null ? current.toFixed(1) : '—'}
-            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+      {/* Main weight + target — tappable cards */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <div
+          onClick={() => navigate('/profile/pick/weight')}
+          style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>Текущий вес</div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)', flexShrink: 0 }}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           </div>
+          <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--text)', lineHeight: 1 }}>
+            {weight?.toFixed(1) ?? '—'}
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+          </div>
+          {height && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>Рост {height} см</div>}
         </div>
-        <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '16px', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 6 }}>Цель</div>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: target != null ? 'var(--accent)' : 'var(--text-3)', lineHeight: 1 }}>
-            {target != null ? target.toFixed(1) : '—'}
-            {target != null && <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>}
+        <div
+          onClick={() => navigate('/profile/pick/desired-weight')}
+          style={{ flex: 1, background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '18px 16px', border: '1px solid var(--border)', cursor: 'pointer' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>Цель</div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-3)', flexShrink: 0 }}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           </div>
+          {target != null ? (
+            <>
+              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, color: 'var(--accent)', lineHeight: 1 }}>
+                {target.toFixed(1)}
+                <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-3)' }}> кг</span>
+              </div>
+              {diff !== null && (
+                <div style={{ fontSize: 12, color: diff > 0 ? 'var(--text-3)' : 'var(--accent)', marginTop: 6 }}>
+                  {diff > 0.05 ? `осталось ${diff.toFixed(1)} кг` : diff < -0.05 ? `набрать ${Math.abs(diff).toFixed(1)} кг` : 'цель достигнута'}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 4 }}>Не задана</div>
+          )}
         </div>
       </div>
+
+      {/* BMI */}
+      {bmi !== null && (
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '14px 16px', border: '1px solid var(--border)', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)' }}>Индекс массы тела</div>
+              <button onClick={() => setShowBmiInfo(true)} style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, background: 'transparent', border: '1px solid var(--border-2, #2a2a2a)', color: 'var(--text-3)', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }} aria-label="Что такое ИМТ">?</button>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>{bmi.toFixed(1)}</div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: bmiColor, background: 'var(--surface-2)', padding: '7px 14px', borderRadius: 20, border: '1px solid var(--border)' }}>{bmiLabel}</div>
+        </div>
+      )}
+      {showBmiInfo && <BmiInfoOverlay onClose={() => setShowBmiInfo(false)} />}
 
       {!isPremium && (
         <PaywallCard plan="optimal" feature="История веса и прогресса" />

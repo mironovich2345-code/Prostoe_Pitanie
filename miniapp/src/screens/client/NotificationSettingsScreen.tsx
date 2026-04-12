@@ -88,6 +88,7 @@ export default function NotificationSettingsScreen() {
                     reminder={r}
                     label={MEAL_LABELS[r.mealType as ReminderMealType] ?? r.mealType}
                     isLast={i === mealReminders.length - 1}
+                    isLocked={!isPremium}
                     toggling={toggleMutation.isPending}
                     onTap={() => isPremium ? navigate(`/notifications/${r.id}`) : navigate('/subscription')}
                     onToggle={val => isPremium ? toggleMutation.mutate({ id: r.id, enabled: val }) : navigate('/subscription')}
@@ -227,11 +228,12 @@ export default function NotificationSettingsScreen() {
 }
 
 function ReminderRow({
-  reminder, label, isLast, toggling, onTap, onToggle,
+  reminder, label, isLast, isLocked, toggling, onTap, onToggle,
 }: {
   reminder: MealReminder;
   label: string;
   isLast: boolean;
+  isLocked?: boolean;
   toggling: boolean;
   onTap: () => void;
   onToggle: (v: boolean) => void;
@@ -244,7 +246,7 @@ function ReminderRow({
         padding: '16px 18px',
         borderBottom: isLast ? 'none' : '1px solid var(--border)',
         opacity: reminder.enabled ? 1 : 0.38,
-        cursor: 'pointer',
+        cursor: isLocked ? 'default' : 'pointer',
         transition: 'opacity 0.15s',
       }}
     >
@@ -256,9 +258,13 @@ function ReminderRow({
           {label}
         </div>
       </div>
-      <div onClick={e => { e.stopPropagation(); onToggle(!reminder.enabled); }}>
-        <Toggle enabled={reminder.enabled} pending={toggling} onChange={onToggle} />
-      </div>
+      {isLocked ? (
+        <div style={{ fontSize: 18, color: 'var(--text-3)', opacity: 0.5 }}>🔒</div>
+      ) : (
+        <div onClick={e => { e.stopPropagation(); onToggle(!reminder.enabled); }}>
+          <Toggle enabled={reminder.enabled} pending={toggling} onChange={onToggle} />
+        </div>
+      )}
     </div>
   );
 }

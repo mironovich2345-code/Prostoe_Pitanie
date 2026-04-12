@@ -10,6 +10,11 @@ function isClientActive(sub: SubscriptionInfo | null | undefined): boolean {
   return sub.status === 'active' || sub.status === 'trial';
 }
 
+function isClientPro(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!isClientActive(sub)) return false;
+  return sub!.planId === 'pro' || sub!.planId === 'intro';
+}
+
 interface LinkData {
   id: number;
   status: string;
@@ -115,6 +120,7 @@ export default function CoachClientCardScreen() {
   const sub = data?.subscription as SubscriptionInfo | null;
   const link = data?.link as LinkData | null;
   const clientActive = isClientActive(sub);
+  const clientPro = isClientPro(sub);
   const displayName = (data as { displayName?: string })?.displayName ?? `Клиент …${clientId?.slice(-4)}`;
   const defaultName = p?.preferredName?.trim() || `Клиент …${clientId?.slice(-4)}`;
   const initial = displayName.charAt(0).toUpperCase();
@@ -129,7 +135,7 @@ export default function CoachClientCardScreen() {
 
   return (
     <div className="screen">
-      {/* Unpaid banner */}
+      {/* Unpaid banner — expired / canceled */}
       {!clientActive && (
         <div style={{
           background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.25)',
@@ -141,6 +147,23 @@ export default function CoachClientCardScreen() {
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Подписка не активна</div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
               Клиент потерял доступ к платным функциям. Просмотр статистики ограничен.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wrong-tier banner — active but not Pro */}
+      {clientActive && !clientPro && (
+        <div style={{
+          background: 'rgba(255,180,0,0.10)', border: '1px solid rgba(255,180,0,0.30)',
+          borderRadius: 'var(--r-lg)', padding: '10px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 16 }}>ℹ️</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning, #b88000)' }}>Нужен тариф Pro</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+              Работа с экспертом доступна только на тарифе Pro. У клиента сейчас другой тариф.
             </div>
           </div>
         </div>
@@ -243,7 +266,7 @@ export default function CoachClientCardScreen() {
         </div>
       )}
 
-      {clientActive ? (
+      {clientPro ? (
         <button className="btn" onClick={() => navigate(`/client/${clientId}/stats`)}>
           Статистика клиента →
         </button>
@@ -253,7 +276,7 @@ export default function CoachClientCardScreen() {
           className="btn"
           style={{ opacity: 0.4, cursor: 'default', background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
         >
-          Статистика недоступна — нет подписки
+          {clientActive ? 'Статистика недоступна — нужен тариф Pro' : 'Статистика недоступна — нет подписки'}
         </button>
       )}
 
