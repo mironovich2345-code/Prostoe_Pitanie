@@ -7,6 +7,7 @@ import {
   applyReferral,
   buildTrainerOfferLink,
   applyTrainerReferral,
+  applyCompanyReferral,
   normalizeOfferType,
   TRAINER_OFFER_IDS,
   TRAINER_OFFERS,
@@ -156,6 +157,17 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         res.json({ ok: true });
       } else if (result === 'not_found' || result === 'not_trainer') {
         res.status(404).json({ error: 'Trainer referral not found' });
+      } else if (result === 'self') {
+        res.status(400).json({ error: 'Cannot refer yourself' });
+      } else {
+        res.status(409).json({ error: 'Referral already applied' });
+      }
+    } else if (code.startsWith('crf_')) {
+      const result = await applyCompanyReferral(chatId, code);
+      if (result === 'ok') {
+        res.json({ ok: true });
+      } else if (result === 'not_found' || result === 'not_company') {
+        res.status(404).json({ error: 'Company referral not found' });
       } else if (result === 'self') {
         res.status(400).json({ error: 'Cannot refer yourself' });
       } else {

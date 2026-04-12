@@ -86,7 +86,8 @@ export default function App() {
     (window.Telegram?.WebApp as any)?.disableVerticalSwipes?.();
 
     const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (startParam?.startsWith('trf_')) {
+    if (startParam?.startsWith('trf_') || startParam?.startsWith('crf_')) {
+      // trainer offer link (trf_) or company offer link (crf_) — both routed via /api/referral/apply
       api.referralApply(startParam).catch(() => null);
     } else if (startParam?.startsWith('ref_')) {
       const code = startParam.slice(4);

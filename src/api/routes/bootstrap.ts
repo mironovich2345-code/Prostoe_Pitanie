@@ -29,7 +29,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
           dailyCarbsG: true, dailyFiberG: true, goalType: true,
           notificationsEnabled: true, notificationCount: true, notificationTimes: true,
           city: true, timezone: true, preferredName: true,
-          referralCode: true, avatarData: true, trainerOfferType: true,
+          referralCode: true, avatarData: true, trainerOfferType: true, referredByRole: true,
         },
       }),
       prisma.trainerProfile.findUnique({
@@ -88,6 +88,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         avatarData: profile.avatarData ?? null,
       } : null,
       trainerOfferType: normalizeOfferType(profile?.trainerOfferType),
+      referralSource: (profile?.referredByRole === 'trainer' || profile?.referredByRole === 'company')
+        ? (profile.referredByRole as 'trainer' | 'company')
+        : null,
       trainerProfile: trainerProfile ? {
         verificationStatus: trainerProfile.verificationStatus,
         bio: trainerProfile.bio,

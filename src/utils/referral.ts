@@ -110,18 +110,15 @@ export function normalizeOfferType(raw: string | null | undefined): TrainerOffer
   return null;
 }
 
-/** Build a trainer offer deep link: trf_{code}_{offerId} */
-export function buildTrainerOfferLink(referralCode: string, offerId: TrainerOfferId): string {
-  const botUsername = process.env.BOT_USERNAME ?? '';
-  const payload = `trf_${referralCode}_${offerId}`;
-  if (!botUsername) return payload;
-  return `https://t.me/${botUsername}?start=${payload}`;
-}
+// ─── Shared deep-link helpers ───────────────────────────────────────────────
 
-/** Parse a trf_ payload. Returns null if invalid format. */
-function parseTrainerPayload(payload: string): { code: string; offerId: TrainerOfferId } | null {
-  if (!payload.startsWith('trf_')) return null;
-  const rest = payload.slice(4); // "XXXXXXXX_1"
+/** Parse a prefixed offer payload (trf_ or crf_). Returns null if invalid. */
+function parseOfferPayload(
+  prefix: string,
+  payload: string,
+): { code: string; offerId: TrainerOfferId } | null {
+  if (!payload.startsWith(prefix)) return null;
+  const rest = payload.slice(prefix.length); // "XXXXXXXX_1"
   const lastUnderscore = rest.lastIndexOf('_');
   if (lastUnderscore === -1) return null;
   const code = rest.slice(0, lastUnderscore).toUpperCase();
@@ -131,19 +128,36 @@ function parseTrainerPayload(payload: string): { code: string; offerId: TrainerO
   return { code, offerId };
 }
 
-/**
- * Apply a trainer referral offer link (first valid trainer referral wins).
- * Returns 'ok' | 'not_found' | 'not_trainer' | 'self' | 'already_locked'.
- */
-export async function applyTrainerReferral(
-  chatId: string,
-  payload: string,
-): Promise<'ok' | 'not_found' | 'not_trainer' | 'self' | 'already_locked'> {
-  const parsed = parseTrainerPayload(payload);
-  if (!parsed) return 'not_found';
-  const { code, offerId } = parsed;
+// ─── Trainer offer links ─────────────────────────────────────────────────────
 
-  // Find trainer by UserProfile.referralCode
+/** Build a trainer offer deep link: trf_{code}_{offerId} */
+export function buildTrainerOfferLink(referralCode: string, offerId: TrainerOfferId): string {
+  const botUsername = process.env.BOT_USERNAME ?? '';
+  const payload = `trf_${referralCode}_${offerId}`;
+  if (!botUsername) return payload;
+  return `https://t.me/${botUsername}?start=${payload}`;
+}
+
+// ─── Company offer links ──────────────────────────────────────────────────────
+
+/** Build a company offer deep link: crf_{code}_{offerId} */
+export function buildCompanyOfferLink(referralCode: string, offerId: TrainerOfferId): string {
+  const botUsername = process.env.BOT_USERNAME ?? '';
+  const payload = `crf_${referralCode}_${offerId}`;
+  if (!botUsername) return payload;
+  return `https://t.me/${botUsername}?start=${payload}`;
+}
+
+// ─── Shared apply helper ─────────────────────────────────────────────────────
+
+type ApplyResult = 'ok' | 'not_found' | 'not_verified' | 'self' | 'already_locked';
+
+async function applyOfferReferral(
+  chatId: string,
+  code: string,
+  offerId: TrainerOfferId,
+  requiredSpecialization: 'trainer' | 'company',
+): Promise<ApplyResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const referrer = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)({
     where: { referralCode: code },
@@ -152,14 +166,17 @@ export async function applyTrainerReferral(
   if (!referrer) return 'not_found';
   if (referrer.chatId === chatId) return 'self';
 
-  // Must be a verified trainer
   const trainerProfile = await prisma.trainerProfile.findUnique({
     where: { chatId: referrer.chatId },
-    select: { verificationStatus: true },
+    select: { verificationStatus: true, specialization: true },
   });
-  if (trainerProfile?.verificationStatus !== 'verified') return 'not_trainer';
+  if (trainerProfile?.verificationStatus !== 'verified') return 'not_verified';
 
-  // First valid trainer referral wins
+  // Trainer links must come from non-company profiles; company links from company profiles
+  const isCompany = trainerProfile.specialization === 'Компания';
+  if (requiredSpecialization === 'company' && !isCompany) return 'not_verified';
+  if (requiredSpecialization === 'trainer' && isCompany) return 'not_verified';
+
   const me = await prisma.userProfile.findUnique({
     where: { chatId },
     select: { referralLockedAt: true },
@@ -168,6 +185,7 @@ export async function applyTrainerReferral(
 
   const offerType = TRAINER_OFFERS[offerId].key;
   const referredByUserId: string | null = referrer.userId ?? null;
+  const role = requiredSpecialization; // 'trainer' | 'company'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma.userProfile.upsert as (args: any) => Promise<any>)({
@@ -175,7 +193,7 @@ export async function applyTrainerReferral(
     update: {
       referredBy: referrer.chatId,
       referredByUserId,
-      referredByRole: 'trainer',
+      referredByRole: role,
       trainerOfferType: offerType,
       referralLockedAt: new Date(),
     },
@@ -183,11 +201,43 @@ export async function applyTrainerReferral(
       chatId,
       referredBy: referrer.chatId,
       referredByUserId,
-      referredByRole: 'trainer',
+      referredByRole: role,
       trainerOfferType: offerType,
       referralLockedAt: new Date(),
     },
   });
 
   return 'ok';
+}
+
+// ─── Public apply functions ───────────────────────────────────────────────────
+
+/**
+ * Apply a trainer referral offer link (first valid referral wins).
+ * Returns 'ok' | 'not_found' | 'not_trainer' | 'self' | 'already_locked'.
+ */
+export async function applyTrainerReferral(
+  chatId: string,
+  payload: string,
+): Promise<'ok' | 'not_found' | 'not_trainer' | 'self' | 'already_locked'> {
+  const parsed = parseOfferPayload('trf_', payload);
+  if (!parsed) return 'not_found';
+  const result = await applyOfferReferral(chatId, parsed.code, parsed.offerId, 'trainer');
+  if (result === 'not_verified') return 'not_trainer';
+  return result as 'ok' | 'not_found' | 'self' | 'already_locked';
+}
+
+/**
+ * Apply a company referral offer link (first valid referral wins).
+ * Returns 'ok' | 'not_found' | 'not_company' | 'self' | 'already_locked'.
+ */
+export async function applyCompanyReferral(
+  chatId: string,
+  payload: string,
+): Promise<'ok' | 'not_found' | 'not_company' | 'self' | 'already_locked'> {
+  const parsed = parseOfferPayload('crf_', payload);
+  if (!parsed) return 'not_found';
+  const result = await applyOfferReferral(chatId, parsed.code, parsed.offerId, 'company');
+  if (result === 'not_verified') return 'not_company';
+  return result as 'ok' | 'not_found' | 'self' | 'already_locked';
 }

@@ -106,8 +106,10 @@ export interface BootstrapData {
   trainerProfile: TrainerProfileInfo | null;
   subscription: SubscriptionInfo | null;
   connectedTrainer: ConnectedTrainerInfo | null;
-  /** Canonical trainer offer type for this user; null if no trainer referral. */
+  /** Canonical offer type for this user; null if no referral or non-offer referral. */
   trainerOfferType: TrainerOfferType | null;
+  /** Source of the referral that set the offer; null if none. */
+  referralSource: 'trainer' | 'company' | null;
 }
 
 export interface MealEntry {
