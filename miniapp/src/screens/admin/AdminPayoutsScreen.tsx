@@ -41,6 +41,61 @@ function fmtRub(n: number) {
 
 const ALL_STATUSES = ['pending_hold', 'available', 'paid_out', 'cancelled'] as const;
 
+// ─── Primitives (inline, matching AdminStatsScreen style) ──────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+      letterSpacing: 1.2, color: 'var(--text-3)',
+      padding: '16px 2px 8px',
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SummaryCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+      border: '1px solid var(--border)', overflow: 'hidden',
+      marginBottom: 16,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function BigRow({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '14px 18px', borderBottom: '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: 14, color: 'var(--text-2)' }}>{label}</span>
+      <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: color ?? 'var(--text)' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function SmallRow({ label, value, color, last }: { label: string; value: string; color?: string; last?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '11px 18px',
+      borderBottom: last ? 'none' : '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: color ?? 'var(--text-2)' }}>{value}</span>
+    </div>
+  );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
+
 export default function AdminPayoutsScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -73,6 +128,11 @@ export default function AdminPayoutsScreen() {
   const availableRub = payouts.filter(p => p.status === 'available').reduce((s, p) => s + p.amountRub, 0);
   const paidRub = payouts.filter(p => p.status === 'paid_out').reduce((s, p) => s + p.amountRub, 0);
 
+  const FILTER_TABS: [string, string][] = [
+    ['all', 'Все'],
+    ...ALL_STATUSES.map(s => [s, STATUS_LABELS[s]] as [string, string]),
+  ];
+
   return (
     <div className="screen">
       <button
@@ -81,113 +141,125 @@ export default function AdminPayoutsScreen() {
       >
         ← Назад
       </button>
-      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', marginBottom: 16 }}>
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', marginBottom: 4 }}>
         Выводы вознаграждения
       </div>
 
-      {/* Summary tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-        {[
-          { label: 'Всего начислено', value: fmtRub(totalRub), color: 'var(--text)' },
-          { label: 'К выплате', value: fmtRub(availableRub), color: '#4CAF50' },
-          { label: 'Выплачено', value: fmtRub(paidRub), color: 'var(--accent)' },
-        ].map(t => (
-          <div key={t.label} style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '10px 12px' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{t.label}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.color }}>{t.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        {([['all', 'Все'], ...ALL_STATUSES.map(s => [s, STATUS_LABELS[s]])] as [string, string][]).map(([k, l]) => (
-          <button
-            key={k}
-            onClick={() => setFilterStatus(k)}
-            style={{
-              padding: '5px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, cursor: 'pointer',
-              background: filterStatus === k ? 'var(--accent)' : 'var(--surface-2)',
-              color: filterStatus === k ? '#000' : 'var(--text-2)',
-              border: filterStatus === k ? 'none' : '1px solid var(--border)',
-            }}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-
-      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="spinner" /></div>}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {filtered.map(p => {
-          const isExpanded = expandedId === p.id;
-          return (
-            <div
-              key={p.id}
-              style={{
-                background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-                border: '1px solid var(--border)', padding: '14px 16px',
-              }}
-            >
-              <div
-                style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, cursor: 'pointer' }}
-                onClick={() => setExpandedId(isExpanded ? null : p.id)}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
-                    {p.trainerName || p.trainerId}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>
-                    {p.planId} · {fmtDate(p.createdAt)}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                    {fmtRub(p.amountRub)}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[p.status] ?? 'var(--text-3)' }}>
-                    {STATUS_LABELS[p.status] ?? p.status}
-                  </span>
-                  <span style={{ fontSize: 18, color: 'var(--text-3)' }}>{isExpanded ? '∧' : '∨'}</span>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8 }}>
-                    ID: {p.trainerId} · Клиент: {p.referredChatId}
-                    {p.holdUntil && ` · Холд до: ${fmtDate(p.holdUntil)}`}
-                    {p.paidAt && ` · Выплачено: ${fmtDate(p.paidAt)}`}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {ALL_STATUSES.filter(s => s !== p.status).map(s => (
-                      <button
-                        key={s}
-                        onClick={() => updateMutation.mutate({ id: p.id, status: s })}
-                        disabled={updateMutation.isPending}
-                        style={{
-                          padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
-                          background: s === 'paid_out' ? 'var(--accent-soft)' : s === 'cancelled' ? 'rgba(255,59,48,0.10)' : 'var(--surface-2)',
-                          border: s === 'cancelled' ? '1px solid rgba(255,59,48,0.25)' : '1px solid var(--border)',
-                          color: s === 'paid_out' ? 'var(--accent)' : s === 'cancelled' ? 'var(--danger)' : 'var(--text-2)',
-                        }}
-                      >
-                        → {STATUS_LABELS[s]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && !isLoading && (
-        <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-3)', fontSize: 14 }}>
-          Нет записей
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+          <div className="spinner" />
         </div>
+      )}
+
+      {!isLoading && (
+        <>
+          {/* ── Сводка ── */}
+          <SectionLabel>Сводка</SectionLabel>
+          <SummaryCard>
+            <BigRow label="Всего начислено" value={fmtRub(totalRub)} />
+            <SmallRow label="К выплате" value={fmtRub(availableRub)} color="#4CAF50" />
+            <SmallRow label="Выплачено" value={fmtRub(paidRub)} color="var(--accent)" last />
+          </SummaryCard>
+
+          {/* ── Фильтр ── */}
+          <SectionLabel>Фильтр</SectionLabel>
+          <div className="period-tabs" style={{ marginBottom: 16 }}>
+            {FILTER_TABS.map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setFilterStatus(k)}
+                className={`period-tab${filterStatus === k ? ' active' : ''}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Список ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.map(p => {
+              const isExpanded = expandedId === p.id;
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+                    border: '1px solid var(--border)', overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, cursor: 'pointer', padding: '14px 16px' }}
+                    onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
+                        {p.trainerName || p.trainerId}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
+                        {p.planId} · {fmtDate(p.createdAt)}
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                        {fmtRub(p.amountRub)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, paddingTop: 2 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700,
+                        color: STATUS_COLORS[p.status] ?? 'var(--text-3)',
+                        background: `${STATUS_COLORS[p.status] ?? 'var(--text-3)'}18`,
+                        padding: '3px 8px', borderRadius: 20,
+                      }}>
+                        {STATUS_LABELS[p.status] ?? p.status}
+                      </span>
+                      <span style={{ fontSize: 16, color: 'var(--text-3)', lineHeight: 1 }}>{isExpanded ? '∧' : '∨'}</span>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', background: 'var(--surface-2)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10, lineHeight: 1.6 }}>
+                        ID тренера: {p.trainerId}
+                        <br />
+                        Клиент: {p.referredChatId}
+                        {p.holdUntil && <><br />Холд до: {fmtDate(p.holdUntil)}</>}
+                        {p.paidAt && <><br />Выплачено: {fmtDate(p.paidAt)}</>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {ALL_STATUSES.filter(s => s !== p.status).map(s => (
+                          <button
+                            key={s}
+                            onClick={() => updateMutation.mutate({ id: p.id, status: s })}
+                            disabled={updateMutation.isPending}
+                            style={{
+                              padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+                              background: s === 'paid_out' ? 'var(--accent-soft)' : s === 'cancelled' ? 'rgba(255,59,48,0.10)' : 'var(--surface)',
+                              border: s === 'cancelled' ? '1px solid rgba(255,59,48,0.25)' : '1px solid var(--border)',
+                              color: s === 'paid_out' ? 'var(--accent)' : s === 'cancelled' ? 'var(--danger)' : 'var(--text-2)',
+                            }}
+                          >
+                            → {STATUS_LABELS[s]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {filtered.length === 0 && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              padding: '48px 16px 32px', gap: 8,
+            }}>
+              <div style={{ fontSize: 36, opacity: 0.25 }}>💳</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-3)' }}>
+                {filterStatus === 'all' ? 'Нет записей' : `Нет записей со статусом «${STATUS_LABELS[filterStatus]}»`}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {toast && (
