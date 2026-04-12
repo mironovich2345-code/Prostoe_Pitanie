@@ -2,7 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import type { TrainerLookupResult } from '../../types';
+import PaywallCard from '../../components/PaywallCard';
+import type { BootstrapData, SubscriptionInfo, TrainerLookupResult } from '../../types';
+
+function isProTier(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  const active = sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+  return active && sub.planId === 'pro';
+}
 
 type Step = 'code' | 'rights' | 'done';
 type ConnectMode = 'code' | 'direct';
@@ -34,6 +41,8 @@ export default function ConnectTrainerScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
+  const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPro = isProTier(bs?.subscription);
 
   const [step, setStep] = useState<Step>('code');
   const [connectMode, setConnectMode] = useState<ConnectMode>('code');
@@ -154,8 +163,12 @@ export default function ConnectTrainerScreen() {
         </div>
       </div>
 
-      {/* Step 1: Code entry */}
-      {step === 'code' && (
+      {!isPro && (
+        <PaywallCard plan="pro" feature="Подключение эксперта" />
+      )}
+
+      {/* Step 1: Code entry (Pro only) */}
+      {isPro && step === 'code' && (
         <div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
             Попросите эксперта показать вам 6-значный код для подключения и введите его ниже.
@@ -223,8 +236,8 @@ export default function ConnectTrainerScreen() {
         </div>
       )}
 
-      {/* Step 2: Rights selection */}
-      {step === 'rights' && (
+      {/* Step 2: Rights selection (Pro only) */}
+      {isPro && step === 'rights' && (
         <div>
           {trainer && (
             <div style={{

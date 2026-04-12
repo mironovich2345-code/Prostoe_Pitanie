@@ -2,7 +2,12 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import type { FoodAnalysis } from '../../types';
+import type { BootstrapData, FoodAnalysis, SubscriptionInfo } from '../../types';
+
+function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+}
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -356,7 +361,12 @@ export default function AddMealScreen() {
       setResult(r);
       setStep('result');
     } catch (e: unknown) {
-      setError((e instanceof Error ? e.message : null) || 'Ошибка анализа. Попробуйте ещё раз.');
+      const msg = e instanceof Error ? e.message : '';
+      if (msg === 'subscription_required') {
+        setError('Для AI-анализа нужна активная подписка. Перейди в раздел Подписка.');
+      } else {
+        setError(msg || 'Ошибка анализа. Попробуйте ещё раз.');
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -385,7 +395,9 @@ export default function AddMealScreen() {
       setStep('result');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
-      if (msg === 'NOT_FOOD') {
+      if (msg === 'subscription_required') {
+        setError('Для анализа фото нужна подписка Optimal или Pro. Перейди в раздел Подписка.');
+      } else if (msg === 'NOT_FOOD') {
         setError('На фото не обнаружена еда. Попробуйте другое фото.');
       } else {
         setError('Ошибка анализа. Попробуйте ещё раз.');
@@ -741,6 +753,9 @@ export default function AddMealScreen() {
   }
 
   // ── SELECT (default) ──────────────────────────────────────────────────
+  const bsData = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPremium = isPremiumTier(bsData?.subscription);
+
   return (
     <div className="screen">
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', marginBottom: 5 }}>
@@ -773,23 +788,32 @@ export default function AddMealScreen() {
 
       {/* Photo */}
       <div
-        onClick={() => { setSourceType('photo'); setStep('photo'); }}
+        onClick={() => {
+          if (!isPremium) { navigate('/subscription'); return; }
+          setSourceType('photo'); setStep('photo');
+        }}
         className="method-card active"
-        style={{ marginBottom: 8, cursor: 'pointer' }}
+        style={{ marginBottom: 8, cursor: 'pointer', opacity: isPremium ? 1 : 0.75 }}
       >
         <div style={{
           width: 48, height: 48, borderRadius: 14,
-          background: 'rgba(126,184,240,0.14)', border: '1px solid rgba(126,184,240,0.2)',
+          background: isPremium ? 'rgba(126,184,240,0.14)' : 'var(--surface-2)',
+          border: isPremium ? '1px solid rgba(126,184,240,0.2)' : '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, color: '#7EB8F0',
+          flexShrink: 0, color: isPremium ? '#7EB8F0' : 'var(--text-3)',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Фото</div>
-          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Сфотографируй блюдо — AI определит состав</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
+            {isPremium ? 'Сфотографируй блюдо — AI определит состав' : 'Доступно в Optimal и Pro'}
+          </div>
         </div>
-        <span style={{ color: 'var(--accent)', fontSize: 20, flexShrink: 0 }}>›</span>
+        {isPremium
+          ? <span style={{ color: 'var(--accent)', fontSize: 20, flexShrink: 0 }}>›</span>
+          : <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 8px', flexShrink: 0 }}>🔒 Optimal+</span>
+        }
       </div>
 
       {/* Voice — fallback */}

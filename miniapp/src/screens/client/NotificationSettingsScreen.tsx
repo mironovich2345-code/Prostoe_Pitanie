@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import PaywallCard from '../../components/PaywallCard';
 import { PageHeader, Toggle } from '../../ui';
-import type { MealReminder, ReminderMealType } from '../../types';
+import type { BootstrapData, MealReminder, ReminderMealType, SubscriptionInfo } from '../../types';
 
 const MEAL_LABELS: Record<ReminderMealType, string> = {
   breakfast: 'Завтрак',
@@ -12,10 +13,18 @@ const MEAL_LABELS: Record<ReminderMealType, string> = {
   snack:     'Перекус',
 };
 
+function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+}
+
 export default function NotificationSettingsScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [showWeightInfo, setShowWeightInfo] = useState(false);
+
+  const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPremium = isPremiumTier(bs?.subscription);
 
   const { data, isLoading } = useQuery({ queryKey: ['reminders'], queryFn: api.reminders });
   const reminders = data?.reminders ?? [];
@@ -33,6 +42,10 @@ export default function NotificationSettingsScreen() {
   return (
     <div className="screen">
       <PageHeader title="Уведомления" onBack={() => navigate('/profile')} />
+
+      {!isPremium && (
+        <PaywallCard plan="optimal" feature="Редактирование уведомлений" />
+      )}
 
       {isLoading ? (
         <div className="card"><div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загружаем...</div></div>
@@ -53,9 +66,9 @@ export default function NotificationSettingsScreen() {
               <button
                 className="btn"
                 style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
-                onClick={() => navigate('/notifications/new')}
+                onClick={() => isPremium ? navigate('/notifications/new') : navigate('/subscription')}
               >
-                Добавить
+                {isPremium ? 'Добавить' : '🔒 Подключить подписку'}
               </button>
             </div>
           ) : (
@@ -76,21 +89,21 @@ export default function NotificationSettingsScreen() {
                     label={MEAL_LABELS[r.mealType as ReminderMealType] ?? r.mealType}
                     isLast={i === mealReminders.length - 1}
                     toggling={toggleMutation.isPending}
-                    onTap={() => navigate(`/notifications/${r.id}`)}
-                    onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
+                    onTap={() => isPremium ? navigate(`/notifications/${r.id}`) : navigate('/subscription')}
+                    onToggle={val => isPremium ? toggleMutation.mutate({ id: r.id, enabled: val }) : navigate('/subscription')}
                   />
                 ))}
               </div>
               {canAddMeal ? (
                 <button
-                  onClick={() => navigate('/notifications/new')}
+                  onClick={() => isPremium ? navigate('/notifications/new') : navigate('/subscription')}
                   style={{
                     width: '100%', padding: '13px 0', fontSize: 14, fontWeight: 600,
                     borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
-                    background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
+                    background: 'transparent', color: isPremium ? 'var(--accent)' : 'var(--text-3)', cursor: 'pointer', marginBottom: 4,
                   }}
                 >
-                  + Добавить напоминание
+                  {isPremium ? '+ Добавить напоминание' : '🔒 Добавить напоминание'}
                 </button>
               ) : (
                 <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>
@@ -130,9 +143,9 @@ export default function NotificationSettingsScreen() {
                 <button
                   className="btn"
                   style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
-                  onClick={() => navigate('/notifications/weight/new')}
+                  onClick={() => isPremium ? navigate('/notifications/weight/new') : navigate('/subscription')}
                 >
-                  Добавить
+                  {isPremium ? 'Добавить' : '🔒 Подключить подписку'}
                 </button>
               </div>
             ) : (
@@ -148,21 +161,21 @@ export default function NotificationSettingsScreen() {
                       reminder={r}
                       isLast={i === weightReminders.length - 1}
                       toggling={toggleMutation.isPending}
-                      onTap={() => navigate(`/notifications/weight/${r.id}`)}
-                      onToggle={val => toggleMutation.mutate({ id: r.id, enabled: val })}
+                      onTap={() => isPremium ? navigate(`/notifications/weight/${r.id}`) : navigate('/subscription')}
+                      onToggle={val => isPremium ? toggleMutation.mutate({ id: r.id, enabled: val }) : navigate('/subscription')}
                     />
                   ))}
                 </div>
                 {canAddWeight ? (
                   <button
-                    onClick={() => navigate('/notifications/weight/new')}
+                    onClick={() => isPremium ? navigate('/notifications/weight/new') : navigate('/subscription')}
                     style={{
                       width: '100%', padding: '13px 0', fontSize: 14, fontWeight: 600,
                       borderRadius: 'var(--r-lg)', border: '1px dashed var(--border)',
-                      background: 'transparent', color: 'var(--accent)', cursor: 'pointer', marginBottom: 4,
+                      background: 'transparent', color: isPremium ? 'var(--accent)' : 'var(--text-3)', cursor: 'pointer', marginBottom: 4,
                     }}
                   >
-                    + Добавить напоминание
+                    {isPremium ? '+ Добавить напоминание' : '🔒 Добавить напоминание'}
                   </button>
                 ) : (
                   <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>

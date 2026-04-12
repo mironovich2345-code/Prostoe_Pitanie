@@ -2,10 +2,16 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import PaywallCard from '../../components/PaywallCard';
 import StatusBadge from '../../components/StatusBadge';
 import WeekCalendar, { TODAY } from '../../components/WeekCalendar';
 import type { DotSet } from '../../components/WeekCalendar';
-import type { BootstrapData, MealEntry, UserProfile } from '../../types';
+import type { BootstrapData, MealEntry, SubscriptionInfo, UserProfile } from '../../types';
+
+function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+}
 
 interface Props { bootstrap: BootstrapData; }
 
@@ -680,11 +686,13 @@ export default function HomeScreen({ bootstrap }: Props) {
         </>
       )}
 
-      {profile ? (
+      {profile && isPremiumTier(bootstrap.subscription) ? (
         <GoalForecastCard
           profile={profile}
           meals30={stats30?.meals}
         />
+      ) : profile && !isPremiumTier(bootstrap.subscription) ? (
+        <PaywallCard plan="optimal" feature="Прогноз достижения цели" />
       ) : (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--accent)', marginBottom: 8 }}>Прогноз</div>

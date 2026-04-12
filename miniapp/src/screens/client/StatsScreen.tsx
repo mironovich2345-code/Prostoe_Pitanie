@@ -2,9 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
+import PaywallCard from '../../components/PaywallCard';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
 import type { DotSet } from '../../components/WeekCalendar';
-import type { MealEntry } from '../../types';
+import type { BootstrapData, MealEntry, SubscriptionInfo } from '../../types';
+
+// ─── Subscription tier helpers ─────────────────────────────────────────────
+
+function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -408,16 +416,26 @@ function RecordsSection({ meals }: { meals: MealEntry[] }) {
 // ─── AI Insight Banner ─────────────────────────────────────────────────────
 
 function AiInsightBanner({ date, mealCount }: { date: string; mealCount: number }) {
-  const { data, isLoading, isError } = useQuery({
+  const qc = useQueryClient();
+  const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPremium = isPremiumTier(bs?.subscription);
+
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['nutrition-insight', date, mealCount],
     queryFn: () => api.nutritionInsight(date),
     staleTime: Infinity,
     retry: 1,
-    // Show for today always; for past dates only when there are meals (backend has cache)
-    enabled: date === TODAY || mealCount > 0,
+    enabled: isPremium && (date === TODAY || mealCount > 0),
   });
 
-  if (isError) return null;
+  if (!isPremium) return <PaywallCard plan="optimal" feature="Анализ рациона" />;
+
+  if (isError) {
+    if ((error as Error)?.message === 'subscription_required') {
+      return <PaywallCard plan="optimal" feature="Анализ рациона" />;
+    }
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -561,15 +579,28 @@ function toLocalIso(d: Date): string {
 // ─── Weekly AI Insight Banner ──────────────────────────────────────────────
 
 function WeeklyInsightBanner({ from, to, mealCount }: { from: string; to: string; mealCount: number }) {
-  const { data, isLoading, isError } = useQuery({
+  const qc = useQueryClient();
+  const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPremium = isPremiumTier(bs?.subscription);
+
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['nutrition-insight-week', from, to, mealCount],
     queryFn: () => api.nutritionInsightWeek(from, to),
     staleTime: Infinity,
     retry: 1,
-    enabled: mealCount > 0,
+    enabled: isPremium && mealCount > 0,
   });
 
-  if (isError || mealCount === 0) return null;
+  if (!isPremium) return <PaywallCard plan="optimal" feature="Анализ рациона за неделю" />;
+
+  if (mealCount === 0) return null;
+
+  if (isError) {
+    if ((error as Error)?.message === 'subscription_required') {
+      return <PaywallCard plan="optimal" feature="Анализ рациона за неделю" />;
+    }
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -884,6 +915,10 @@ function WeekView({ norms }: { norms: { cal: number | null; p: number | null; f:
 // ─── Weight View ───────────────────────────────────────────────────────────
 
 function WeightView() {
+  const qc = useQueryClient();
+  const bs = qc.getQueryData<BootstrapData>(['bootstrap']);
+  const isPremium = isPremiumTier(bs?.subscription);
+
   const { data, isLoading } = useQuery({
     queryKey: ['profile-full'],
     queryFn: api.profile,
@@ -932,7 +967,11 @@ function WeightView() {
         </div>
       </div>
 
-      {diff !== null && (
+      {!isPremium && (
+        <PaywallCard plan="optimal" feature="История веса и прогресса" />
+      )}
+
+      {isPremium && diff !== null && (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '16px', border: '1px solid var(--border)', marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
@@ -952,11 +991,13 @@ function WeightView() {
         </div>
       )}
 
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
-        История
-      </div>
+      {isPremium && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
+            История
+          </div>
 
-      {history.length === 0 ? (
+          {history.length === 0 ? (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', padding: '32px 16px', textAlign: 'center' }}>
           <div style={{ opacity: 0.2, marginBottom: 10, display: 'flex', justifyContent: 'center' }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
@@ -1005,6 +1046,8 @@ function WeightView() {
             );
           })}
         </div>
+          )}
+        </>
       )}
     </>
   );
