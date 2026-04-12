@@ -88,6 +88,13 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(tp?.fullName ?? '');
   const [localName, setLocalName] = useState(tp?.fullName ?? '');
+
+  // ── Bio / socialLink editing ──
+  const [editingAbout, setEditingAbout] = useState(false);
+  const [bioVal, setBioVal] = useState(tp?.bio ?? '');
+  const [socialLinkVal, setSocialLinkVal] = useState(tp?.socialLink ?? '');
+  const [localBio, setLocalBio] = useState<string | null>(tp?.bio ?? null);
+  const [localSocialLink, setLocalSocialLink] = useState<string | null>(tp?.socialLink ?? null);
   // Use trainer avatar; fall back to client profile avatar (display-only, not auto-saved)
   const clientAvatar = bootstrap.profile?.avatarData ?? null;
   const [localAvatar, setLocalAvatar] = useState<string | null>(tp?.avatarData ?? clientAvatar ?? null);
@@ -99,6 +106,8 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     onSuccess: (data) => {
       if (data.fullName !== undefined) setLocalName(data.fullName ?? '');
       if (data.avatarData !== undefined) setLocalAvatar(data.avatarData);
+      if (data.bio !== undefined) setLocalBio(data.bio);
+      if (data.socialLink !== undefined) setLocalSocialLink(data.socialLink);
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
     },
   });
@@ -108,6 +117,13 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     patchMutation.mutate({ fullName: trimmed || undefined });
     setLocalName(trimmed);
     setEditingName(false);
+  };
+
+  const saveAbout = () => {
+    patchMutation.mutate({ bio: bioVal, socialLink: socialLinkVal });
+    setLocalBio(bioVal.trim() || null);
+    setLocalSocialLink(socialLinkVal.trim() || null);
+    setEditingAbout(false);
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,6 +266,75 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
           </div>
         )}
 
+      </div>
+
+      {/* About section */}
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '12px 4px 8px' }}>
+        О себе
+      </div>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        border: '1px solid var(--border)', padding: '16px 20px', marginBottom: 12,
+      }}>
+        {editingAbout ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <textarea
+              value={bioVal}
+              onChange={e => setBioVal(e.target.value)}
+              placeholder="Расскажите о себе и своём подходе"
+              rows={4}
+              style={{
+                width: '100%', boxSizing: 'border-box', resize: 'vertical',
+                background: 'var(--surface-2)', border: '1px solid var(--accent)',
+                borderRadius: 8, padding: '10px 12px', fontSize: 14,
+                color: 'var(--text)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5,
+              }}
+            />
+            <input
+              value={socialLinkVal}
+              onChange={e => setSocialLinkVal(e.target.value)}
+              placeholder="Ссылка (Instagram, VK, сайт…)"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '10px 12px', fontSize: 14,
+                color: 'var(--text)', outline: 'none', fontFamily: 'inherit',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={saveAbout} disabled={patchMutation.isPending} className="btn" style={{ flex: 1, fontSize: 14 }}>
+                {patchMutation.isPending ? '...' : 'Сохранить'}
+              </button>
+              <button
+                onClick={() => { setBioVal(localBio ?? ''); setSocialLinkVal(localSocialLink ?? ''); setEditingAbout(false); }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 14px', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer' }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              {localBio ? (
+                <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5, marginBottom: localSocialLink ? 8 : 0 }}>
+                  {localBio}
+                </div>
+              ) : (
+                <div style={{ fontSize: 14, color: 'var(--text-3)', fontStyle: 'italic' }}>Расскажите о себе</div>
+              )}
+              {localSocialLink && (
+                <div style={{ fontSize: 13, color: 'var(--accent)' }}>{localSocialLink}</div>
+              )}
+            </div>
+            <button
+              onClick={() => { setBioVal(localBio ?? ''); setSocialLinkVal(localSocialLink ?? ''); setEditingAbout(true); }}
+              style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
+            >
+              <IconEdit />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Finance section */}

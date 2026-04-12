@@ -134,8 +134,8 @@ export const api = {
     request<{ reviews: import('../types').TrainerReviewWithClient[]; avgRating: number | null }>('/api/reviews/trainer'),
   trainerPatchReviewComment: (id: number, trainerComment: string) =>
     request<{ review: import('../types').TrainerReview }>(`/api/reviews/trainer/${id}/comment`, { method: 'PATCH', body: JSON.stringify({ trainerComment }) }),
-  trainerPatchProfile: (data: { fullName?: string; avatarData?: string | null }) =>
-    request<{ ok: boolean; fullName: string | null; avatarData: string | null }>('/api/trainer/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+  trainerPatchProfile: (data: { fullName?: string; avatarData?: string | null; bio?: string; socialLink?: string }) =>
+    request<{ ok: boolean; fullName: string | null; avatarData: string | null; bio: string | null; socialLink: string | null }>('/api/trainer/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   trainerSetClientAlias: (clientId: string, alias: string) =>
     request<{ ok: boolean; clientAlias: string | null }>(`/api/trainer/clients/${encodeURIComponent(clientId)}/alias`, { method: 'PATCH', body: JSON.stringify({ alias }) }),
   referralMe: () =>

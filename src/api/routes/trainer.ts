@@ -66,10 +66,10 @@ function clientDisplayName(alias: string | null | undefined, preferredName: stri
   return `Клиент …${chatId.slice(-4)}`;
 }
 
-// PATCH /api/trainer/profile — update fullName and/or avatarData
+// PATCH /api/trainer/profile — update fullName, avatarData, bio, socialLink
 router.patch('/profile', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { fullName, avatarData } = req.body as { fullName?: string; avatarData?: string | null };
+  const { fullName, avatarData, bio, socialLink } = req.body as { fullName?: string; avatarData?: string | null; bio?: string; socialLink?: string };
   if (avatarData != null && !validateImageDataUrl(avatarData, AVATAR_MAX_BYTES)) {
     res.status(400).json({ error: 'Invalid avatarData' });
     return;
@@ -81,9 +81,11 @@ router.patch('/profile', async (req: AuthRequest, res: Response) => {
     const data: Record<string, unknown> = {};
     if (fullName !== undefined) data['fullName'] = fullName?.trim() || null;
     if (avatarData !== undefined) data['avatarData'] = avatarData ?? null;
+    if (bio !== undefined) data['bio'] = bio.trim() || null;
+    if (socialLink !== undefined) data['socialLink'] = socialLink.trim() || null;
 
     const updated = await prisma.trainerProfile.update({ where: { chatId }, data });
-    res.json({ ok: true, fullName: updated.fullName, avatarData: updated.avatarData });
+    res.json({ ok: true, fullName: updated.fullName, avatarData: updated.avatarData, bio: updated.bio, socialLink: updated.socialLink });
   } catch (err) {
     console.error('[trainer/profile PATCH]', err);
     res.status(500).json({ error: 'Internal server error' });

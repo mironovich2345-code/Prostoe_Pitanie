@@ -470,6 +470,13 @@ function WeekView({ clientId, norms, ratingByMeal, ratingByDay }: {
               <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)' }}>
                 {totals.cal.toLocaleString('ru')} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>ккал</span>
               </div>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                Б <span style={{ color: '#7EB8F0', fontWeight: 600 }}>{Math.round(totals.p)}</span>г
+                {' · '}
+                Ж <span style={{ color: '#F0A07A', fontWeight: 600 }}>{Math.round(totals.f)}</span>г
+                {' · '}
+                У <span style={{ color: '#90C860', fontWeight: 600 }}>{Math.round(totals.c)}</span>г
+              </div>
             </div>
           </div>
 
