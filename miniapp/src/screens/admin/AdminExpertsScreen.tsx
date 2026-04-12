@@ -20,7 +20,7 @@ export default function AdminExpertsScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [toast, setToast] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ chatId: string; fullName: string | null; isCompany: boolean } | null>(null);
   const [filter, setFilter] = useState<'all' | 'expert' | 'company'>('all');
 
   const { data, isLoading } = useQuery({
@@ -32,7 +32,7 @@ export default function AdminExpertsScreen() {
     mutationFn: (chatId: string) => api.adminRevokeExpert(chatId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-experts'] });
-      setConfirmId(null);
+      setConfirmTarget(null);
       showToast('Права отозваны');
     },
   });
@@ -105,42 +105,16 @@ export default function AdminExpertsScreen() {
                   >
                     Начисления
                   </button>
-                  {confirmId === exp.chatId ? (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        onClick={() => revokeMutation.mutate(exp.chatId)}
-                        disabled={revokeMutation.isPending}
-                        style={{
-                          padding: '5px 8px', fontSize: 11, fontWeight: 700, borderRadius: 8,
-                          background: 'rgba(255,59,48,0.14)', border: '1px solid rgba(255,59,48,0.3)',
-                          color: 'var(--danger)', cursor: 'pointer',
-                        }}
-                      >
-                        Да
-                      </button>
-                      <button
-                        onClick={() => setConfirmId(null)}
-                        style={{
-                          padding: '5px 8px', fontSize: 11, borderRadius: 8,
-                          background: 'var(--surface-2)', border: '1px solid var(--border)',
-                          color: 'var(--text-3)', cursor: 'pointer',
-                        }}
-                      >
-                        Нет
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmId(exp.chatId)}
-                      style={{
-                        padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8,
-                        background: 'var(--surface-2)', border: '1px solid var(--border)',
-                        color: 'var(--text-3)', cursor: 'pointer',
-                      }}
-                    >
-                      Отозвать
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setConfirmTarget({ chatId: exp.chatId, fullName: exp.fullName, isCompany })}
+                    style={{
+                      padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8,
+                      background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      color: 'var(--text-3)', cursor: 'pointer',
+                    }}
+                  >
+                    Отозвать
+                  </button>
                 </div>
               </div>
             </div>
@@ -151,6 +125,66 @@ export default function AdminExpertsScreen() {
       {filtered.length === 0 && !isLoading && (
         <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-3)', fontSize: 14 }}>
           Нет записей
+        </div>
+      )}
+
+      {confirmTarget && (
+        <div
+          onClick={() => !revokeMutation.isPending && setConfirmTarget(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface)',
+              borderRadius: 'var(--r-lg) var(--r-lg) 0 0',
+              padding: '24px 20px 32px',
+              width: '100%', maxWidth: 480,
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.15)',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+              Отозвать права?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.4 }}>
+              {confirmTarget.isCompany ? 'Компания' : 'Эксперт'}{' '}
+              <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>
+                {confirmTarget.fullName || confirmTarget.chatId}
+              </span>{' '}
+              потеряет верифицированный статус и доступ к кабинету эксперта.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => revokeMutation.mutate(confirmTarget.chatId)}
+                disabled={revokeMutation.isPending}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: 'var(--r-md)',
+                  background: 'var(--danger, #e53935)', color: '#fff',
+                  border: 'none', fontSize: 14, fontWeight: 600,
+                  cursor: revokeMutation.isPending ? 'default' : 'pointer',
+                  opacity: revokeMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {revokeMutation.isPending ? 'Отзываем...' : 'Да, отозвать'}
+              </button>
+              <button
+                onClick={() => setConfirmTarget(null)}
+                disabled={revokeMutation.isPending}
+                style={{
+                  width: '100%', padding: '13px', borderRadius: 'var(--r-md)',
+                  background: 'var(--surface-2)', color: 'var(--text-2)',
+                  border: 'none', fontSize: 14, fontWeight: 500,
+                  cursor: revokeMutation.isPending ? 'default' : 'pointer',
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -2,33 +2,103 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
-function Tile({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
+// ─── Primitives ────────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
-      padding: '12px 14px',
+      fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+      letterSpacing: 1.2, color: 'var(--text-3)',
+      padding: '20px 2px 8px',
     }}>
-      <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: color ?? 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{sub}</div>}
-    </div>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '16px 2px 10px' }}>
       {children}
     </div>
   );
 }
 
-function fmtRub(n: number | null) {
-  if (n === null) return '—';
-  return n.toLocaleString('ru-RU') + ' ₽';
+function StatCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+      border: '1px solid var(--border)', overflow: 'hidden',
+      marginBottom: 12,
+    }}>
+      {children}
+    </div>
+  );
 }
+
+function BigRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '14px 18px',
+      borderBottom: '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: 14, color: 'var(--text-2)' }}>{label}</span>
+      <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: color ?? 'var(--text)' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function SmallRow({ label, value, color, last }: { label: string; value: string | number; color?: string; last?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '11px 18px',
+      borderBottom: last ? 'none' : '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: color ?? 'var(--text-2)' }}>{value}</span>
+    </div>
+  );
+}
+
+function GrowthRow({ today, week, month }: { today: number; week: number; month: number }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-around',
+      padding: '10px 18px', background: 'var(--surface-2)',
+    }}>
+      {[
+        { label: 'сегодня', value: today },
+        { label: 'неделя',  value: week  },
+        { label: 'месяц',   value: month },
+      ].map(({ label, value }) => (
+        <div key={label} style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: value > 0 ? '#4CAF50' : 'var(--text-3)' }}>
+            {value > 0 ? `+${value}` : value}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            {label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ThreeTiles({ items }: { items: { label: string; value: string | number; color?: string }[] }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      {items.map(({ label, value, color }) => (
+        <div key={label} style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+          border: '1px solid var(--border)', padding: '12px 10px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: color ?? 'var(--text)' }}>{value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Screen ────────────────────────────────────────────────────────────────────
 
 export default function AdminStatsScreen() {
   const navigate = useNavigate();
@@ -45,63 +115,61 @@ export default function AdminStatsScreen() {
       >
         ← Назад
       </button>
-      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', marginBottom: 16 }}>
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', marginBottom: 4 }}>
         Статистика
       </div>
 
-      {isLoading && <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="spinner" /></div>}
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+          <div className="spinner" />
+        </div>
+      )}
 
       {data && (
         <>
-          <SectionTitle>Пользователи</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-            <Tile label="Всего" value={data.users.total} color="var(--text)" />
-            <Tile label="Клиенты" value={data.users.clients} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-            <Tile label="Эксперты" value={data.users.experts} color="var(--accent)" />
-            <Tile label="Компании" value={data.users.companies} color="#7EB8F0" />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <Tile label="Сегодня" value={`+${data.users.newToday}`} color="#4CAF50" />
-            <Tile label="Неделя" value={`+${data.users.newWeek}`} color="#4CAF50" />
-            <Tile label="Месяц" value={`+${data.users.newMonth}`} color="#4CAF50" />
-          </div>
+          {/* ── Пользователи ── */}
+          <SectionLabel>Пользователи</SectionLabel>
+          <StatCard>
+            <BigRow label="Всего" value={data.users.total.toLocaleString('ru')} color="var(--text)" />
+            <SmallRow label="Клиенты"  value={data.users.clients.toLocaleString('ru')} />
+            <SmallRow label="Эксперты" value={data.users.experts.toLocaleString('ru')} color="var(--accent)" />
+            <SmallRow label="Компании" value={data.users.companies.toLocaleString('ru')} color="#7EB8F0" last />
+            <GrowthRow today={data.users.newToday} week={data.users.newWeek} month={data.users.newMonth} />
+          </StatCard>
 
-          <SectionTitle>Эксперты</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-            <Tile label="Всего" value={data.experts.total} />
-            <Tile label="Сегодня" value={`+${data.experts.newToday}`} color="#4CAF50" />
-            <Tile label="Неделя" value={`+${data.experts.newWeek}`} color="#4CAF50" />
-            <Tile label="Месяц" value={`+${data.experts.newMonth}`} color="#4CAF50" />
-          </div>
+          {/* ── Эксперты ── */}
+          <SectionLabel>Верификации</SectionLabel>
+          <StatCard>
+            <BigRow label="Верифицировано" value={data.experts.total} color="var(--accent)" />
+            <GrowthRow today={data.experts.newToday} week={data.experts.newWeek} month={data.experts.newMonth} />
+          </StatCard>
 
-          <SectionTitle>Подписки</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <Tile label="Активные" value={data.subscriptions.active} color="#4CAF50" />
-            <Tile label="Истекшие" value={data.subscriptions.expired} color="var(--danger)" />
-            <Tile label="Без оплат" value={data.subscriptions.neverPaid} color="var(--text-3)" />
-          </div>
+          {/* ── Подписки ── */}
+          <SectionLabel>Подписки</SectionLabel>
+          <ThreeTiles items={[
+            { label: 'Активные',  value: data.subscriptions.active,   color: '#4CAF50' },
+            { label: 'Истекшие',  value: data.subscriptions.expired,  color: 'var(--danger)' },
+            { label: 'Без оплат', value: data.subscriptions.neverPaid, color: 'var(--text-3)' },
+          ]} />
 
-          <SectionTitle>Оплаты (вознаграждения)</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-            <Tile label="Всего" value={data.payments.total} />
-            <Tile label="Сегодня" value={data.payments.today} />
-            <Tile label="Неделя" value={data.payments.week} />
-            <Tile label="Месяц" value={data.payments.month} />
-          </div>
+          {/* ── Вознаграждения ── */}
+          <SectionLabel>Вознаграждения тренеров</SectionLabel>
+          <StatCard>
+            <BigRow label="Всего начислений" value={data.payments.total} />
+            <GrowthRow today={data.payments.today} week={data.payments.week} month={data.payments.month} />
+          </StatCard>
 
-          <SectionTitle>ИИ-расходы</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            <Tile label="Сегодня" value={fmtRub(data.aiCosts.today)} />
-            <Tile label="Неделя" value={fmtRub(data.aiCosts.week)} />
-            <Tile label="Месяц" value={fmtRub(data.aiCosts.month)} />
-          </div>
-          {data.aiCosts.note && (
-            <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '8px 4px', lineHeight: 1.4 }}>
-              {data.aiCosts.note}
+          {/* ── ИИ-расходы ── */}
+          <SectionLabel>ИИ-расходы</SectionLabel>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+            border: '1px solid var(--border)', padding: '16px 18px',
+            marginBottom: 24,
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+              {data.aiCosts.note || 'Учёт будет доступен после внедрения AiCostLog'}
             </div>
-          )}
+          </div>
         </>
       )}
     </div>

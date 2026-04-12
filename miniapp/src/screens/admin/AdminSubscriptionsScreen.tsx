@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 
 type SubRow = {
@@ -49,8 +49,10 @@ function SubBlock({ label, sub }: { label: string; sub: SubRow }) {
 
 export default function AdminSubscriptionsScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as { prefillChatId?: string } | null)?.prefillChatId ?? '';
 
-  const [inputChatId, setInputChatId] = useState('');
+  const [inputChatId, setInputChatId] = useState(prefill);
   const [chatId, setChatId] = useState('');
   const [result, setResult] = useState<Awaited<ReturnType<typeof api.adminGetSubscription>> | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
@@ -98,14 +100,16 @@ export default function AdminSubscriptionsScreen() {
       </div>
 
       {/* Search */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         <input
           value={inputChatId}
           onChange={e => setInputChatId(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && inputChatId.trim() && lookupMutation.mutate()}
           placeholder="Chat ID пользователя"
+          inputMode="numeric"
           style={{
-            flex: 1, padding: '11px 14px', fontSize: 14, borderRadius: 10,
+            width: '100%', boxSizing: 'border-box',
+            padding: '12px 14px', fontSize: 15, borderRadius: 10,
             background: 'var(--surface-2)', border: '1px solid var(--border)',
             color: 'var(--text)', outline: 'none', fontFamily: 'inherit',
           }}
@@ -114,9 +118,9 @@ export default function AdminSubscriptionsScreen() {
           onClick={() => inputChatId.trim() && lookupMutation.mutate()}
           disabled={lookupMutation.isPending || !inputChatId.trim()}
           className="btn"
-          style={{ flexShrink: 0, fontSize: 14 }}
+          style={{ width: '100%', fontSize: 15 }}
         >
-          {lookupMutation.isPending ? '...' : 'Найти'}
+          {lookupMutation.isPending ? 'Загрузка...' : 'Найти'}
         </button>
       </div>
 

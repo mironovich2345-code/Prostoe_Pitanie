@@ -161,6 +161,17 @@ export const api = {
     request<{ ok: boolean }>(`/api/admin/payouts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   adminTrainerRewards: (trainerId: string) =>
     request<{ rewards: Array<{ id: number; amountRub: number; status: string; planId: string; createdAt: string }>; summary: { total: number; available: number; paidOut: number } }>(`/api/admin/rewards/${encodeURIComponent(trainerId)}`),
+  adminUserLookup: (q: string) =>
+    request<{
+      found: boolean;
+      chatId?: string;
+      userId?: string | null;
+      profile?: { preferredName: string | null; telegramUsername: string | null; heightCm: number | null; currentWeightKg: number | null; goalType: string | null; dailyCaloriesKcal: number | null; createdAt: string };
+      subscription?: { planId: string; status: string; currentPeriodEnd: string | null; trialEndsAt: string | null } | null;
+      trainerProfile?: { fullName: string | null; verificationStatus: string; specialization: string | null; bio: string | null; appliedAt: string | null; verifiedAt: string | null } | null;
+      asClient?: Array<{ trainerId: string; trainerName: string | null; connectedAt: string }>;
+      asTrainer?: Array<{ clientId: string; clientAlias: string | null; connectedAt: string }>;
+    }>(`/api/admin/user?q=${encodeURIComponent(q)}`),
   adminStats: () =>
     request<{
       users: { total: number; experts: number; companies: number; clients: number; newToday: number; newWeek: number; newMonth: number };

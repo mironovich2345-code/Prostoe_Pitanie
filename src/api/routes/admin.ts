@@ -299,6 +299,106 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── GET /api/admin/user?q= — lookup user by chatId or @username ─────────────
+
+router.get('/user', async (req: AuthRequest, res: Response) => {
+  const q = String(req.query['q'] ?? '').trim();
+  if (!q) { res.status(400).json({ error: 'q is required' }); return; }
+
+  try {
+    // Resolve profile: @username → telegramUsername field; otherwise chatId
+    const isUsername = q.startsWith('@');
+    const profile = await prisma.userProfile.findFirst({
+      where: isUsername
+        ? { telegramUsername: { equals: q.slice(1), mode: 'insensitive' } }
+        : { chatId: q },
+      select: {
+        chatId: true, userId: true, preferredName: true, telegramUsername: true,
+        heightCm: true, currentWeightKg: true, goalType: true,
+        dailyCaloriesKcal: true, createdAt: true,
+      },
+    });
+
+    if (!profile) { res.json({ found: false }); return; }
+
+    const chatId = profile.chatId;
+    const userId = profile.userId ?? null;
+
+    const [sub, trainerProfile, asClientLinks, asTrainerLinks] = await Promise.all([
+      prisma.subscription.findUnique({
+        where: { chatId },
+        select: { planId: true, status: true, currentPeriodEnd: true, trialEndsAt: true },
+      }),
+      prisma.trainerProfile.findUnique({
+        where: { chatId },
+        select: { fullName: true, verificationStatus: true, specialization: true, bio: true, appliedAt: true, verifiedAt: true },
+      }),
+      prisma.trainerClientLink.findMany({
+        where: { clientId: chatId, status: 'active' },
+        select: { trainerId: true, status: true, connectedAt: true, clientAlias: true },
+        take: 10,
+      }),
+      prisma.trainerClientLink.findMany({
+        where: { trainerId: chatId, status: 'active' },
+        select: { clientId: true, clientAlias: true, status: true, connectedAt: true },
+        take: 10,
+      }),
+    ]);
+
+    // Enrich trainer names for asClient links
+    const trainerIds = asClientLinks.map(l => l.trainerId);
+    const trainerProfiles = trainerIds.length > 0
+      ? await prisma.trainerProfile.findMany({
+          where: { chatId: { in: trainerIds } },
+          select: { chatId: true, fullName: true },
+        })
+      : [];
+    const trainerNameMap = Object.fromEntries(trainerProfiles.map(t => [t.chatId, t.fullName]));
+
+    res.json({
+      found: true,
+      chatId,
+      userId,
+      profile: {
+        preferredName: profile.preferredName,
+        telegramUsername: profile.telegramUsername,
+        heightCm: profile.heightCm,
+        currentWeightKg: profile.currentWeightKg,
+        goalType: profile.goalType,
+        dailyCaloriesKcal: profile.dailyCaloriesKcal,
+        createdAt: profile.createdAt.toISOString(),
+      },
+      subscription: sub ? {
+        planId: sub.planId,
+        status: sub.status,
+        currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
+        trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+      } : null,
+      trainerProfile: trainerProfile ? {
+        fullName: trainerProfile.fullName,
+        verificationStatus: trainerProfile.verificationStatus,
+        specialization: trainerProfile.specialization,
+        bio: trainerProfile.bio,
+        appliedAt: trainerProfile.appliedAt?.toISOString() ?? null,
+        verifiedAt: trainerProfile.verifiedAt?.toISOString() ?? null,
+      } : null,
+      asClient: asClientLinks.map(l => ({
+        trainerId: l.trainerId,
+        trainerName: trainerNameMap[l.trainerId] ?? null,
+        connectedAt: l.connectedAt.toISOString(),
+      })),
+      asTrainer: asTrainerLinks.map(l => ({
+        clientId: l.clientId,
+        clientAlias: l.clientAlias,
+        connectedAt: l.connectedAt.toISOString(),
+      })),
+    });
+  } catch (err) {
+    console.error('[admin/user GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── GET /api/admin/subscriptions/:chatId — lookup user subscription ─────────
 
 router.get('/subscriptions/:chatId', async (req: AuthRequest, res: Response) => {

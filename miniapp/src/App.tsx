@@ -35,6 +35,7 @@ import AdminPayoutsScreen from './screens/admin/AdminPayoutsScreen';
 import AdminStatsScreen from './screens/admin/AdminStatsScreen';
 import AdminRewardsScreen from './screens/admin/AdminRewardsScreen';
 import AdminSubscriptionsScreen from './screens/admin/AdminSubscriptionsScreen';
+import AdminUserSearchScreen from './screens/admin/AdminUserSearchScreen';
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
@@ -217,6 +218,7 @@ export default function App() {
           <Route path="/stats" element={<AdminStatsScreen />} />
           <Route path="/rewards/:trainerId" element={<AdminRewardsScreen />} />
           <Route path="/subscriptions" element={<AdminSubscriptionsScreen />} />
+          <Route path="/user-search" element={<AdminUserSearchScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (

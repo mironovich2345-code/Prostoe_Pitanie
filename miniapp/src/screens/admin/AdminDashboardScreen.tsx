@@ -7,6 +7,7 @@ interface Props {
 const SECTIONS = [
   { to: '/applications',  emoji: '📋', label: 'Заявки на верификацию', desc: 'Подтвердить или отклонить' },
   { to: '/experts',       emoji: '🎓', label: 'Верифицированные',      desc: 'Эксперты и компании, отзыв прав' },
+  { to: '/user-search',   emoji: '🔍', label: 'Поиск пользователя',    desc: 'По chatId или @username' },
   { to: '/subscriptions', emoji: '🔑', label: 'Подписки',              desc: 'Ручное управление подпиской пользователя' },
   { to: '/payouts',       emoji: '💳', label: 'Выводы вознаграждения', desc: 'Управление статусами выплат' },
   { to: '/stats',         emoji: '📊', label: 'Статистика',            desc: 'Пользователи, оплаты, ИИ-расходы' },
