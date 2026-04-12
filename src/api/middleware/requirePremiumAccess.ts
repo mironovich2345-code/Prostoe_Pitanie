@@ -29,9 +29,9 @@ async function hasLegacyAccess(chatId: string): Promise<boolean> {
  * Pass through:
  *   - no userId (legacy/dev flow — chatId-only path, not yet migrated to userId)
  *   - subscription with accessLevel === 'full':
- *       active 'intro' (paid 7-day, 1 ₽) within trialEndsAt
- *       active 'client_monthly' within currentPeriodEnd
- *       'past_due' within gracePeriodEnd
+ *       active 'intro' (Pro intro 3-day, 1 ₽) within trialEndsAt
+ *       active 'pro'/'optimal'/'client_monthly' within currentPeriodEnd
+ *       'past_due' within gracePeriodEnd (grace window only)
  *
  * Block (HTTP 402):
  *   - userId present but no subscription record (user has not purchased access)

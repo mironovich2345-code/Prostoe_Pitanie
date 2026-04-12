@@ -11,7 +11,7 @@ import type { BootstrapData, MealEntry, SubscriptionInfo } from '../../types';
 
 function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
   if (!sub) return false;
-  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+  return sub.status === 'active' || sub.status === 'trial';
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────

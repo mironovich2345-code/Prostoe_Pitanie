@@ -21,10 +21,12 @@ const GOAL_LABELS: Record<string, string> = {
   lose: 'Похудение', maintain: 'Поддержание', gain: 'Набор массы', track: 'Контроль',
 };
 
-const SUB_ACTIONS_POSITIVE = [
-  { key: 'trial',   label: 'Активировать триал'  },
-  { key: 'monthly', label: 'Активировать месяц'  },
-] as const;
+type PlanKey = 'optimal' | 'pro';
+
+const PLAN_DEFS: { key: PlanKey; label: string; desc: string; color: string }[] = [
+  { key: 'optimal', label: 'Optimal', desc: '399 ₽/мес',     color: '#7EB8F0' },
+  { key: 'pro',     label: 'Pro',     desc: '499 ₽/мес',     color: '#C084FC' },
+];
 
 const SUB_ACTIONS_DANGER = [
   { key: 'cancel', label: 'Отменить подписку' },
@@ -60,11 +62,13 @@ interface ResultViewProps {
   data: LookupResult;
   extendDays: string;
   setExtendDays: (v: string) => void;
+  selectedPlan: PlanKey;
+  setSelectedPlan: (p: PlanKey) => void;
   onAction: (chatId: string, action: string) => void;
   actionPending: boolean;
 }
 
-function ResultView({ data, extendDays, setExtendDays, onAction, actionPending }: ResultViewProps) {
+function ResultView({ data, extendDays, setExtendDays, selectedPlan, setSelectedPlan, onAction, actionPending }: ResultViewProps) {
   if (!data.found) {
     return (
       <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-3)', fontSize: 14 }}>
@@ -100,7 +104,7 @@ function ResultView({ data, extendDays, setExtendDays, onAction, actionPending }
               value={<span style={{ color: STATUS_COLORS[subscription.status] ?? 'var(--text-2)', fontWeight: 700 }}>{subscription.status}</span>}
             />
             <Row label="Период до" value={fmtDate(subscription.currentPeriodEnd)} />
-            <Row label="Триал до" value={fmtDate(subscription.trialEndsAt)} />
+            <Row label="Intro до" value={fmtDate(subscription.trialEndsAt)} />
           </>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic', marginBottom: 8 }}>Нет подписки</div>
@@ -110,10 +114,36 @@ function ResultView({ data, extendDays, setExtendDays, onAction, actionPending }
           <>
             <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0' }} />
 
+            {/* Plan selector */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                Тариф
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                {PLAN_DEFS.map(p => (
+                  <button
+                    key={p.key}
+                    onClick={() => setSelectedPlan(p.key)}
+                    style={{
+                      padding: '9px 6px', borderRadius: 10, cursor: 'pointer',
+                      border: selectedPlan === p.key ? `1.5px solid ${p.color}` : '1px solid var(--border)',
+                      background: selectedPlan === p.key ? `${p.color}18` : 'var(--surface-2)',
+                      textAlign: 'center', lineHeight: 1.3,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700, color: selectedPlan === p.key ? p.color : 'var(--text-2)' }}>
+                      {p.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{p.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Days input */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
-                Срок в днях — для триала, месяца и продления:
+                Срок в днях — для Pro Intro рекомендуется 3:
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
@@ -131,24 +161,34 @@ function ResultView({ data, extendDays, setExtendDays, onAction, actionPending }
               </div>
             </div>
 
-            {/* Positive actions */}
+            {/* Activate actions */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-              {SUB_ACTIONS_POSITIVE.map(a => (
-                <button
-                  key={a.key}
-                  disabled={actionPending}
-                  onClick={() => onAction(chatId, a.key)}
-                  style={{
-                    padding: '11px 8px', fontSize: 13, fontWeight: 600, borderRadius: 10,
-                    cursor: actionPending ? 'default' : 'pointer',
-                    opacity: actionPending ? 0.6 : 1,
-                    background: 'var(--accent-soft)', border: '1px solid transparent',
-                    color: 'var(--accent)', lineHeight: 1.3,
-                  }}
-                >
-                  {a.label}
-                </button>
-              ))}
+              <button
+                disabled={actionPending || selectedPlan !== 'pro'}
+                onClick={() => onAction(chatId, 'trial')}
+                style={{
+                  padding: '11px 8px', fontSize: 13, fontWeight: 600, borderRadius: 10,
+                  cursor: (actionPending || selectedPlan !== 'pro') ? 'default' : 'pointer',
+                  opacity: (actionPending || selectedPlan !== 'pro') ? 0.4 : 1,
+                  background: 'var(--accent-soft)', border: '1px solid transparent',
+                  color: 'var(--accent)', lineHeight: 1.3,
+                }}
+              >
+                {selectedPlan === 'pro' ? `Pro Intro (${extendDays || '…'} дн.)` : 'Intro — только Pro'}
+              </button>
+              <button
+                disabled={actionPending}
+                onClick={() => onAction(chatId, 'monthly')}
+                style={{
+                  padding: '11px 8px', fontSize: 13, fontWeight: 600, borderRadius: 10,
+                  cursor: actionPending ? 'default' : 'pointer',
+                  opacity: actionPending ? 0.6 : 1,
+                  background: 'var(--accent-soft)', border: '1px solid transparent',
+                  color: 'var(--accent)', lineHeight: 1.3,
+                }}
+              >
+                Активировать {PLAN_DEFS.find(p => p.key === selectedPlan)?.label ?? selectedPlan}
+              </button>
             </div>
             <button
               disabled={actionPending}
@@ -230,6 +270,7 @@ export default function AdminUserSearchScreen() {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<LookupResult | null>(null);
   const [extendDays, setExtendDays] = useState('30');
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>('pro');
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
 
   function showToast(text: string, ok = true) {
@@ -245,7 +286,7 @@ export default function AdminUserSearchScreen() {
 
   const actionMutation = useMutation({
     mutationFn: ({ chatId, action }: { chatId: string; action: string }) =>
-      api.adminPatchSubscription(chatId, action, Number(extendDays) || 30),
+      api.adminPatchSubscription(chatId, action, Number(extendDays) || 30, selectedPlan),
     onSuccess: () => {
       showToast('Применено');
       lookupMutation.mutate();
@@ -301,6 +342,8 @@ export default function AdminUserSearchScreen() {
           data={result}
           extendDays={extendDays}
           setExtendDays={setExtendDays}
+          selectedPlan={selectedPlan}
+          setSelectedPlan={setSelectedPlan}
           onAction={(chatId, action) => actionMutation.mutate({ chatId, action })}
           actionPending={actionMutation.isPending || lookupMutation.isPending}
         />

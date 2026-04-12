@@ -5,8 +5,10 @@
  * The old chatId-based Subscription table is untouched and remains functional.
  *
  * Plans:
- *   'intro'          — paid intro period (7 days / 1 ₽); trialEndsAt tracks expiry
- *   'client_monthly' — recurring monthly subscription; currentPeriodEnd tracks expiry
+ *   'intro'          — Pro intro period (3 days / 1 ₽, Pro only); trialEndsAt tracks expiry
+ *   'pro'            — recurring Pro monthly 499 ₽; currentPeriodEnd tracks expiry
+ *   'optimal'        — recurring Optimal monthly 399 ₽; currentPeriodEnd tracks expiry
+ *   'client_monthly' — legacy alias for 'optimal'/'pro' monthly; currentPeriodEnd tracks expiry
  *
  * Access levels:
  *   'full'  — active paid period, active intro, or past_due within grace window
@@ -21,8 +23,8 @@ import prisma from '../db';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** 'intro' = paid 7-day intro at 1 ₽; 'client_monthly' = recurring monthly plan. */
-export type PlanId = 'client_monthly' | 'intro';
+/** 'intro' = Pro intro 3-day at 1 ₽ (Pro only); 'pro'/'optimal' = recurring monthly plans; 'client_monthly' = legacy alias. */
+export type PlanId = 'client_monthly' | 'intro' | 'optimal' | 'pro';
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'expired';
 export type AccessLevel = 'full' | 'basic';
 
@@ -61,11 +63,17 @@ export function getAccessLevel(sub: UserSubscription | null): AccessLevel {
 
   if (sub.status === 'active') {
     if (sub.planId === 'intro') {
-      // Paid 7-day intro: full access while trialEndsAt has not passed
+      // Pro intro 3-day at 1 ₽: full access while trialEndsAt has not passed
       return sub.trialEndsAt && sub.trialEndsAt > now ? 'full' : 'basic';
     }
-    // client_monthly
+    // pro / optimal / client_monthly — recurring monthly
     return sub.currentPeriodEnd && sub.currentPeriodEnd > now ? 'full' : 'basic';
+  }
+
+  if (sub.status === 'trial') {
+    // trial status = admin-granted trial period; use trialEndsAt if set, else currentPeriodEnd
+    const end = sub.trialEndsAt ?? sub.currentPeriodEnd;
+    return end && end > now ? 'full' : 'basic';
   }
 
   if (sub.status === 'past_due') {
@@ -94,8 +102,9 @@ const db = (prisma as any).userSubscription as {
 /**
  * Activate (or re-activate) a subscription.
  *
- * planId='intro'          → trialEndsAt = periodEnd (7 days), status = 'active'
- * planId='client_monthly' → currentPeriodEnd = periodEnd, status = 'active'
+ * planId='intro'          → trialEndsAt = periodEnd (3 days, Pro only), status = 'active'
+ * planId='pro'/'optimal'  → currentPeriodEnd = periodEnd, status = 'active'
+ * planId='client_monthly' → currentPeriodEnd = periodEnd, status = 'active' (legacy)
  *
  * Called by: payment webhook handler (payment succeeded), or manual admin activation.
  */

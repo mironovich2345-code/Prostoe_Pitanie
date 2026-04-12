@@ -12,6 +12,11 @@ type SubRow = {
   createdAt: string;
 };
 
+const PLAN_LABELS: Record<string, string> = {
+  intro: 'Pro Intro', trial: 'Pro Intro (legacy)', client_monthly: 'Optimal (legacy)',
+  basic: 'Optimal', optimal: 'Optimal', pro: 'Pro', free: 'Бесплатно',
+};
+
 const STATUS_COLORS: Record<string, string> = {
   trial:    'var(--accent)',
   active:   '#4CAF50',
@@ -32,10 +37,10 @@ function SubBlock({ label, sub }: { label: string; sub: SubRow }) {
         {label}
       </div>
       {[
-        { label: 'Plan',    value: sub.planId },
+        { label: 'Plan',    value: PLAN_LABELS[sub.planId] ?? sub.planId },
         { label: 'Статус',  value: <span style={{ color: STATUS_COLORS[sub.status] ?? 'var(--text-2)', fontWeight: 700 }}>{sub.status}</span> },
         { label: 'Период',  value: fmtDate(sub.currentPeriodEnd) },
-        { label: 'Триал до', value: fmtDate(sub.trialEndsAt) },
+        { label: 'Intro до', value: fmtDate(sub.trialEndsAt) },
         { label: 'Создан',  value: fmtDate(sub.createdAt) },
       ].map(row => (
         <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>

@@ -4,6 +4,11 @@ import { api } from '../../api/client';
 import StatusBadge from '../../components/StatusBadge';
 import type { UserProfile, SubscriptionInfo } from '../../types';
 
+function isClientActive(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial';
+}
+
 interface LinkData {
   id: number;
   clientId: string;
@@ -85,7 +90,15 @@ export default function CoachClientsScreen() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <StatusBadge status={c.subscription?.status ?? 'free'} />
+                {isClientActive(c.subscription) ? (
+                  <StatusBadge status={c.subscription!.status} />
+                ) : (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+                    background: 'rgba(255,59,48,0.12)', color: 'var(--danger)',
+                    border: '1px solid rgba(255,59,48,0.25)',
+                  }}>не оплачено</span>
+                )}
                 <span style={{ color: 'var(--text-3)', fontSize: 18 }}>›</span>
               </div>
             </div>

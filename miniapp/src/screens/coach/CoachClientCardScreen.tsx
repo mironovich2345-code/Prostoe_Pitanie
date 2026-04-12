@@ -5,6 +5,11 @@ import { api } from '../../api/client';
 import StatusBadge from '../../components/StatusBadge';
 import type { UserProfile, SubscriptionInfo } from '../../types';
 
+function isClientActive(sub: SubscriptionInfo | null | undefined): boolean {
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trial';
+}
+
 interface LinkData {
   id: number;
   status: string;
@@ -109,6 +114,7 @@ export default function CoachClientCardScreen() {
   const p = data?.profile as UserProfile | null;
   const sub = data?.subscription as SubscriptionInfo | null;
   const link = data?.link as LinkData | null;
+  const clientActive = isClientActive(sub);
   const displayName = (data as { displayName?: string })?.displayName ?? `Клиент …${clientId?.slice(-4)}`;
   const defaultName = p?.preferredName?.trim() || `Клиент …${clientId?.slice(-4)}`;
   const initial = displayName.charAt(0).toUpperCase();
@@ -123,6 +129,23 @@ export default function CoachClientCardScreen() {
 
   return (
     <div className="screen">
+      {/* Unpaid banner */}
+      {!clientActive && (
+        <div style={{
+          background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.25)',
+          borderRadius: 'var(--r-lg)', padding: '10px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>Подписка не активна</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+              Клиент потерял доступ к платным функциям. Просмотр статистики ограничен.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button
@@ -220,9 +243,19 @@ export default function CoachClientCardScreen() {
         </div>
       )}
 
-      <button className="btn" onClick={() => navigate(`/client/${clientId}/stats`)}>
-        Статистика клиента →
-      </button>
+      {clientActive ? (
+        <button className="btn" onClick={() => navigate(`/client/${clientId}/stats`)}>
+          Статистика клиента →
+        </button>
+      ) : (
+        <button
+          disabled
+          className="btn"
+          style={{ opacity: 0.4, cursor: 'default', background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}
+        >
+          Статистика недоступна — нет подписки
+        </button>
+      )}
 
       {/* Alias bottom-sheet */}
       {showAliasSheet && (

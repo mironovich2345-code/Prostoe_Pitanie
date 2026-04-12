@@ -57,14 +57,13 @@ const PLANS: PlanDef[] = [
 /** Normalize any planId string from API to our UI buckets */
 function normalizePlanId(planId: string | undefined | null): 'pro' | 'optimal' | 'free' {
   if (!planId) return 'free';
-  if (planId === 'pro') return 'pro';
-  if (planId === 'optimal' || planId === 'basic') return 'optimal';
+  if (planId === 'pro' || planId === 'intro') return 'pro';
+  if (planId === 'optimal' || planId === 'basic' || planId === 'client_monthly') return 'optimal';
   return 'free';
 }
 
 function statusBarColor(status: SubscriptionStatus | 'free'): string {
-  if (status === 'active') return 'var(--accent)';
-  if (status === 'trial')  return 'var(--warn)';
+  if (status === 'active' || status === 'trial') return 'var(--accent)';
   if (status === 'expired' || status === 'past_due') return 'var(--danger)';
   return 'rgba(255,255,255,0.1)';
 }
@@ -76,7 +75,8 @@ function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
   const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
 
   const PLAN_LABELS: Record<string, string> = {
-    free: 'Бесплатный', basic: 'Optimal', optimal: 'Optimal', pro: 'Pro',
+    free: 'Бесплатный', intro: 'Pro Intro', trial: 'Pro Intro',
+    basic: 'Optimal', client_monthly: 'Optimal', optimal: 'Optimal', pro: 'Pro',
   };
   const planLabel = sub ? (PLAN_LABELS[sub.planId] ?? sub.planId) : 'Бесплатный';
 
@@ -101,7 +101,7 @@ function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
         </div>
         {sub?.trialEndsAt && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Пробный период до</span>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Intro до</span>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
               {new Date(sub.trialEndsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
             </span>

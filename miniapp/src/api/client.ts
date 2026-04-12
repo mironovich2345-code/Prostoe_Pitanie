@@ -187,10 +187,10 @@ export const api = {
       legacySub: { planId: string; status: string; currentPeriodEnd: string | null; trialEndsAt: string | null; autoRenew: boolean; createdAt: string } | null;
       userSub:   { planId: string; status: string; currentPeriodEnd: string | null; trialEndsAt: string | null; autoRenew: boolean; createdAt: string } | null;
     }>(`/api/admin/subscriptions/${encodeURIComponent(chatId)}`),
-  adminPatchSubscription: (chatId: string, action: string, days?: number) =>
+  adminPatchSubscription: (chatId: string, action: string, days?: number, plan?: string) =>
     request<{ ok: boolean; chatId: string; userId: string | null }>(
       `/api/admin/subscriptions/${encodeURIComponent(chatId)}`,
-      { method: 'PATCH', body: JSON.stringify({ action, days }) },
+      { method: 'PATCH', body: JSON.stringify({ action, days, plan }) },
     ),
 
   // ─── Company requisites ────────────────────────────────────────────────────

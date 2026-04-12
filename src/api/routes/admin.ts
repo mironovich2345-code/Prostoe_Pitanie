@@ -448,12 +448,15 @@ router.get('/subscriptions/:chatId', async (req: AuthRequest, res: Response) => 
 
 router.patch('/subscriptions/:chatId', async (req: AuthRequest, res: Response) => {
   const { chatId } = req.params as { chatId: string };
-  const { action, days } = req.body as { action?: string; days?: number };
+  const { action, days, plan } = req.body as { action?: string; days?: number; plan?: string };
   const VALID_ACTIONS = ['trial', 'monthly', 'extend', 'cancel', 'expire'];
+  const VALID_PLANS   = ['intro', 'optimal', 'pro'];
   if (!action || !VALID_ACTIONS.includes(action)) {
     res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(', ')}` });
     return;
   }
+  // Resolve plan id: intro → 'intro', optimal → 'optimal', pro → 'pro'; default optimal
+  const resolvedPlan = VALID_PLANS.includes(plan ?? '') ? (plan as string) : 'optimal';
 
   const extendDays = typeof days === 'number' && days > 0 && days <= 365 ? days : 30;
 
@@ -466,14 +469,17 @@ router.patch('/subscriptions/:chatId', async (req: AuthRequest, res: Response) =
     const userSubData: Record<string, unknown> = {};
 
     if (action === 'trial') {
+      // Trial period with specified plan. For Pro: intro 3 days / 1 ₽ (use extendDays=3).
+      // Optimal has no intro — use 'monthly' action instead.
       const trialEnd = new Date(now); trialEnd.setDate(trialEnd.getDate() + extendDays);
-      Object.assign(legacyData, { planId: 'free', status: 'trial', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: true });
-      Object.assign(userSubData, { planId: 'trial', status: 'active', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: true });
+      Object.assign(legacyData, { planId: resolvedPlan, status: 'trial', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: false });
+      Object.assign(userSubData, { planId: resolvedPlan, status: 'trial', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: false });
 
     } else if (action === 'monthly') {
+      // Full period activation with specified plan
       const periodEnd = new Date(now); periodEnd.setDate(periodEnd.getDate() + extendDays);
-      Object.assign(legacyData, { planId: 'client_monthly', status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: true });
-      Object.assign(userSubData, { planId: 'client_monthly', status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: true });
+      Object.assign(legacyData, { planId: resolvedPlan, status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: false });
+      Object.assign(userSubData, { planId: resolvedPlan, status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: false });
 
     } else if (action === 'extend') {
       const [existingLegacy, existingUserSub] = await Promise.all([
@@ -502,7 +508,7 @@ router.patch('/subscriptions/:chatId', async (req: AuthRequest, res: Response) =
 
     await prisma.subscription.upsert({
       where: { chatId },
-      create: { chatId, planId: 'free', status: 'trial', ...legacyData },
+      create: { chatId, planId: 'free', status: 'expired', ...legacyData },
       update: legacyData,
     });
 

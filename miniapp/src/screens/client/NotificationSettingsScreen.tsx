@@ -15,7 +15,7 @@ const MEAL_LABELS: Record<ReminderMealType, string> = {
 
 function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
   if (!sub) return false;
-  return sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
+  return sub.status === 'active' || sub.status === 'trial';
 }
 
 export default function NotificationSettingsScreen() {

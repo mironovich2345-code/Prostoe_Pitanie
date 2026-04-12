@@ -7,8 +7,8 @@ import type { BootstrapData, SubscriptionInfo, TrainerLookupResult } from '../..
 
 function isProTier(sub: SubscriptionInfo | null | undefined): boolean {
   if (!sub) return false;
-  const active = sub.status === 'active' || sub.status === 'trial' || sub.status === 'past_due';
-  return active && sub.planId === 'pro';
+  const active = sub.status === 'active' || sub.status === 'trial';
+  return active && (sub.planId === 'pro' || sub.planId === 'intro');
 }
 
 type Step = 'code' | 'rights' | 'done';
