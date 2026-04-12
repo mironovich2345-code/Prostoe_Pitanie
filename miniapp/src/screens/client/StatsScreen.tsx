@@ -999,6 +999,10 @@ function WeightView() {
     : bmi < 30   ? 'var(--warn)'
     : 'var(--danger)';
 
+  const normalRange = height
+    ? { lo: +(18.5 * (height / 100) ** 2).toFixed(1), hi: +(24.9 * (height / 100) ** 2).toFixed(1) }
+    : null;
+
   return (
     <>
       {/* Main weight + target — tappable cards */}
@@ -1052,6 +1056,11 @@ function WeightView() {
               <button onClick={() => setShowBmiInfo(true)} style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, background: 'transparent', border: '1px solid var(--border-2, #2a2a2a)', color: 'var(--text-3)', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }} aria-label="Что такое ИМТ">?</button>
             </div>
             <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: 'var(--text)', lineHeight: 1 }}>{bmi.toFixed(1)}</div>
+            {normalRange && (
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, lineHeight: 1.4 }}>
+                Норма для вашего роста: {normalRange.lo}–{normalRange.hi} кг
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: bmiColor, background: 'var(--surface-2)', padding: '7px 14px', borderRadius: 20, border: '1px solid var(--border)' }}>{bmiLabel}</div>
         </div>
