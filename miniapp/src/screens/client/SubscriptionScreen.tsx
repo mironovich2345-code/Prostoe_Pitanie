@@ -244,12 +244,25 @@ function PlanCard({
         </div>
 
         {/* Price */}
-        <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', alignItems: 'baseline', gap: 4 }}>
-          <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
-            {plan.price}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}> / месяц</span>
-        </div>
+        {showIntroOffer && !isActive ? (
+          <div style={{ marginTop: 14, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--accent)', lineHeight: 1 }}>
+                3 дня за 1 ₽
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 5 }}>
+              Затем 499 ₽/мес
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: 14, marginBottom: 16, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.8, color: 'var(--text)', lineHeight: 1 }}>
+              {plan.price}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}> / месяц</span>
+          </div>
+        )}
 
         {/* Divider */}
         <div style={{ height: 1, background: 'var(--border)', marginBottom: 14 }} />
@@ -266,28 +279,6 @@ function PlanCard({
             </div>
           ))}
         </div>
-
-        {/* Pro Intro offer — first purchase only */}
-        {showIntroOffer && !isActive && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(215,255,63,0.10) 0%, rgba(215,255,63,0.04) 100%)',
-            border: '1px solid rgba(215,255,63,0.25)',
-            borderRadius: 12,
-            padding: '12px 14px',
-            marginBottom: 14,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 13 }}>✨</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Специальное предложение</span>
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: 'var(--accent)', lineHeight: 1.1 }}>
-              3 дня за 1 ₽
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
-              Затем 499 ₽/мес · Только для новых пользователей
-            </div>
-          </div>
-        )}
 
         {/* CTA */}
         {isActive ? (
