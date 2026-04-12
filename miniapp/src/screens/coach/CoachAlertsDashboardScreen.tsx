@@ -14,7 +14,7 @@ interface ExpiringSub extends ClientRef {
 
 export default function CoachAlertsDashboardScreen() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({ queryKey: ['trainer-alerts'], queryFn: api.trainerAlerts });
+  const { data, isLoading } = useQuery({ queryKey: ['trainer-alerts'], queryFn: api.trainerAlerts, staleTime: 0, refetchOnWindowFocus: true });
   if (isLoading) return <div className="loading"><div className="spinner" /></div>;
 
   const notLoggedToday = (data?.notLoggedToday ?? []) as unknown as ClientRef[];

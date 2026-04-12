@@ -299,4 +299,126 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── GET /api/admin/subscriptions/:chatId — lookup user subscription ─────────
+
+router.get('/subscriptions/:chatId', async (req: AuthRequest, res: Response) => {
+  const { chatId } = req.params as { chatId: string };
+  try {
+    const [profile, legacySub] = await Promise.all([
+      prisma.userProfile.findUnique({ where: { chatId }, select: { userId: true } }),
+      prisma.subscription.findUnique({ where: { chatId } }),
+    ]);
+
+    const userId = profile?.userId ?? null;
+    let userSub = null;
+    if (userId) {
+      const us = await prisma.userSubscription.findUnique({ where: { userId } });
+      if (us) {
+        userSub = {
+          planId: us.planId,
+          status: us.status,
+          currentPeriodEnd: us.currentPeriodEnd?.toISOString() ?? null,
+          trialEndsAt: us.trialEndsAt?.toISOString() ?? null,
+          autoRenew: us.autoRenew,
+          createdAt: us.createdAt.toISOString(),
+        };
+      }
+    }
+
+    res.json({
+      chatId,
+      userId,
+      legacySub: legacySub ? {
+        planId: legacySub.planId,
+        status: legacySub.status,
+        currentPeriodEnd: legacySub.currentPeriodEnd?.toISOString() ?? null,
+        trialEndsAt: legacySub.trialEndsAt?.toISOString() ?? null,
+        autoRenew: legacySub.autoRenew,
+        createdAt: legacySub.createdAt.toISOString(),
+      } : null,
+      userSub,
+    });
+  } catch (err) {
+    console.error('[admin/subscriptions GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── PATCH /api/admin/subscriptions/:chatId — manually update subscription ───
+
+router.patch('/subscriptions/:chatId', async (req: AuthRequest, res: Response) => {
+  const { chatId } = req.params as { chatId: string };
+  const { action, days } = req.body as { action?: string; days?: number };
+  const VALID_ACTIONS = ['trial', 'monthly', 'extend', 'cancel', 'expire'];
+  if (!action || !VALID_ACTIONS.includes(action)) {
+    res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(', ')}` });
+    return;
+  }
+
+  const extendDays = typeof days === 'number' && days > 0 && days <= 365 ? days : 30;
+
+  try {
+    const profile = await prisma.userProfile.findUnique({ where: { chatId }, select: { userId: true } });
+    const userId = profile?.userId ?? null;
+
+    const now = new Date();
+    const legacyData: Record<string, unknown> = {};
+    const userSubData: Record<string, unknown> = {};
+
+    if (action === 'trial') {
+      const trialEnd = new Date(now); trialEnd.setDate(trialEnd.getDate() + extendDays);
+      Object.assign(legacyData, { planId: 'free', status: 'trial', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: true });
+      Object.assign(userSubData, { planId: 'trial', status: 'active', trialEndsAt: trialEnd, currentPeriodEnd: null, autoRenew: true });
+
+    } else if (action === 'monthly') {
+      const periodEnd = new Date(now); periodEnd.setDate(periodEnd.getDate() + extendDays);
+      Object.assign(legacyData, { planId: 'client_monthly', status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: true });
+      Object.assign(userSubData, { planId: 'client_monthly', status: 'active', trialEndsAt: null, currentPeriodEnd: periodEnd, autoRenew: true });
+
+    } else if (action === 'extend') {
+      const [existingLegacy, existingUserSub] = await Promise.all([
+        prisma.subscription.findUnique({ where: { chatId } }),
+        userId ? prisma.userSubscription.findUnique({ where: { userId } }) : Promise.resolve(null),
+      ]);
+      const legacyBase = existingLegacy?.currentPeriodEnd ?? existingLegacy?.trialEndsAt ?? now;
+      const legacyNewEnd = new Date(legacyBase); legacyNewEnd.setDate(legacyNewEnd.getDate() + extendDays);
+      if (existingLegacy?.status === 'trial') {
+        legacyData['trialEndsAt'] = legacyNewEnd;
+      } else {
+        legacyData['currentPeriodEnd'] = legacyNewEnd;
+      }
+      const userBase = existingUserSub?.currentPeriodEnd ?? existingUserSub?.trialEndsAt ?? now;
+      const userNewEnd = new Date(userBase); userNewEnd.setDate(userNewEnd.getDate() + extendDays);
+      userSubData['currentPeriodEnd'] = userNewEnd;
+
+    } else if (action === 'cancel') {
+      Object.assign(legacyData, { status: 'canceled', autoRenew: false });
+      Object.assign(userSubData, { status: 'canceled', autoRenew: false });
+
+    } else if (action === 'expire') {
+      legacyData['status'] = 'expired';
+      userSubData['status'] = 'expired';
+    }
+
+    await prisma.subscription.upsert({
+      where: { chatId },
+      create: { chatId, planId: 'free', status: 'trial', ...legacyData },
+      update: legacyData,
+    });
+
+    if (userId) {
+      await prisma.userSubscription.upsert({
+        where: { userId },
+        create: { userId, planId: 'client_monthly', status: 'active', ...userSubData },
+        update: userSubData,
+      });
+    }
+
+    res.json({ ok: true, chatId, userId });
+  } catch (err) {
+    console.error('[admin/subscriptions PATCH]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
