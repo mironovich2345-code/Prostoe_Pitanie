@@ -3,6 +3,41 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData } from '../../types';
+
+/** Resize image to max 600px on longest side, JPEG 75% — keeps avatar under 512 KB backend limit */
+async function resizeAvatar(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxSide = 600;
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('canvas unavailable')); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('load failed')); };
+    img.src = objectUrl;
+  });
+}
+
+/** Open a blob URL reliably in Telegram WebApp (avoids window.open popup blocking) */
+function openBlobUrl(blobUrl: string, filename: string) {
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+}
 import StatusBadge from '../../components/StatusBadge';
 
 interface Props {
@@ -106,6 +141,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
   // Use trainer avatar; fall back to client profile avatar (display-only, not auto-saved)
   const clientAvatar = bootstrap.profile?.avatarData ?? null;
   const [localAvatar, setLocalAvatar] = useState<string | null>(tp?.avatarData ?? clientAvatar ?? null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
@@ -163,10 +199,10 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     reader.readAsDataURL(file);
   }
 
-  async function handleDocView(id: number) {
+  async function handleDocView(id: number, filename: string) {
     try {
       const url = await api.trainerDocumentFile(id);
-      window.open(url, '_blank');
+      openBlobUrl(url, filename);
     } catch { /* ignore */ }
   }
 
@@ -174,10 +210,25 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     mutationFn: api.trainerPatchProfile,
     onSuccess: (data) => {
       if (data.fullName !== undefined) setLocalName(data.fullName ?? '');
-      if (data.avatarData !== undefined) setLocalAvatar(data.avatarData);
+      if (data.avatarData !== undefined) {
+        setLocalAvatar(data.avatarData);
+        // Write avatarData into the bootstrap cache immediately so remount sees the new value
+        queryClient.setQueryData<BootstrapData>(['bootstrap'], old =>
+          old?.trainerProfile
+            ? { ...old, trainerProfile: { ...old.trainerProfile, avatarData: data.avatarData ?? null } }
+            : old
+        );
+      }
       if (data.bio !== undefined) setLocalBio(data.bio);
       if (data.socialLink !== undefined) setLocalSocialLink(data.socialLink);
       queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
+    },
+    onError: (err: Error, variables) => {
+      // Revert local avatar if save failed
+      if (variables.avatarData !== undefined) {
+        setLocalAvatar(tp?.avatarData ?? clientAvatar ?? null);
+        setAvatarError(err.message.includes('Invalid') ? 'Фото слишком большое или неверный формат' : 'Не удалось сохранить фото');
+      }
     },
   });
 
@@ -195,16 +246,18 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     setEditingAbout(false);
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    setAvatarError(null);
+    try {
+      const base64 = await resizeAvatar(file);
       setLocalAvatar(base64);
       patchMutation.mutate({ avatarData: base64 });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setAvatarError('Не удалось обработать фото');
+    }
+    e.target.value = '';
   };
 
   const displayName = localName || tp?.fullName || '';
@@ -282,6 +335,11 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
         </div>
+        {avatarError && (
+          <div style={{ fontSize: 12, color: 'var(--danger)', textAlign: 'center', marginBottom: 8 }}>
+            {avatarError}
+          </div>
+        )}
 
         {/* Name + edit */}
         {editingName ? (
@@ -464,7 +522,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDocView(doc.id)}
+                      onClick={() => handleDocView(doc.id, doc.title || DOC_TYPE_LABELS[doc.docType] || 'document')}
                       style={{ background: 'none', border: 'none', padding: 6, cursor: 'pointer', color: 'var(--accent)', flexShrink: 0 }}
                       aria-label="Открыть"
                     >

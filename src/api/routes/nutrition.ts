@@ -467,4 +467,122 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── Saved Meals ─────────────────────────────────────────────────────────────
+
+type SavedMealRecord = { id: number; chatId: string; userId: string | null; title: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; mealType: string | null; notes: string | null; createdAt: Date; updatedAt: Date };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const savedMealDb = (prisma as any).savedMeal as {
+  findMany(args: unknown): Promise<SavedMealRecord[]>;
+  findFirst(args: unknown): Promise<SavedMealRecord | null>;
+  create(args: unknown): Promise<SavedMealRecord>;
+  delete(args: unknown): Promise<SavedMealRecord>;
+};
+
+function savedMealFilter(chatId: string, userId?: string): unknown {
+  if (userId) return { OR: [{ userId }, { chatId, userId: null }] };
+  return { chatId };
+}
+function savedMealOwnerFilter(id: number, chatId: string, userId?: string): unknown {
+  if (userId) return { id, OR: [{ userId }, { chatId, userId: null }] };
+  return { id, chatId };
+}
+
+// GET /api/nutrition/saved-meals
+router.get('/saved-meals', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  try {
+    const meals = await savedMealDb.findMany({
+      where: savedMealFilter(chatId, req.userId),
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ savedMeals: meals });
+  } catch (err) {
+    console.error('[nutrition/saved-meals GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/nutrition/saved-meals — create a saved meal template
+router.post('/saved-meals', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { title, caloriesKcal, proteinG, fatG, carbsG, fiberG, mealType, notes } = req.body as {
+    title?: string;
+    caloriesKcal?: number | null;
+    proteinG?: number | null;
+    fatG?: number | null;
+    carbsG?: number | null;
+    fiberG?: number | null;
+    mealType?: string | null;
+    notes?: string | null;
+  };
+  if (!title?.trim()) { res.status(400).json({ error: 'title required' }); return; }
+  try {
+    const meal = await savedMealDb.create({
+      data: {
+        chatId,
+        userId: req.userId ?? null,
+        title: title.trim(),
+        caloriesKcal: caloriesKcal ?? null,
+        proteinG: proteinG ?? null,
+        fatG: fatG ?? null,
+        carbsG: carbsG ?? null,
+        fiberG: fiberG ?? null,
+        mealType: mealType ?? null,
+        notes: notes ?? null,
+      },
+    });
+    res.json({ savedMeal: meal });
+  } catch (err) {
+    console.error('[nutrition/saved-meals POST]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/nutrition/saved-meals/:id
+router.delete('/saved-meals/:id', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const existing = await savedMealDb.findFirst({ where: savedMealOwnerFilter(id, chatId, req.userId) });
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
+    await savedMealDb.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[nutrition/saved-meals DELETE]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/nutrition/saved-meals/:id/add — add saved meal to diary as a new MealEntry
+router.post('/saved-meals/:id/add', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  const { mealType } = req.body as { mealType?: string };
+  try {
+    const saved = await savedMealDb.findFirst({ where: savedMealOwnerFilter(id, chatId, req.userId) });
+    if (!saved) { res.status(404).json({ error: 'Saved meal not found' }); return; }
+    const meal = await prisma.mealEntry.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: {
+        chatId,
+        userId: req.userId ?? null,
+        text: saved.title,
+        mealType: mealType ?? saved.mealType ?? 'unknown',
+        sourceType: 'saved',
+        caloriesKcal: saved.caloriesKcal,
+        proteinG: saved.proteinG,
+        fatG: saved.fatG,
+        carbsG: saved.carbsG,
+        fiberG: saved.fiberG,
+      } as any,
+    });
+    res.json({ ok: true, meal: omitPhotoData(meal) });
+  } catch (err) {
+    console.error('[nutrition/saved-meals/:id/add]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

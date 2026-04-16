@@ -33,7 +33,15 @@ function DocumentItem({ trainerId, doc }: { trainerId: string; doc: TrainerDocum
     setLoading(true);
     try {
       const blobUrl = await api.trainerPublicDocumentFile(trainerId, doc.id);
-      window.open(blobUrl, '_blank');
+      // Use <a download> instead of window.open — avoids popup blocking in Telegram WebApp
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = doc.title || (doc.mimeType === 'application/pdf' ? 'document.pdf' : 'image');
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
     } catch {
       // silent
     } finally {
@@ -186,20 +194,6 @@ export default function TrainerDetailScreen() {
             {trainer.bio && (
               <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 14 }}>
                 {trainer.bio}
-              </div>
-            )}
-
-            {trainer.socialLink && (
-              <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14 }}>
-                <span style={{ color: 'var(--text-3)' }}>Соцсеть: </span>
-                <a
-                  href={trainer.socialLink.startsWith('http') ? trainer.socialLink : `https://${trainer.socialLink}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'var(--accent)', textDecoration: 'none' }}
-                >
-                  {trainer.socialLink}
-                </a>
               </div>
             )}
 

@@ -19,7 +19,6 @@ export interface PublicReview {
 }
 
 export interface PublicTrainerProfile extends PublicTrainerListItem {
-  socialLink: string | null;
   reviews: PublicReview[];
   documents: TrainerDocument[];
 }
@@ -209,6 +208,22 @@ export interface NutritionInsight {
   severity: 'neutral' | 'good' | 'warning';
   nextMealSuggestion: string;
   mealAdvice: string[];
+}
+
+export interface SavedMeal {
+  id: number;
+  chatId: string;
+  userId: string | null;
+  title: string;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
+  fiberG: number | null;
+  mealType: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TodayNutritionData {

@@ -146,6 +146,24 @@ model MealEntry {
   @@index([userId])
 }
 
+model SavedMeal {
+  id           Int      @id @default(autoincrement())
+  chatId       String   // legacy; kept for backward compatibility
+  userId       String?  // platform-independent; null for records without userId
+  title        String
+  caloriesKcal Float?
+  proteinG     Float?
+  fatG         Float?
+  carbsG       Float?
+  fiberG       Float?
+  mealType     String?  // optional default meal type for quick-add
+  notes        String?  // reserved for future ingredient assembly payload
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([userId])
+  @@index([chatId])
+}
+
 model WeightEntry {
   id        Int      @id @default(autoincrement())
   chatId    String   // legacy; kept for backward compatibility

@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import type { BootstrapData, FoodAnalysis, SubscriptionInfo } from '../../types';
+import type { BootstrapData, FoodAnalysis, SavedMeal, SubscriptionInfo } from '../../types';
 
 function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
   if (!sub) return false;
@@ -11,7 +11,7 @@ function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-type Step = 'select' | 'text' | 'photo' | 'result' | 'done';
+type Step = 'select' | 'text' | 'photo' | 'result' | 'saved' | 'done';
 
 const MEAL_TYPES = [
   { key: 'breakfast', label: 'Завтрак' },
@@ -332,6 +332,222 @@ function ClarificationBanner({ question, onClarify }: { question: string; onClar
   );
 }
 
+// ─── Compact nutrition display ────────────────────────────────────────────────
+
+function MacroChips({ meal }: { meal: SavedMeal }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
+      {meal.caloriesKcal != null && (
+        <span style={{ fontSize: 12 }}>
+          <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{meal.caloriesKcal}</span>
+          <span style={{ color: 'var(--text-3)', fontSize: 11 }}> ккал</span>
+        </span>
+      )}
+      {meal.proteinG != null && (
+        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Б <span style={{ fontWeight: 600, color: '#7EB8F0' }}>{meal.proteinG}</span>г</span>
+      )}
+      {meal.fatG != null && (
+        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>Ж <span style={{ fontWeight: 600, color: '#F0A07A' }}>{meal.fatG}</span>г</span>
+      )}
+      {meal.carbsG != null && (
+        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>У <span style={{ fontWeight: 600, color: '#90C860' }}>{meal.carbsG}</span>г</span>
+      )}
+    </div>
+  );
+}
+
+// ─── Saved Meals Step ─────────────────────────────────────────────────────────
+
+interface SavedMealsStepProps {
+  onBack: () => void;
+  onDone: () => void;
+}
+
+function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
+  const qc = useQueryClient();
+  const [addingId, setAddingId] = useState<number | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState('breakfast');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['saved-meals'],
+    queryFn: api.savedMealList,
+    staleTime: 30_000,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: ({ id, mealType }: { id: number; mealType: string }) =>
+      api.savedMealAddToDiary(id, mealType),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['diary'] });
+      qc.invalidateQueries({ queryKey: ['nutrition-stats'] });
+      setAddingId(null);
+      onDone();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.savedMealDelete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['saved-meals'] });
+      setDeletingId(null);
+    },
+  });
+
+  const meals = data?.savedMeals ?? [];
+
+  return (
+    <div className="screen">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
+        >
+          ‹
+        </button>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+          Постоянный приём
+        </h1>
+      </div>
+
+      {isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+          <div className="spinner" />
+        </div>
+      )}
+
+      {!isLoading && meals.length === 0 && (
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)', padding: '40px 24px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⭐</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
+            Нет сохранённых блюд
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+            После анализа блюда его можно будет сохранить сюда для быстрого повторного добавления
+          </div>
+        </div>
+      )}
+
+      {!isLoading && meals.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 12 }}>
+            {meals.length} {meals.length === 1 ? 'блюдо' : meals.length < 5 ? 'блюда' : 'блюд'}
+          </div>
+          {meals.map(meal => (
+            <div key={meal.id} style={{
+              background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+              border: `1px solid ${addingId === meal.id ? 'var(--accent)' : 'var(--border)'}`,
+              padding: '14px 16px', marginBottom: 10,
+              transition: 'border-color 0.15s',
+            }}>
+              {/* Title row */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                    {meal.title}
+                  </div>
+                  <MacroChips meal={meal} />
+                </div>
+                <button
+                  onClick={() => setDeletingId(deletingId === meal.id ? null : meal.id)}
+                  style={{
+                    background: 'none', border: 'none', padding: '2px 6px',
+                    fontSize: 16, color: 'var(--text-3)', cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+                  }}
+                >
+                  ···
+                </button>
+              </div>
+
+              {/* Delete confirm */}
+              {deletingId === meal.id && (
+                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 13, flex: 1 }}
+                    onClick={() => setDeletingId(null)}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ fontSize: 13, flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)' }}
+                    disabled={deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate(meal.id)}
+                  >
+                    Удалить
+                  </button>
+                </div>
+              )}
+
+              {/* Meal type picker (shown when tapping Add) */}
+              {addingId === meal.id && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+                    Тип приёма
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {MEAL_TYPES.map(mt => (
+                      <button
+                        key={mt.key}
+                        onClick={() => setSelectedMealType(mt.key)}
+                        style={{
+                          padding: '8px 12px', fontSize: 12, fontWeight: 600, borderRadius: 'var(--r-sm)',
+                          border: `2px solid ${selectedMealType === mt.key ? 'var(--accent)' : 'var(--border)'}`,
+                          background: selectedMealType === mt.key ? 'var(--accent-soft)' : 'var(--surface)',
+                          color: selectedMealType === mt.key ? 'var(--accent)' : 'var(--text-2)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {mt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ fontSize: 13, flex: 1 }}
+                      onClick={() => setAddingId(null)}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ fontSize: 13, flex: 1 }}
+                      disabled={addMutation.isPending}
+                      onClick={() => addMutation.mutate({ id: meal.id, mealType: selectedMealType })}
+                    >
+                      {addMutation.isPending ? '...' : '✓ Добавить'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add button (shown when not in picker mode) */}
+              {addingId !== meal.id && deletingId !== meal.id && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 13, marginTop: 10 }}
+                  onClick={() => {
+                    setAddingId(meal.id);
+                    setSelectedMealType(meal.mealType ?? 'breakfast');
+                    setDeletingId(null);
+                  }}
+                >
+                  + Добавить в дневник
+                </button>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function AddMealScreen() {
@@ -461,6 +677,16 @@ export default function AddMealScreen() {
       >
         ‹
       </button>
+    );
+  }
+
+  // ── SAVED ─────────────────────────────────────────────────────────────
+  if (step === 'saved') {
+    return (
+      <SavedMealsStep
+        onBack={() => setStep('select')}
+        onDone={() => setStep('done')}
+      />
     );
   }
 
@@ -837,6 +1063,27 @@ export default function AddMealScreen() {
         }}>
           В боте
         </span>
+      </div>
+
+      {/* Saved meals */}
+      <div
+        onClick={() => setStep('saved')}
+        className="method-card active"
+        style={{ marginBottom: 8, cursor: 'pointer' }}
+      >
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: 'rgba(240,160,122,0.14)', border: '1px solid rgba(240,160,122,0.22)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, color: '#F0A07A',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Постоянный приём</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Быстро добавить сохранённое блюдо</div>
+        </div>
+        <span style={{ color: 'var(--accent)', fontSize: 20, flexShrink: 0 }}>›</span>
       </div>
     </div>
   );

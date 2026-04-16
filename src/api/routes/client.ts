@@ -73,7 +73,7 @@ router.get('/trainers/:trainerId', async (req: AuthRequest, res: Response) => {
   try {
     const tp = await prisma.trainerProfile.findFirst({
       where: { chatId: trainerId, verificationStatus: 'verified', specialization: { not: 'Компания' } },
-      select: { chatId: true, fullName: true, specialization: true, bio: true, socialLink: true, avatarData: true },
+      select: { chatId: true, fullName: true, specialization: true, bio: true, avatarData: true },
     });
     if (!tp) { res.status(404).json({ error: 'Expert not found' }); return; }
 
@@ -108,7 +108,6 @@ router.get('/trainers/:trainerId', async (req: AuthRequest, res: Response) => {
         fullName: tp.fullName,
         specialization: tp.specialization,
         bio: tp.bio,
-        socialLink: tp.socialLink,
         avatarData: tp.avatarData,
         avgRating,
         reviewCount: rawReviews.length,
