@@ -123,6 +123,7 @@ model UserProfile {
   referredByRole       String?
   trainerOfferType     String?
   referralLockedAt     DateTime?
+  expertReferralSourceCode String?   // erf_ code captured when future expert first visited bot
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -301,4 +302,56 @@ model NutritionInsightCache {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   @@unique([chatId, period, periodKey])
+}
+
+// ─── Expert acquisition referral (separate from client referral system) ─────
+
+model ExpertAcquisition {
+  id                    Int       @id @default(autoincrement())
+
+  // Invited expert (the one who was recruited)
+  invitedExpertChatId   String    @unique  // chatId of the new expert
+  invitedExpertUserId   String?            // userId if available
+
+  // Referrer (expert or company who recruited)
+  referrerChatId        String             // chatId of the referrer
+  referrerUserId        String?            // userId if available
+  referrerType          String             // 'expert' | 'company'
+  referralCode          String             // TrainerProfile.referralCode used
+
+  // Phase 1 qualification window
+  phase1StartsAt        DateTime           // same as attributedAt
+  phase1EndsAt          DateTime           // phase1StartsAt + 30 days
+  phase1ClientCount     Int       @default(0)  // clients connected during phase 1
+
+  // Qualification (> 5 clients in phase 1 → 100% on new phase-2 clients)
+  isQualified           Boolean   @default(false)
+  qualifiedAt           DateTime?
+
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([referrerChatId])
+  @@index([referrerUserId])
+}
+
+// ─── AI cost telemetry (internal, not user-facing) ───────────────────────────
+
+model AiCostLog {
+  id          Int      @id @default(autoincrement())
+  userId      String?  // platform-independent userId; null for legacy users without userId
+  chatId      String?  // legacy fallback; may be null for users with userId only
+  scenario    String   // 'food_text' | 'food_photo' | 'food_ingredients' | 'nutrition_insight_daily' | 'nutrition_insight_weekly' | 'requisites_ocr'
+  model       String   // e.g. 'gpt-4o-mini', 'gpt-4o'
+  inputTokens Int
+  outputTokens Int
+  totalTokens Int
+  costUsd     Float
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([chatId])
+  @@index([scenario])
+  @@index([createdAt])
 }

@@ -58,7 +58,7 @@ router.post('/requisites/recognize', async (req: AuthRequest, res: Response) => 
     });
     if (!tp) { res.status(403).json({ error: 'Access denied' }); return; }
 
-    const result = await recognizeRequisites(imageData);
+    const result = await recognizeRequisites(imageData, { userId: req.userId, chatId: req.chatId, scenario: 'requisites_ocr' });
     res.json({ recognized: result });
   } catch (err) {
     console.error('[company/requisites/recognize]', err);

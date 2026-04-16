@@ -238,4 +238,50 @@ export const api = {
 
   trainerOfferLinks: () =>
     request<{ totalUniqueUsers: number; offers: Array<{ offerId: string; offerKey: string; title: string; desc: string; emoji: string; link: string; invitedCount: number; earnedRub: number | null; users: Array<{ displayName: string | null; username: string | null; joinedAt: string }> }> }>('/api/referral/trainer-offers'),
+
+  // ─── Expert acquisition referral ────────────────────────────────────────────
+  expertReferralLink: () =>
+    request<{
+      referralCode: string;
+      link: string;
+      referrerType: 'expert' | 'company';
+      model: { phase1Days: number; phase1Rate: number; phase2Rate: number; qualificationThreshold: number; description: string };
+    }>('/api/expert-referral/link'),
+  expertReferralRecruits: () =>
+    request<{
+      recruits: Array<{
+        invitedExpertChatId: string;
+        referrerType: string;
+        attributedAt: string;
+        phase1StartsAt: string;
+        phase1EndsAt: string;
+        isPhase1Complete: boolean;
+        phase1ClientCount: number;
+        isQualified: boolean;
+        qualifiedAt: string | null;
+        phase2ClientCount: number;
+        phase1EarningsRub: number;
+        phase2EarningsRub: number;
+        totalEarningsRub: number;
+      }>;
+      totalRecruits: number;
+      totalQualified: number;
+      totalEarningsRub: number;
+    }>('/api/expert-referral/recruits'),
+  expertReferralMyAcquisition: () =>
+    request<{
+      acquisition: {
+        phase1StartsAt: string;
+        phase1EndsAt: string;
+        isPhase1Complete: boolean;
+        phase1ClientCount: number;
+        isQualified: boolean;
+        qualifiedAt: string | null;
+        phase2ClientCount: number;
+        phase1EarningsRub: number;
+        phase2EarningsRub: number;
+        totalEarningsRub: number;
+        currentRate: number;
+      } | null;
+    }>('/api/expert-referral/my-acquisition'),
 };

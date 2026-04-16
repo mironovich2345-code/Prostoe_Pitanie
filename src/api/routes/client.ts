@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { triggerQualificationRefresh } from '../../services/expertAcquisitionService';
 
 const router = Router();
 
@@ -199,6 +200,9 @@ router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) =
         trainerUserId,
       } as any,
     });
+    // If this trainer was recruited via expert-acquisition referral, refresh their qualification count
+    triggerQualificationRefresh(tp.chatId);
+
     res.json({
       ok: true,
       link: { trainerId: link.trainerId, fullHistoryAccess: link.fullHistoryAccess, canViewPhotos: link.canViewPhotos, connectedAt: link.connectedAt },
@@ -356,6 +360,9 @@ router.post('/trainer/connect', async (req: AuthRequest, res: Response) => {
         trainerUserId,
       } as any,
     });
+
+    // If this trainer was recruited via expert-acquisition referral, refresh their qualification count
+    triggerQualificationRefresh(tp.chatId);
 
     res.json({
       ok: true,

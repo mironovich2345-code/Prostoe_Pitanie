@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { AiCostContext, logAiCost } from './aiCost';
 
 let _client: OpenAI | null = null;
 
@@ -162,11 +163,12 @@ ${normLine}
 ${dayRows}`;
 }
 
-export async function generateWeeklyInsight(input: WeeklyInsightInput): Promise<InsightResult> {
+export async function generateWeeklyInsight(input: WeeklyInsightInput, costCtx?: AiCostContext): Promise<InsightResult> {
+  const MODEL = 'gpt-4o-mini';
   try {
     const client = getClient();
     const resp = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: MODEL,
       messages: [
         { role: 'system', content: WEEKLY_SYSTEM_PROMPT },
         { role: 'user', content: buildWeeklyPrompt(input) },
@@ -174,6 +176,8 @@ export async function generateWeeklyInsight(input: WeeklyInsightInput): Promise<
       temperature: 0.7,
       max_tokens: 450,
     });
+
+    if (costCtx) logAiCost(costCtx, MODEL, resp.usage);
 
     const raw = resp.choices[0]?.message?.content?.trim() ?? '';
     let parsed: InsightResult;
@@ -200,7 +204,7 @@ export async function generateWeeklyInsight(input: WeeklyInsightInput): Promise<
 
 // ─── Daily Insight ───────────────────────────────────────────────────────────
 
-export async function generateNutritionInsight(input: InsightInput): Promise<InsightResult> {
+export async function generateNutritionInsight(input: InsightInput, costCtx?: AiCostContext): Promise<InsightResult> {
   const mealsList = input.meals.length === 0
     ? 'Записей за день пока нет.'
     : input.meals.map(m => {
@@ -224,10 +228,11 @@ ${deviations}
 Приёмы пищи за день:
 ${mealsList}`;
 
+  const MODEL = 'gpt-4o-mini';
   try {
     const client = getClient();
     const resp = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
@@ -235,6 +240,8 @@ ${mealsList}`;
       temperature: 0.7,
       max_tokens: 450,
     });
+
+    if (costCtx) logAiCost(costCtx, MODEL, resp.usage);
 
     const raw = resp.choices[0]?.message?.content?.trim() ?? '';
     let parsed: InsightResult;

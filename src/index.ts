@@ -15,6 +15,7 @@ import { calcAge, deriveGoal, tryAutoCalcNorms } from './utils/normsCalc';
 import { resolveTimezone } from './utils/timezone';
 import { pickReminderMessage } from './utils/reminderMessages';
 import { ensureReferralCode, applyReferral, applyTrainerReferral } from './utils/referral';
+import { applyExpertAcquisitionCode, createExpertAcquisitionRecord } from './utils/expertReferral';
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: 'Завтрак',
@@ -379,6 +380,9 @@ bot.start(async (ctx) => {
   const payload = ctx.args?.[0];
   if (payload?.startsWith('trf_')) {
     await applyTrainerReferral(String(chatId), payload).catch(() => null);
+  } else if (payload?.startsWith('erf_')) {
+    // Expert-acquisition referral — store code for later ExpertAcquisition creation on approval
+    await applyExpertAcquisitionCode(String(chatId), payload).catch(() => null);
   } else if (payload?.startsWith('ref_')) {
     const code = payload.slice(4);
     await applyReferral(String(chatId), code).catch(() => null);
@@ -1387,6 +1391,11 @@ bot.action(/^trainer_approve_(.+)$/, async (ctx) => {
       targetChatId,
       '🎉 Твоя заявка тренера одобрена!\n\nТеперь ты можешь переключиться в режим Эксперта в приложении.',
     );
+    // Create expert-acquisition attribution record if this expert came via erf_ deeplink
+    const approvedProfile = await prisma.trainerProfile.findUnique({
+      where: { chatId: targetChatId }, select: { userId: true },
+    }).catch(() => null);
+    createExpertAcquisitionRecord(targetChatId, approvedProfile?.userId ?? null).catch(() => null);
     await ctx.answerCbQuery('✅ Одобрено');
     // Edit admin message using plain text (no HTML parse_mode to avoid escaping issues)
     const originalText = (ctx.callbackQuery.message as { text?: string })?.text ?? '';

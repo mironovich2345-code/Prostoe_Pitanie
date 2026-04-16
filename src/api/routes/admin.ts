@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
+import { getAiCostLogDbFull } from '../../ai/aiCost';
 
 const router = Router();
 
@@ -523,6 +524,94 @@ router.patch('/subscriptions/:chatId', async (req: AuthRequest, res: Response) =
     res.json({ ok: true, chatId, userId });
   } catch (err) {
     console.error('[admin/subscriptions PATCH]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/admin/ai-cost — aggregate AI cost stats [admin only] ────────────
+// Query params: from, to (YYYY-MM-DD, optional — default: last 30 days)
+//
+// Returns:
+//   totalCostUsd, totalRequests, breakdown by scenario, breakdown by model
+router.get('/ai-cost', async (req: AuthRequest, res: Response) => {
+  const db = getAiCostLogDbFull();
+  const { from, to } = req.query as { from?: string; to?: string };
+
+  const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const toDate   = to   ? new Date(to)   : new Date();
+  // Include the entire toDate day
+  toDate.setHours(23, 59, 59, 999);
+
+  const where = { createdAt: { gte: fromDate, lte: toDate } };
+
+  try {
+    const [totals, byScenario, byModel] = await Promise.all([
+      db.aggregate({ where, _sum: { costUsd: true, totalTokens: true }, _count: { id: true } }),
+      db.groupBy({ by: ['scenario'], where, _sum: { costUsd: true }, _count: { id: true }, orderBy: { _sum: { costUsd: 'desc' } } }),
+      db.groupBy({ by: ['model'],    where, _sum: { costUsd: true }, _count: { id: true }, orderBy: { _sum: { costUsd: 'desc' } } }),
+    ]);
+
+    res.json({
+      period: { from: fromDate.toISOString(), to: toDate.toISOString() },
+      totalCostUsd:    Math.round((totals._sum.costUsd    ?? 0) * 1e6) / 1e6,
+      totalTokens:     totals._sum.totalTokens ?? 0,
+      totalRequests:   totals._count.id,
+      byScenario: byScenario.map(r => ({
+        scenario:  r.scenario,
+        requests:  r._count.id,
+        costUsd:   Math.round((r._sum.costUsd ?? 0) * 1e6) / 1e6,
+      })),
+      byModel: byModel.map(r => ({
+        model:    r.model,
+        requests: r._count.id,
+        costUsd:  Math.round((r._sum.costUsd ?? 0) * 1e6) / 1e6,
+      })),
+    });
+  } catch (err) {
+    console.error('[admin/ai-cost]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/admin/ai-cost/user/:userId — AI cost for a specific user ────────
+// Accepts userId (platform-independent) or chatId (legacy) via ?by=chatId
+router.get('/ai-cost/user/:userId', async (req: AuthRequest, res: Response) => {
+  const db = getAiCostLogDbFull();
+  const { userId } = req.params as { userId: string };
+  const byChatId = (req.query as { by?: string }).by === 'chatId';
+
+  try {
+    const where = byChatId ? { chatId: userId } : { userId };
+
+    const [totals, byScenario, recent] = await Promise.all([
+      db.aggregate({ where, _sum: { costUsd: true, totalTokens: true }, _count: { id: true } }),
+      db.groupBy({ by: ['scenario'], where, _sum: { costUsd: true }, _count: { id: true }, orderBy: { _sum: { costUsd: 'desc' } } }),
+      db.findMany({ where, orderBy: { createdAt: 'desc' }, take: 20 }),
+    ]);
+
+    res.json({
+      userId: byChatId ? null : userId,
+      chatId: byChatId ? userId : null,
+      totalCostUsd:  Math.round((totals._sum.costUsd    ?? 0) * 1e6) / 1e6,
+      totalTokens:   totals._sum.totalTokens ?? 0,
+      totalRequests: totals._count.id,
+      byScenario: byScenario.map(r => ({
+        scenario: r.scenario,
+        requests: r._count.id,
+        costUsd:  Math.round((r._sum.costUsd ?? 0) * 1e6) / 1e6,
+      })),
+      recent: recent.map(r => ({
+        id:          r.id,
+        scenario:    r.scenario,
+        model:       r.model,
+        inputTokens: r.inputTokens,
+        outputTokens:r.outputTokens,
+        costUsd:     r.costUsd,
+        createdAt:   r.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error('[admin/ai-cost/user]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

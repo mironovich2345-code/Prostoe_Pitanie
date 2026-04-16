@@ -54,6 +54,7 @@ import DocumentsScreen from './screens/client/DocumentsScreen';
 import OnboardingScreen from './screens/client/OnboardingScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
+import PartnershipScreen from './screens/coach/PartnershipScreen';
 import { api } from './api/client';
 import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
@@ -222,6 +223,7 @@ export default function App() {
             <Route path="/payouts" element={<CoachPayoutsScreen />} />
             <Route path="/connect-client" element={<TrainerConnectionScreen />} />
             <Route path="/reviews" element={<CoachReviewsScreen />} />
+            <Route path="/partnership" element={<PartnershipScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
@@ -246,6 +248,7 @@ export default function App() {
             <Route path="/payouts" element={<CompanyPayoutsScreen />} />
             <Route path="/documents" element={<CompanyDocumentsScreen />} />
             <Route path="/requisites" element={<CompanyRequisitesScreen />} />
+            <Route path="/partnership" element={<PartnershipScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { AiCostContext, logAiCost } from './aiCost';
 
 let client: OpenAI | null = null;
 
@@ -261,11 +262,12 @@ export class NotFoodError extends Error {
 
 // ─── Photo analysis ────────────────────────────────────────────────────────
 
-export async function analyzeFoodPhoto(fileUrl: string): Promise<FoodAnalysisResult> {
+export async function analyzeFoodPhoto(fileUrl: string, costCtx?: AiCostContext): Promise<FoodAnalysisResult> {
   const openai = getClient();
+  const MODEL = 'gpt-4o';
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: MODEL,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: PHOTO_SYSTEM_PROMPT },
@@ -287,6 +289,8 @@ export async function analyzeFoodPhoto(fileUrl: string): Promise<FoodAnalysisRes
     temperature: 0.1,
   });
 
+  if (costCtx) logAiCost(costCtx, MODEL, response.usage);
+
   const raw = response.choices[0]?.message?.content ?? '{}';
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }
@@ -298,11 +302,12 @@ export async function analyzeFoodPhoto(fileUrl: string): Promise<FoodAnalysisRes
 
 // ─── Text analysis ─────────────────────────────────────────────────────────
 
-export async function analyzeFood(userText: string): Promise<FoodAnalysisResult> {
+export async function analyzeFood(userText: string, costCtx?: AiCostContext): Promise<FoodAnalysisResult> {
   const openai = getClient();
+  const MODEL = 'gpt-4o-mini';
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: MODEL,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -311,6 +316,8 @@ export async function analyzeFood(userText: string): Promise<FoodAnalysisResult>
     max_tokens: 600,
     temperature: 0.1,
   });
+
+  if (costCtx) logAiCost(costCtx, MODEL, response.usage);
 
   const raw = response.choices[0]?.message?.content ?? '{}';
   let parsed: Record<string, unknown>;

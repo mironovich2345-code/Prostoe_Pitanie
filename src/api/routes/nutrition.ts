@@ -185,7 +185,7 @@ router.post('/analyze-ingredients', async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   try {
-    const result = await analyzeFood(text.trim());
+    const result = await analyzeFood(text.trim(), { userId: req.userId, chatId: req.chatId, scenario: 'food_ingredients' });
     res.json(result);
   } catch (err) {
     console.error('[nutrition/analyze-ingredients]', err);
@@ -198,7 +198,7 @@ router.post('/analyze', requirePremiumAccess, async (req: AuthRequest, res: Resp
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   try {
-    const result = await analyzeFood(text.trim());
+    const result = await analyzeFood(text.trim(), { userId: req.userId, chatId: req.chatId, scenario: 'food_text' });
     res.json(result);
   } catch (err) {
     console.error('[nutrition/analyze]', err);
@@ -214,7 +214,7 @@ router.post('/analyze-photo', requirePremiumAccess, async (req: AuthRequest, res
     res.status(400).json({ error: 'Invalid imageData' }); return;
   }
   try {
-    const result = await analyzeFoodPhoto(imageData);
+    const result = await analyzeFoodPhoto(imageData, { userId: req.userId, chatId: req.chatId, scenario: 'food_photo' });
     res.json(result);
   } catch (err) {
     if (err instanceof NotFoodError) {
@@ -343,7 +343,7 @@ router.get('/insight', requirePremiumAccess, async (req: AuthRequest, res: Respo
       })),
     };
 
-    const insight = await generateNutritionInsight(input);
+    const insight = await generateNutritionInsight(input, { userId: req.userId, chatId, scenario: 'nutrition_insight_daily' });
 
     // Store in cache
     await prisma.nutritionInsightCache.upsert({
@@ -439,7 +439,7 @@ router.get('/insight/week', requirePremiumAccess, async (req: AuthRequest, res: 
       days,
     };
 
-    const insight = await generateWeeklyInsight(input);
+    const insight = await generateWeeklyInsight(input, { userId: req.userId, chatId, scenario: 'nutrition_insight_weekly' });
 
     // Store in cache
     await prisma.nutritionInsightCache.upsert({
