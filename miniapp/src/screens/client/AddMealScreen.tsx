@@ -11,7 +11,9 @@ function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-type Step = 'select' | 'text' | 'photo' | 'result' | 'saved' | 'done';
+type Step = 'select' | 'text' | 'photo' | 'result' | 'saved' | 'builder' | 'done';
+
+interface Ingredient { name: string; grams: string; }
 
 const MEAL_TYPES = [
   { key: 'breakfast', label: 'Завтрак' },
@@ -566,6 +568,17 @@ export default function AddMealScreen() {
   const [error, setError] = useState('');
   const [showEditSheet, setShowEditSheet] = useState(false);
 
+  // ── Builder state ─────────────────────────────────────────────────────
+  const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', grams: '' }]);
+  const [builderResult, setBuilderResult] = useState<FoodAnalysis | null>(null);
+  const [builderTitle, setBuilderTitle] = useState('');
+  const [builderMealType, setBuilderMealType] = useState('breakfast');
+  const [builderAnalyzing, setBuilderAnalyzing] = useState(false);
+  const [builderSaving, setBuilderSaving] = useState(false);
+  const [builderAdding, setBuilderAdding] = useState(false);
+  const [builderError, setBuilderError] = useState('');
+  const [builderSavedOk, setBuilderSavedOk] = useState(false);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   async function handleTextAnalyze() {
@@ -659,6 +672,13 @@ export default function AddMealScreen() {
     setError('');
     setMealType('breakfast');
     setShowEditSheet(false);
+    // Reset builder
+    setIngredients([{ name: '', grams: '' }]);
+    setBuilderResult(null);
+    setBuilderTitle('');
+    setBuilderMealType('breakfast');
+    setBuilderError('');
+    setBuilderSavedOk(false);
   }
 
   function handleEditSave(updated: Partial<FoodAnalysis>) {
@@ -677,6 +697,284 @@ export default function AddMealScreen() {
       >
         ‹
       </button>
+    );
+  }
+
+  // ── BUILDER ───────────────────────────────────────────────────────────
+  if (step === 'builder') {
+    const MAX = 10;
+
+    function updateIng(i: number, field: keyof Ingredient, val: string) {
+      setIngredients(prev => prev.map((ing, idx) => idx === i ? { ...ing, [field]: val } : ing));
+    }
+    function removeIng(i: number) {
+      setIngredients(prev => prev.filter((_, idx) => idx !== i));
+    }
+    function addIng() {
+      if (ingredients.length >= MAX) return;
+      setIngredients(prev => [...prev, { name: '', grams: '' }]);
+    }
+
+    async function handleCalculate() {
+      setBuilderError('');
+      for (const ing of ingredients) {
+        if (!ing.name.trim()) { setBuilderError('Заполни название всех ингредиентов'); return; }
+        const g = parseFloat(ing.grams.replace(',', '.'));
+        if (!isFinite(g) || g <= 0) { setBuilderError(`Укажи корректную граммовку для «${ing.name.trim()}»`); return; }
+      }
+      const ingredientText = ingredients
+        .map(ing => `${ing.name.trim()} ${parseFloat(ing.grams.replace(',', '.')).toFixed(0)}г`)
+        .join(', ');
+      const text = `Состав блюда по ингредиентам: ${ingredientText}`;
+      setBuilderAnalyzing(true);
+      try {
+        const res = await api.nutritionAnalyze(text);
+        setBuilderResult(res);
+        setBuilderTitle(res.name || 'Моё блюдо');
+        setBuilderSavedOk(false);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        if (msg === 'subscription_required') {
+          setBuilderError('Для расчёта нужна активная подписка — перейди в раздел Подписка');
+        } else {
+          setBuilderError('Не удалось рассчитать. Попробуй ещё раз.');
+        }
+      } finally {
+        setBuilderAnalyzing(false);
+      }
+    }
+
+    async function handleBuilderAddToDiary() {
+      if (!builderResult) return;
+      setBuilderAdding(true);
+      setBuilderError('');
+      try {
+        await api.nutritionAdd({
+          text: builderTitle.trim() || 'Блюдо',
+          mealType: builderMealType,
+          sourceType: 'builder',
+          caloriesKcal: builderResult.caloriesKcal ?? null,
+          proteinG: builderResult.proteinG ?? null,
+          fatG: builderResult.fatG ?? null,
+          carbsG: builderResult.carbsG ?? null,
+          fiberG: builderResult.fiberG ?? null,
+        });
+        qc.invalidateQueries({ queryKey: ['diary'] });
+        qc.invalidateQueries({ queryKey: ['nutrition-stats'] });
+        resetAndSelect();
+        setStep('done');
+      } catch {
+        setBuilderError('Не удалось добавить в дневник');
+      } finally {
+        setBuilderAdding(false);
+      }
+    }
+
+    async function handleBuilderSave() {
+      if (!builderResult || builderSavedOk) return;
+      setBuilderSaving(true);
+      setBuilderError('');
+      try {
+        await api.savedMealCreate({
+          title: builderTitle.trim() || 'Блюдо',
+          caloriesKcal: builderResult.caloriesKcal ?? null,
+          proteinG: builderResult.proteinG ?? null,
+          fatG: builderResult.fatG ?? null,
+          carbsG: builderResult.carbsG ?? null,
+          fiberG: builderResult.fiberG ?? null,
+          mealType: builderMealType,
+          notes: JSON.stringify({ ingredients: ingredients.map(i => ({ name: i.name.trim(), grams: parseFloat(i.grams.replace(',', '.')) })) }),
+        });
+        qc.invalidateQueries({ queryKey: ['saved-meals'] });
+        setBuilderSavedOk(true);
+      } catch {
+        setBuilderError('Не удалось сохранить');
+      } finally {
+        setBuilderSaving(false);
+      }
+    }
+
+    // ── Input phase ────────────────────────────────────────────────────
+    if (!builderResult) {
+      return (
+        <div className="screen">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <button
+              onClick={() => setStep('text')}
+              style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
+            >
+              ‹
+            </button>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Состав блюда</h1>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
+            Укажи ингредиенты и граммовку — AI рассчитает КБЖУ и предложит название
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            {ingredients.map((ing, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  value={ing.name}
+                  onChange={e => updateIng(i, 'name', e.target.value)}
+                  placeholder={`Ингредиент ${i + 1}`}
+                  style={{
+                    flex: 2, background: 'var(--surface)', border: '1px solid var(--border-2)',
+                    borderRadius: 10, padding: '11px 12px', fontSize: 15, color: 'var(--text)', outline: 'none',
+                  }}
+                />
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input
+                    value={ing.grams}
+                    onChange={e => updateIng(i, 'grams', e.target.value)}
+                    placeholder="0"
+                    inputMode="decimal"
+                    type="number"
+                    min="0"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      background: 'var(--surface)', border: '1px solid var(--border-2)',
+                      borderRadius: 10, padding: '11px 28px 11px 12px', fontSize: 15, color: 'var(--text)', outline: 'none',
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-3)', pointerEvents: 'none' }}>г</span>
+                </div>
+                {ingredients.length > 1 && (
+                  <button
+                    onClick={() => removeIng(i)}
+                    style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', color: 'var(--text-3)', fontSize: 20, lineHeight: 1, flexShrink: 0 }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {ingredients.length < MAX ? (
+            <button className="btn btn-secondary" style={{ fontSize: 13, marginBottom: 20 }} onClick={addIng}>
+              + Добавить ингредиент
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 20, textAlign: 'center' }}>
+              Максимум {MAX} ингредиентов
+            </div>
+          )}
+
+          {builderError && (
+            <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{builderError}</div>
+          )}
+
+          {builderAnalyzing ? (
+            <AnalyzingButton />
+          ) : (
+            <button
+              className="btn"
+              style={{ fontSize: 15 }}
+              disabled={ingredients.every(i => !i.name.trim())}
+              onClick={handleCalculate}
+            >
+              Рассчитать →
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // ── Result phase ───────────────────────────────────────────────────
+    return (
+      <div className="screen">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <button
+            onClick={() => setBuilderResult(null)}
+            style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
+          >
+            ‹
+          </button>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Блюдо рассчитано ✓</h1>
+        </div>
+
+        {/* Editable title */}
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+          Название блюда
+        </div>
+        <input
+          value={builderTitle}
+          onChange={e => setBuilderTitle(e.target.value)}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: 'var(--surface)', border: '1px solid var(--accent)',
+            borderRadius: 10, padding: '12px 14px', fontSize: 16, fontWeight: 600,
+            color: 'var(--text)', outline: 'none', marginBottom: 16,
+          }}
+        />
+
+        {/* КБЖУ + ingredients */}
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)', padding: '16px', marginBottom: 14,
+        }}>
+          <NutritionRow result={builderResult} />
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 6 }}>
+              Ингредиенты
+            </div>
+            {ingredients.map((ing, i) => (
+              <div key={i} style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 2 }}>
+                {ing.name.trim()} — {ing.grams}г
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Meal type picker */}
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+          Тип приёма
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+          {MEAL_TYPES.map(mt => (
+            <button
+              key={mt.key}
+              onClick={() => setBuilderMealType(mt.key)}
+              style={{
+                padding: '8px 12px', fontSize: 12, fontWeight: 600, borderRadius: 'var(--r-sm)',
+                border: `2px solid ${builderMealType === mt.key ? 'var(--accent)' : 'var(--border)'}`,
+                background: builderMealType === mt.key ? 'var(--accent-soft)' : 'var(--surface)',
+                color: builderMealType === mt.key ? 'var(--accent)' : 'var(--text-2)',
+                cursor: 'pointer',
+              }}
+            >
+              {mt.label}
+            </button>
+          ))}
+        </div>
+
+        {builderError && (
+          <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{builderError}</div>
+        )}
+        {builderSavedOk && (
+          <div style={{ color: 'var(--accent)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+            ✓ Сохранено в «Постоянный приём»
+          </div>
+        )}
+
+        <button
+          className="btn"
+          style={{ fontSize: 15, marginBottom: 8 }}
+          disabled={builderAdding}
+          onClick={handleBuilderAddToDiary}
+        >
+          {builderAdding ? 'Добавляем...' : '✓ Добавить в дневник'}
+        </button>
+        <button
+          className="btn btn-secondary"
+          style={{ fontSize: 14 }}
+          disabled={builderSaving || builderSavedOk}
+          onClick={handleBuilderSave}
+        >
+          {builderSaving ? 'Сохраняем...' : builderSavedOk ? '✓ Сохранено' : '⭐ Сохранить как постоянный приём'}
+        </button>
+      </div>
     );
   }
 
@@ -887,6 +1185,30 @@ export default function AddMealScreen() {
           >
             Проанализировать →
           </button>
+        )}
+
+        {/* Builder entry point */}
+        {!analyzing && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 14px' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>или</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: 14 }}
+              onClick={() => {
+                setBuilderResult(null);
+                setIngredients([{ name: '', grams: '' }]);
+                setBuilderError('');
+                setBuilderSavedOk(false);
+                setStep('builder');
+              }}
+            >
+              Сборка по ингредиентам →
+            </button>
+          </>
         )}
       </div>
     );
