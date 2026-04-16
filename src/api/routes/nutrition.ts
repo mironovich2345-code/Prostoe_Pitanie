@@ -469,6 +469,12 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
 
 // ─── Saved Meals ─────────────────────────────────────────────────────────────
 
+/** Normalise a route/query param that Express types as string | string[]. */
+function getSingleParam(value: string | string[]): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
 type SavedMealRecord = { id: number; chatId: string; userId: string | null; title: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; mealType: string | null; notes: string | null; createdAt: Date; updatedAt: Date };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const savedMealDb = (prisma as any).savedMeal as {
@@ -541,7 +547,7 @@ router.post('/saved-meals', async (req: AuthRequest, res: Response) => {
 // DELETE /api/nutrition/saved-meals/:id
 router.delete('/saved-meals/:id', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(getSingleParam(req.params.id) ?? '', 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
     const existing = await savedMealDb.findFirst({ where: savedMealOwnerFilter(id, chatId, req.userId) });
@@ -557,7 +563,7 @@ router.delete('/saved-meals/:id', async (req: AuthRequest, res: Response) => {
 // POST /api/nutrition/saved-meals/:id/add — add saved meal to diary as a new MealEntry
 router.post('/saved-meals/:id/add', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(getSingleParam(req.params.id) ?? '', 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   const { mealType } = req.body as { mealType?: string };
   try {
