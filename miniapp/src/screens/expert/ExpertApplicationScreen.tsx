@@ -65,6 +65,10 @@ export default function ExpertApplicationScreen() {
         setError('Заполни все обязательные поля');
         return;
       }
+      if (!photoData) {
+        setError('Добавь фото для подтверждения личности — это обязательно');
+        return;
+      }
     } else {
       if (!companyName.trim() || !companySocialLink.trim()) {
         setError('Заполни все обязательные поля');
@@ -93,6 +97,7 @@ export default function ExpertApplicationScreen() {
           socialLink: companySocialLink.trim(),
           specialization: 'Компания',
           bio: companyBio,
+          applicantType: 'company',
         });
       } else {
         await api.expertApply({
@@ -102,6 +107,7 @@ export default function ExpertApplicationScreen() {
           specialization,
           bio,
           verificationPhotoData: photoData ?? undefined,
+          applicantType: 'expert',
         });
       }
       await queryClient.invalidateQueries({ queryKey: ['bootstrap'] });
@@ -269,14 +275,15 @@ export default function ExpertApplicationScreen() {
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', padding: '18px 18px', marginBottom: 12,
       }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 14 }}>
-          Подтверждение личности
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)' }}>
+            Подтверждение личности
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>*</span>
         </div>
 
         <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 16 }}>
-          {applicantType === 'expert'
-            ? 'Сделайте фото, чтобы подтвердить сходство с сайтом или соцсетью'
-            : 'Сделайте фото представителя компании для верификации'}
+          Сделай селфи — это обязательно для подтверждения личности. Мы сравним фото с профилем в соцсети.
         </div>
 
         {photoData ? (

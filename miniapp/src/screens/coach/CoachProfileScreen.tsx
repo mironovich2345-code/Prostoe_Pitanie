@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData } from '../../types';
 import StatusBadge from '../../components/StatusBadge';
@@ -51,6 +51,14 @@ function IconCamera() {
   );
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  diploma:     'Диплом',
+  certificate: 'Сертификат',
+  other:       'Другое',
+};
+
 // ─── Finance row ──────────────────────────────────────────────────────────────
 function FinanceRow({ icon, label, path, navigate }: { icon: React.ReactNode; label: string; path: string; navigate: (p: string) => void }) {
   return (
@@ -100,6 +108,67 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
   const [localAvatar, setLocalAvatar] = useState<string | null>(tp?.avatarData ?? clientAvatar ?? null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Documents ──
+  const [showDocSheet, setShowDocSheet] = useState(false);
+  const [docType, setDocType] = useState<'diploma' | 'certificate' | 'other'>('diploma');
+  const [docTitle, setDocTitle] = useState('');
+  const [docFileData, setDocFileData] = useState<string | null>(null);
+  const [docFileMime, setDocFileMime] = useState('');
+  const [docFileError, setDocFileError] = useState<string | null>(null);
+
+  const docsQuery = useQuery({
+    queryKey: ['trainer-documents'],
+    queryFn: api.trainerDocuments,
+    enabled: tp?.verificationStatus === 'verified',
+  });
+  const documents = docsQuery.data?.documents ?? [];
+
+  const uploadDocMutation = useMutation({
+    mutationFn: () => api.trainerDocumentUpload({ docType, title: docTitle.trim() || undefined, fileData: docFileData! }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trainer-documents'] });
+      setShowDocSheet(false);
+      setDocFileData(null);
+      setDocTitle('');
+      setDocType('diploma');
+    },
+  });
+
+  const deleteDocMutation = useMutation({
+    mutationFn: (id: number) => api.trainerDocumentDelete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trainer-documents'] }),
+  });
+
+  function handleDocFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocFileError(null);
+    const MAX_MB = 5;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setDocFileError(`Файл слишком большой (макс. ${MAX_MB} МБ)`);
+      e.target.value = '';
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      setDocFileError('Поддерживаются: JPG, PNG, WEBP, PDF');
+      e.target.value = '';
+      return;
+    }
+    setDocFileMime(file.type);
+    const reader = new FileReader();
+    reader.onload = () => setDocFileData(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleDocView(id: number) {
+    try {
+      const url = await api.trainerDocumentFile(id);
+      window.open(url, '_blank');
+    } catch { /* ignore */ }
+  }
 
   const patchMutation = useMutation({
     mutationFn: api.trainerPatchProfile,
@@ -337,6 +406,98 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         )}
       </div>
 
+      {/* Documents section — visible for verified experts */}
+      {tp?.verificationStatus === 'verified' && (
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '12px 4px 8px' }}>
+            Документы
+          </div>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+            border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12,
+          }}>
+            {docsQuery.isLoading ? (
+              <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                <div className="spinner" />
+              </div>
+            ) : documents.length === 0 ? (
+              <div style={{ padding: '18px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 12 }}>
+                  Дипломы и сертификаты будут показаны в вашей карточке для клиентов
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 14 }}
+                  onClick={() => { setShowDocSheet(true); setDocFileError(null); setDocFileData(null); setDocTitle(''); setDocType('diploma'); }}
+                >
+                  + Добавить документ
+                </button>
+              </div>
+            ) : (
+              <>
+                {documents.map((doc, i) => (
+                  <div
+                    key={doc.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '13px 18px',
+                      borderBottom: i < documents.length - 1 ? '1px solid var(--border)' : 'none',
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                      background: 'var(--accent-soft)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {doc.mimeType === 'application/pdf' ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {doc.title || DOC_TYPE_LABELS[doc.docType] || doc.docType}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                        {DOC_TYPE_LABELS[doc.docType]} · {new Date(doc.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDocView(doc.id)}
+                      style={{ background: 'none', border: 'none', padding: 6, cursor: 'pointer', color: 'var(--accent)', flexShrink: 0 }}
+                      aria-label="Открыть"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </button>
+                    <button
+                      onClick={() => deleteDocMutation.mutate(doc.id)}
+                      disabled={deleteDocMutation.isPending}
+                      style={{ background: 'none', border: 'none', padding: 6, cursor: 'pointer', color: 'var(--danger)', flexShrink: 0 }}
+                      aria-label="Удалить"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                  </div>
+                ))}
+                {documents.length < 10 && (
+                  <button
+                    onClick={() => { setShowDocSheet(true); setDocFileError(null); setDocFileData(null); setDocTitle(''); setDocType('diploma'); }}
+                    style={{
+                      width: '100%', padding: '13px 20px', fontSize: 14, fontWeight: 600,
+                      background: 'transparent', border: 'none', borderTop: '1px solid var(--border)',
+                      color: 'var(--accent)', cursor: 'pointer', textAlign: 'left',
+                    }}
+                  >
+                    + Добавить документ
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Finance section */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '12px 4px 8px' }}>
         Финансы
@@ -377,6 +538,111 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
           <span style={{ fontSize: 18, color: 'var(--text-3)' }}>›</span>
         </button>
       </div>
+
+      {/* Document upload bottom sheet */}
+      {showDocSheet && (
+        <>
+          <div
+            onClick={() => setShowDocSheet(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 200 }}
+          />
+          <div className="bottom-sheet">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Добавить документ</span>
+              <button
+                onClick={() => setShowDocSheet(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--text-3)', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+              >×</button>
+            </div>
+
+            {/* Type selector */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+              {(['diploma', 'certificate', 'other'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setDocType(t)}
+                  style={{
+                    flex: 1, padding: '8px 4px', fontSize: 12, fontWeight: 600,
+                    borderRadius: 8, border: `1.5px solid ${docType === t ? 'var(--accent)' : 'var(--border)'}`,
+                    background: docType === t ? 'var(--accent-soft)' : 'var(--surface-2)',
+                    color: docType === t ? 'var(--accent)' : 'var(--text-3)', cursor: 'pointer',
+                  }}
+                >
+                  {DOC_TYPE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+
+            {/* Optional title */}
+            <input
+              value={docTitle}
+              onChange={e => setDocTitle(e.target.value)}
+              placeholder="Название (необязательно)"
+              style={{
+                width: '100%', boxSizing: 'border-box', marginBottom: 12,
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '11px 13px', fontSize: 14,
+                color: 'var(--text)', outline: 'none', fontFamily: 'inherit',
+              }}
+            />
+
+            {/* File picker */}
+            {docFileData ? (
+              <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10,
+                background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)', padding: '10px 14px' }}>
+                <div style={{ flex: 1, fontSize: 13, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {docFileMime === 'application/pdf' ? '📄 PDF выбран' : '🖼 Изображение выбрано'}
+                </div>
+                <button
+                  onClick={() => { setDocFileData(null); if (docFileInputRef.current) docFileInputRef.current.value = ''; }}
+                  style={{ background: 'none', border: 'none', fontSize: 18, color: 'var(--text-3)', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                >×</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => docFileInputRef.current?.click()}
+                style={{
+                  width: '100%', padding: '14px 16px', marginBottom: 12,
+                  background: 'var(--surface-2)', border: '1.5px dashed var(--border)',
+                  borderRadius: 10, cursor: 'pointer', fontSize: 14,
+                  color: 'var(--accent)', fontWeight: 600,
+                }}
+              >
+                Выбрать файл (JPG / PNG / PDF)
+              </button>
+            )}
+
+            {docFileError && (
+              <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 10, textAlign: 'center' }}>
+                {docFileError}
+              </div>
+            )}
+
+            {uploadDocMutation.isError && (
+              <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 10, textAlign: 'center' }}>
+                {(uploadDocMutation.error as Error).message || 'Ошибка загрузки'}
+              </div>
+            )}
+
+            <button
+              className="btn"
+              disabled={!docFileData || uploadDocMutation.isPending}
+              onClick={() => uploadDocMutation.mutate()}
+              style={{ fontSize: 15 }}
+            >
+              {uploadDocMutation.isPending ? 'Загружаем...' : 'Загрузить'}
+            </button>
+
+            <input
+              ref={docFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              style={{ display: 'none' }}
+              onChange={handleDocFileChange}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

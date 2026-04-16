@@ -261,6 +261,18 @@ model TrainerReward {
   createdAt      DateTime @default(now())
 }
 
+model TrainerDocument {
+  id        Int      @id @default(autoincrement())
+  chatId    String   // trainer's chatId (legacy key, consistent with rest of project)
+  docType   String   // 'diploma' | 'certificate' | 'other'
+  title     String?  // optional user-provided label
+  fileData  String   // base64 data URL (image/* or application/pdf)
+  mimeType  String   // 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+}
+
 model NutritionInsightCache {
   id            Int      @id @default(autoincrement())
   chatId        String

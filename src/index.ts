@@ -383,12 +383,14 @@ bot.start(async (ctx) => {
     const code = payload.slice(4);
     await applyReferral(String(chatId), code).catch(() => null);
   } else if (payload?.startsWith('connect_')) {
-    // Trainer connection code — prompt client to open mini app
+    // Trainer connection code — open mini app via web_app button to preserve Telegram auth context.
+    // Using url-type button with query params breaks initData; web_app button guarantees WebApp.initData is populated.
     const miniappUrl = process.env.MINIAPP_URL;
     if (miniappUrl) {
+      const connectCode = payload.slice(8); // strip 'connect_' prefix, keep 6-digit code
       await ctx.reply(
         '🏋 Для подключения к тренеру — открой приложение:',
-        { reply_markup: { inline_keyboard: [[{ text: '📱 Подключить тренера', url: `${miniappUrl}?startapp=${payload}` }]] } }
+        { reply_markup: { inline_keyboard: [[{ text: '📱 Подключить тренера', web_app: { url: `${miniappUrl}/connect-trainer?code=${connectCode}` } }]] } }
       ).catch(() => null);
     }
   }

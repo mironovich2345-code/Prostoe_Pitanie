@@ -25,7 +25,7 @@ export function createApiServer() {
     origin: process.env.MINIAPP_ORIGIN ?? '*',
     credentials: true,
   }));
-  app.use(express.json({ limit: '3mb' }));
+  app.use(express.json({ limit: '8mb' })); // raised from 3mb to support expert document uploads (≤5 MB decoded → ≤7 MB base64)
 
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));

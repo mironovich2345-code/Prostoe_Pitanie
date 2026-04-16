@@ -68,8 +68,23 @@ export const api = {
     request<{ meals: import('../types').MealEntry[] }>(`/api/trainer/clients/${clientId}/stats-range?from=${from}&to=${to}`),
   trainerAlerts: () => request<{ notLoggedToday: string[]; expiringSoon: unknown[]; totalClients: number; activeToday: number }>('/api/trainer/alerts'),
   trainerRewards: () => request<{ rewards: unknown[]; summary: { total: number; available: number; paidOut: number } }>('/api/trainer/rewards'),
-  expertApply: (data: { fullName: string; socialLink: string; documentLink?: string; specialization?: string; bio?: string; verificationPhotoData?: string }) =>
+  expertApply: (data: { fullName: string; socialLink: string; documentLink?: string; specialization?: string; bio?: string; verificationPhotoData?: string; applicantType?: 'expert' | 'company' }) =>
     request<{ trainerProfile: import('../types').TrainerProfileInfo }>('/api/expert/apply', { method: 'POST', body: JSON.stringify(data) }),
+  trainerDocuments: () =>
+    request<{ documents: import('../types').TrainerDocument[] }>('/api/trainer/documents'),
+  trainerDocumentUpload: (data: { docType: string; title?: string; fileData: string }) =>
+    request<{ document: import('../types').TrainerDocument }>('/api/trainer/documents', { method: 'POST', body: JSON.stringify(data) }),
+  trainerDocumentDelete: (id: number) =>
+    request<{ ok: boolean }>(`/api/trainer/documents/${id}`, { method: 'DELETE' }),
+  trainerDocumentFile: async (id: number): Promise<string> => {
+    // Fetches the document with auth headers and returns a blob URL for inline display
+    const res = await fetch(`${BASE_URL}/api/trainer/documents/${id}/file`, {
+      headers: { 'x-telegram-init-data': getTelegramInitData() },
+    });
+    if (!res.ok) throw new Error('Document fetch failed');
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
   disconnectTrainer: () => request<{ ok: boolean }>('/api/client/trainer', { method: 'DELETE' }),
   setTrainerHistoryAccess: (fullAccess: boolean) =>
     request<{ ok: boolean; fullHistoryAccess: boolean }>('/api/client/trainer/history-access', { method: 'PATCH', body: JSON.stringify({ fullAccess }) }),

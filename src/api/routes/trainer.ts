@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
-import { validateImageDataUrl, AVATAR_MAX_BYTES } from '../utils/validateImage';
+import { validateImageDataUrl, AVATAR_MAX_BYTES, validateDocumentDataUrl, DOCUMENT_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 
@@ -377,6 +377,99 @@ router.get('/rewards', async (req: AuthRequest, res: Response) => {
     const paidOut = rewards.filter(r => r.status === 'paid_out').reduce((s, r) => s + r.amountRub, 0);
     res.json({ rewards, summary: { total, available, paidOut } });
   } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Expert documents ─────────────────────────────────────────────────────────
+
+const VALID_DOC_TYPES = ['diploma', 'certificate', 'other'];
+const MAX_DOCUMENTS_PER_TRAINER = 10;
+
+// GET /api/trainer/documents — list trainer's uploaded documents (metadata only, no fileData)
+router.get('/documents', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  try {
+    const docs = await prisma.trainerDocument.findMany({
+      where: { chatId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, docType: true, title: true, mimeType: true, createdAt: true },
+    });
+    res.json({ documents: docs });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/trainer/documents — upload a new document
+router.post('/documents', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { docType, title, fileData } = req.body as { docType?: string; title?: string; fileData?: string };
+
+  if (!docType || !VALID_DOC_TYPES.includes(docType)) {
+    res.status(400).json({ error: 'Invalid docType (diploma | certificate | other)' });
+    return;
+  }
+  if (!fileData || !validateDocumentDataUrl(fileData, DOCUMENT_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid or too large fileData (max 5 MB, formats: jpg/png/webp/pdf)' });
+    return;
+  }
+
+  try {
+    const count = await prisma.trainerDocument.count({ where: { chatId } });
+    if (count >= MAX_DOCUMENTS_PER_TRAINER) {
+      res.status(409).json({ error: `Максимум ${MAX_DOCUMENTS_PER_TRAINER} документов` });
+      return;
+    }
+
+    const semi = fileData.indexOf(';');
+    const mimeType = fileData.slice(5, semi); // strip 'data:'
+
+    const doc = await prisma.trainerDocument.create({
+      data: { chatId, docType, title: title?.trim() || null, fileData, mimeType },
+    });
+    res.json({ document: { id: doc.id, docType: doc.docType, title: doc.title, mimeType: doc.mimeType, createdAt: doc.createdAt } });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/trainer/documents/:id
+router.delete('/documents/:id', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  try {
+    const doc = await prisma.trainerDocument.findFirst({ where: { id, chatId } });
+    if (!doc) { res.status(404).json({ error: 'Not found' }); return; }
+    await prisma.trainerDocument.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/trainer/documents/:id/file — stream file bytes (auth-gated; for inline viewing)
+router.get('/documents/:id/file', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  try {
+    const doc = await prisma.trainerDocument.findFirst({
+      where: { id, chatId },
+      select: { fileData: true, mimeType: true },
+    });
+    if (!doc) { res.status(404).json({ error: 'Not found' }); return; }
+
+    const comma = doc.fileData.indexOf(',');
+    const b64 = doc.fileData.slice(comma + 1);
+    const buffer = Buffer.from(b64, 'base64');
+    res.setHeader('Content-Type', doc.mimeType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.send(buffer);
+  } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

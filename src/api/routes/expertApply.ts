@@ -13,16 +13,26 @@ const router = Router();
 // POST /api/expert/apply — submit trainer application
 router.post('/apply', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { fullName, socialLink, verificationPhotoData, specialization, bio } = req.body as {
+  const { fullName, socialLink, verificationPhotoData, specialization, bio, applicantType } = req.body as {
     fullName?: string;
     socialLink?: string;
     verificationPhotoData?: string;
     specialization?: string;
     bio?: string;
+    applicantType?: 'expert' | 'company';
   };
 
   if (!fullName?.trim() || !socialLink?.trim()) {
     res.status(400).json({ error: 'fullName and socialLink are required' });
+    return;
+  }
+
+  // Company applications are identified by applicantType='company' or specialization='Компания' (legacy)
+  const isCompany = applicantType === 'company' || specialization?.trim() === 'Компания';
+
+  // Selfie is mandatory for individual expert applications
+  if (!isCompany && !verificationPhotoData) {
+    res.status(400).json({ error: 'verificationPhotoData (selfie) is required for expert applications' });
     return;
   }
   if (verificationPhotoData != null && !validateImageDataUrl(verificationPhotoData, PHOTO_MAX_BYTES)) {

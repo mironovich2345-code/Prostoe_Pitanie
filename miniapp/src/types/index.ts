@@ -1,4 +1,13 @@
 export type TrainerVerificationStatus = 'pending' | 'verified' | 'rejected' | 'blocked';
+export type TrainerDocType = 'diploma' | 'certificate' | 'other';
+
+export interface TrainerDocument {
+  id: number;
+  docType: TrainerDocType;
+  title: string | null;
+  mimeType: string; // 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'
+  createdAt: string;
+}
 export type ReminderMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealReminder {
