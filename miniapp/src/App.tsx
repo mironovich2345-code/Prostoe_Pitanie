@@ -49,6 +49,7 @@ import ConnectTrainerScreen from './screens/client/ConnectTrainerScreen';
 import TrainerReviewScreen from './screens/client/TrainerReviewScreen';
 import ShopScreen from './screens/client/ShopScreen';
 import TrainerListScreen from './screens/client/TrainerListScreen';
+import TrainerDetailScreen from './screens/client/TrainerDetailScreen';
 import DocumentsScreen from './screens/client/DocumentsScreen';
 import OnboardingScreen from './screens/client/OnboardingScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
@@ -204,6 +205,7 @@ export default function App() {
             <Route path="/trainer/review" element={<TrainerReviewScreen />} />
             <Route path="/shop" element={<ShopScreen />} />
             <Route path="/trainers" element={<TrainerListScreen />} />
+            <Route path="/trainers/:trainerId" element={<TrainerDetailScreen />} />
             <Route path="/documents" element={<DocumentsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

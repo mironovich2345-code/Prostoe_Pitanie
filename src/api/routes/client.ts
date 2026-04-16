@@ -4,15 +4,46 @@ import prisma from '../../db';
 
 const router = Router();
 
-// GET /api/client/trainers — list all verified trainers (public info only)
+// GET /api/client/trainers — list all verified individual experts (public info + avatar + avg rating)
 router.get('/trainers', async (_req: AuthRequest, res: Response) => {
   try {
     const trainers = await prisma.trainerProfile.findMany({
       where: { verificationStatus: 'verified', specialization: { not: 'Компания' } },
-      select: { chatId: true, fullName: true, specialization: true, bio: true },
+      select: { chatId: true, fullName: true, specialization: true, bio: true, avatarData: true },
       orderBy: { verifiedAt: 'desc' },
     });
-    res.json({ trainers });
+
+    // Batch-fetch ratings so we don't N+1 query
+    const chatIds = trainers.map(t => t.chatId);
+    const reviews = chatIds.length > 0
+      ? await prisma.trainerReview.findMany({
+          where: { trainerId: { in: chatIds } },
+          select: { trainerId: true, rating: true },
+        })
+      : [];
+
+    const ratingMap = new Map<string, { sum: number; count: number }>();
+    for (const r of reviews) {
+      const entry = ratingMap.get(r.trainerId) ?? { sum: 0, count: 0 };
+      entry.sum += r.rating;
+      entry.count += 1;
+      ratingMap.set(r.trainerId, entry);
+    }
+
+    const result = trainers.map(t => {
+      const rd = ratingMap.get(t.chatId);
+      return {
+        chatId: t.chatId,
+        fullName: t.fullName,
+        specialization: t.specialization,
+        bio: t.bio,
+        avatarData: t.avatarData,
+        avgRating: rd ? Math.round((rd.sum / rd.count) * 10) / 10 : null,
+        reviewCount: rd?.count ?? 0,
+      };
+    });
+
+    res.json({ trainers: result });
   } catch (err) {
     console.error('[client/trainers]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -32,6 +63,91 @@ router.get('/trainer/lookup-by-id', async (req: AuthRequest, res: Response) => {
     res.json({ trainerId: tp.chatId, fullName: tp.fullName, specialization: tp.specialization, bio: tp.bio });
   } catch (err) {
     console.error('[client/trainer/lookup-by-id]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/client/trainers/:trainerId — full public profile (reviews + documents metadata)
+router.get('/trainers/:trainerId', async (req: AuthRequest, res: Response) => {
+  const { trainerId } = req.params as { trainerId: string };
+  try {
+    const tp = await prisma.trainerProfile.findFirst({
+      where: { chatId: trainerId, verificationStatus: 'verified', specialization: { not: 'Компания' } },
+      select: { chatId: true, fullName: true, specialization: true, bio: true, socialLink: true, avatarData: true },
+    });
+    if (!tp) { res.status(404).json({ error: 'Expert not found' }); return; }
+
+    // Reviews — public fields only; clientId never exposed
+    const rawReviews = await prisma.trainerReview.findMany({
+      where: { trainerId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, rating: true, reviewText: true, trainerComment: true, allowTrainerComment: true, createdAt: true },
+    });
+    const avgRating = rawReviews.length > 0
+      ? Math.round(rawReviews.reduce((s, r) => s + r.rating, 0) / rawReviews.length * 10) / 10
+      : null;
+    // Only include trainerComment when reviewer allowed it
+    const reviews = rawReviews.map(r => ({
+      id: r.id,
+      rating: r.rating,
+      reviewText: r.reviewText,
+      trainerComment: r.allowTrainerComment ? r.trainerComment : null,
+      createdAt: r.createdAt,
+    }));
+
+    // Documents — metadata only, no fileData
+    const documents = await (prisma as unknown as { trainerDocument: { findMany(args: unknown): Promise<Array<{ id: number; docType: string; title: string | null; mimeType: string; createdAt: Date }>> } }).trainerDocument.findMany({
+      where: { chatId: trainerId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, docType: true, title: true, mimeType: true, createdAt: true },
+    }).catch(() => [] as Array<{ id: number; docType: string; title: string | null; mimeType: string; createdAt: Date }>);
+
+    res.json({
+      trainer: {
+        chatId: tp.chatId,
+        fullName: tp.fullName,
+        specialization: tp.specialization,
+        bio: tp.bio,
+        socialLink: tp.socialLink,
+        avatarData: tp.avatarData,
+        avgRating,
+        reviewCount: rawReviews.length,
+        reviews,
+        documents,
+      },
+    });
+  } catch (err) {
+    console.error('[client/trainers/:trainerId]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/client/trainers/:trainerId/documents/:docId/file — stream public credential document
+router.get('/trainers/:trainerId/documents/:docId/file', async (req: AuthRequest, res: Response) => {
+  const { trainerId, docId } = req.params as { trainerId: string; docId: string };
+  const id = parseInt(docId, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid docId' }); return; }
+  try {
+    const tp = await prisma.trainerProfile.findFirst({
+      where: { chatId: trainerId, verificationStatus: 'verified' },
+      select: { chatId: true },
+    });
+    if (!tp) { res.status(404).json({ error: 'Expert not found' }); return; }
+
+    const doc = await (prisma as unknown as { trainerDocument: { findFirst(args: unknown): Promise<{ fileData: string; mimeType: string } | null> } }).trainerDocument.findFirst({
+      where: { id, chatId: trainerId },
+      select: { fileData: true, mimeType: true },
+    }).catch(() => null);
+    if (!doc) { res.status(404).json({ error: 'Document not found' }); return; }
+
+    const comma = doc.fileData.indexOf(',');
+    const b64 = doc.fileData.slice(comma + 1);
+    const buffer = Buffer.from(b64, 'base64');
+    res.setHeader('Content-Type', doc.mimeType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.send(buffer);
+  } catch (err) {
+    console.error('[client/trainers/:trainerId/documents/:docId/file]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

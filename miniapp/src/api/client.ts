@@ -101,7 +101,17 @@ export const api = {
   trainerConnect: (data: { code: string; fullHistoryAccess: boolean; canViewPhotos: boolean }) =>
     request<{ ok: boolean }>('/api/client/trainer/connect', { method: 'POST', body: JSON.stringify(data) }),
   trainerList: () =>
-    request<{ trainers: Array<{ chatId: string; fullName: string | null; specialization: string | null; bio: string | null }> }>('/api/client/trainers'),
+    request<{ trainers: import('../types').PublicTrainerListItem[] }>('/api/client/trainers'),
+  trainerPublicProfile: (trainerId: string) =>
+    request<{ trainer: import('../types').PublicTrainerProfile }>(`/api/client/trainers/${encodeURIComponent(trainerId)}`),
+  trainerPublicDocumentFile: async (trainerId: string, docId: number): Promise<string> => {
+    const res = await fetch(`${BASE_URL}/api/client/trainers/${encodeURIComponent(trainerId)}/documents/${docId}/file`, {
+      headers: { 'x-telegram-init-data': getTelegramInitData() },
+    });
+    if (!res.ok) throw new Error('Document fetch failed');
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
   trainerLookupById: (trainerId: string) =>
     request<import('../types').TrainerLookupResult>(`/api/client/trainer/lookup-by-id?trainerId=${encodeURIComponent(trainerId)}`),
   trainerConnectDirect: (data: { trainerId: string; fullHistoryAccess: boolean; canViewPhotos: boolean }) =>

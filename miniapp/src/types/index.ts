@@ -1,4 +1,28 @@
 export type TrainerVerificationStatus = 'pending' | 'verified' | 'rejected' | 'blocked';
+
+export interface PublicTrainerListItem {
+  chatId: string;
+  fullName: string | null;
+  specialization: string | null;
+  bio: string | null;
+  avatarData: string | null;
+  avgRating: number | null;
+  reviewCount: number;
+}
+
+export interface PublicReview {
+  id: number;
+  rating: number;
+  reviewText: string | null;
+  trainerComment: string | null;
+  createdAt: string;
+}
+
+export interface PublicTrainerProfile extends PublicTrainerListItem {
+  socialLink: string | null;
+  reviews: PublicReview[];
+  documents: TrainerDocument[];
+}
 export type TrainerDocType = 'diploma' | 'certificate' | 'other';
 
 export interface TrainerDocument {
