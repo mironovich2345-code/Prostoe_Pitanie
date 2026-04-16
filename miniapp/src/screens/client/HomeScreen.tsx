@@ -725,7 +725,7 @@ export default function HomeScreen({ bootstrap }: Props) {
         <div className="info-row" onClick={() => navigate(trainer ? '/trainer' : '/connect-trainer')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: 'var(--text-3)' }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Эксперт</span>
+            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>Мой эксперт</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <span style={{

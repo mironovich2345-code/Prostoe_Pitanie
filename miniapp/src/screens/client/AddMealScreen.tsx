@@ -728,17 +728,12 @@ export default function AddMealScreen() {
       const text = `Состав блюда по ингредиентам: ${ingredientText}`;
       setBuilderAnalyzing(true);
       try {
-        const res = await api.nutritionAnalyze(text);
+        const res = await api.nutritionAnalyzeIngredients(text);
         setBuilderResult(res);
         setBuilderTitle(res.name || 'Моё блюдо');
         setBuilderSavedOk(false);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : '';
-        if (msg === 'subscription_required') {
-          setBuilderError('Для расчёта нужна активная подписка — перейди в раздел Подписка');
-        } else {
-          setBuilderError('Не удалось рассчитать. Попробуй ещё раз.');
-        }
+      } catch {
+        setBuilderError('Не удалось рассчитать. Проверь подключение и попробуй ещё раз.');
       } finally {
         setBuilderAnalyzing(false);
       }

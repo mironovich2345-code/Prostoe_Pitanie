@@ -27,16 +27,46 @@ async function resizeAvatar(file: File): Promise<string> {
   });
 }
 
-/** Open a blob URL reliably in Telegram WebApp (avoids window.open popup blocking) */
-function openBlobUrl(blobUrl: string, filename: string) {
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = filename;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+// ─── In-app document overlay ─────────────────────────────────────────────────
+function DocViewOverlay({ url, mimeType, onClose }: { url: string; mimeType: string; onClose: () => void }) {
+  const isPdf = mimeType === 'application/pdf';
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.94)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 16, right: 16,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.18)', border: 'none',
+          fontSize: 20, color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        ✕
+      </button>
+      {isPdf ? (
+        <iframe
+          src={url}
+          title="Документ"
+          style={{ width: '92vw', height: '80vh', border: 'none', borderRadius: 8, background: '#fff' }}
+        />
+      ) : (
+        <img
+          src={url}
+          alt="Документ"
+          style={{ maxWidth: '92vw', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }}
+        />
+      )}
+    </div>
+  );
 }
 import StatusBadge from '../../components/StatusBadge';
 
@@ -153,6 +183,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
   const [docFileData, setDocFileData] = useState<string | null>(null);
   const [docFileMime, setDocFileMime] = useState('');
   const [docFileError, setDocFileError] = useState<string | null>(null);
+  const [docViewOverlay, setDocViewOverlay] = useState<{ url: string; mimeType: string } | null>(null);
 
   const docsQuery = useQuery({
     queryKey: ['trainer-documents'],
@@ -199,11 +230,16 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
     reader.readAsDataURL(file);
   }
 
-  async function handleDocView(id: number, filename: string) {
+  async function handleDocView(id: number, mimeType: string) {
     try {
       const url = await api.trainerDocumentFile(id);
-      openBlobUrl(url, filename);
+      setDocViewOverlay({ url, mimeType });
     } catch { /* ignore */ }
+  }
+
+  function handleDocViewClose() {
+    if (docViewOverlay) URL.revokeObjectURL(docViewOverlay.url);
+    setDocViewOverlay(null);
   }
 
   const patchMutation = useMutation({
@@ -522,7 +558,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDocView(doc.id, doc.title || DOC_TYPE_LABELS[doc.docType] || 'document')}
+                      onClick={() => handleDocView(doc.id, doc.mimeType)}
                       style={{ background: 'none', border: 'none', padding: 6, cursor: 'pointer', color: 'var(--accent)', flexShrink: 0 }}
                       aria-label="Открыть"
                     >
@@ -700,6 +736,10 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
             />
           </div>
         </>
+      )}
+
+      {docViewOverlay && (
+        <DocViewOverlay url={docViewOverlay.url} mimeType={docViewOverlay.mimeType} onClose={handleDocViewClose} />
       )}
     </div>
   );

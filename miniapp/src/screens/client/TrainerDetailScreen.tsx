@@ -4,6 +4,48 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { PublicTrainerProfile, TrainerDocument } from '../../types';
 
+// ─── In-app document overlay ─────────────────────────────────────────────────
+function DocViewOverlay({ url, mimeType, onClose }: { url: string; mimeType: string; onClose: () => void }) {
+  const isPdf = mimeType === 'application/pdf';
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.94)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 16, right: 16,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.18)', border: 'none',
+          fontSize: 20, color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        ✕
+      </button>
+      {isPdf ? (
+        <iframe
+          src={url}
+          title="Документ"
+          style={{ width: '92vw', height: '80vh', border: 'none', borderRadius: 8, background: '#fff' }}
+        />
+      ) : (
+        <img
+          src={url}
+          alt="Документ"
+          style={{ maxWidth: '92vw', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }}
+        />
+      )}
+    </div>
+  );
+}
+
 function StarRating({ value }: { value: number }) {
   return (
     <span style={{ fontSize: 14, letterSpacing: 1 }}>
@@ -25,7 +67,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   other: 'Документ',
 };
 
-function DocumentItem({ trainerId, doc }: { trainerId: string; doc: TrainerDocument }) {
+function DocumentItem({ trainerId, doc, onOpen }: { trainerId: string; doc: TrainerDocument; onOpen: (url: string, mimeType: string) => void }) {
   const [loading, setLoading] = useState(false);
 
   async function handleOpen() {
@@ -33,15 +75,7 @@ function DocumentItem({ trainerId, doc }: { trainerId: string; doc: TrainerDocum
     setLoading(true);
     try {
       const blobUrl = await api.trainerPublicDocumentFile(trainerId, doc.id);
-      // Use <a download> instead of window.open — avoids popup blocking in Telegram WebApp
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = doc.title || (doc.mimeType === 'application/pdf' ? 'document.pdf' : 'image');
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+      onOpen(blobUrl, doc.mimeType);
     } catch {
       // silent
     } finally {
@@ -89,6 +123,15 @@ export default function TrainerDetailScreen() {
   const navigate = useNavigate();
   const { trainerId } = useParams<{ trainerId: string }>();
   const [lightbox, setLightbox] = useState(false);
+  const [docOverlay, setDocOverlay] = useState<{ url: string; mimeType: string } | null>(null);
+
+  function handleDocOpen(url: string, mimeType: string) {
+    setDocOverlay({ url, mimeType });
+  }
+  function handleDocClose() {
+    if (docOverlay) URL.revokeObjectURL(docOverlay.url);
+    setDocOverlay(null);
+  }
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['trainer-profile', trainerId],
@@ -213,7 +256,7 @@ export default function TrainerDetailScreen() {
                 Документы и сертификаты
               </div>
               {trainer.documents.map(doc => (
-                <DocumentItem key={doc.id} trainerId={trainerId!} doc={doc} />
+                <DocumentItem key={doc.id} trainerId={trainerId!} doc={doc} onOpen={handleDocOpen} />
               ))}
             </div>
           )}
@@ -267,7 +310,7 @@ export default function TrainerDetailScreen() {
         </>
       )}
 
-      {/* Lightbox */}
+      {/* Avatar lightbox */}
       {lightbox && trainer?.avatarData && (
         <div
           onClick={() => setLightbox(false)}
@@ -284,6 +327,11 @@ export default function TrainerDetailScreen() {
             style={{ maxWidth: '92vw', maxHeight: '80vh', borderRadius: 12, objectFit: 'contain' }}
           />
         </div>
+      )}
+
+      {/* Document overlay */}
+      {docOverlay && (
+        <DocViewOverlay url={docOverlay.url} mimeType={docOverlay.mimeType} onClose={handleDocClose} />
       )}
     </div>
   );

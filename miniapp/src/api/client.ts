@@ -151,6 +151,8 @@ export const api = {
   },
   nutritionAnalyze: (text: string) =>
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze', { method: 'POST', body: JSON.stringify({ text }) }),
+  nutritionAnalyzeIngredients: (text: string) =>
+    request<import('../types').FoodAnalysis>('/api/nutrition/analyze-ingredients', { method: 'POST', body: JSON.stringify({ text }) }),
   nutritionAnalyzePhoto: (imageData: string) =>
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo', { method: 'POST', body: JSON.stringify({ imageData }) }),
   nutritionAdd: (data: { text: string; mealType: string; sourceType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; imageData?: string }) =>

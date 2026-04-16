@@ -179,6 +179,20 @@ router.get('/meals/:id/media/stream', async (req: AuthRequest, res: Response) =>
   }
 });
 
+// POST /api/nutrition/analyze-ingredients — compute КБЖУ from explicit ingredient list [no premium required]
+// User provides exact ingredients + grams, AI is used only for nutritional value lookup.
+router.post('/analyze-ingredients', async (req: AuthRequest, res: Response) => {
+  const { text } = req.body as { text?: string };
+  if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
+  try {
+    const result = await analyzeFood(text.trim());
+    res.json(result);
+  } catch (err) {
+    console.error('[nutrition/analyze-ingredients]', err);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
 // POST /api/nutrition/analyze — analyze meal text via AI [premium]
 router.post('/analyze', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text?: string };

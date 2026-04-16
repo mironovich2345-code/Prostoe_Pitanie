@@ -15,7 +15,7 @@ type ProfileTab = 'weight' | 'trainer';
 
 const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
   { key: 'weight',  label: 'Вес'    },
-  { key: 'trainer', label: 'Эксперт' },
+  { key: 'trainer', label: 'Мой эксперт' },
 ];
 
 const ACTIVITY_LABELS: Record<number, string> = {
@@ -230,17 +230,7 @@ function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
     );
   }
 
-  return (
-    <div>
-      <button
-        className="btn btn-secondary"
-        style={{ fontSize: 14 }}
-        onClick={() => navigate('/stats', { state: { tab: 'weight' } })}
-      >
-        Перейти в статистику
-      </button>
-    </div>
-  );
+  return null;
 }
 
 // ─── Tab: Тренер ───────────────────────────────────────────────────────────
