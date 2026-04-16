@@ -26,7 +26,8 @@ export default function PartnershipScreen() {
   const linkQuery = useQuery({
     queryKey: ['expert-referral-link'],
     queryFn: api.expertReferralLink,
-    retry: false,
+    // Don't retry on access-denied; retry once on other errors (server/network hiccup)
+    retry: (count, err) => count < 1 && !(err as Error).message?.includes('required'),
   });
 
   const recruitsQuery = useQuery({
@@ -83,15 +84,20 @@ export default function PartnershipScreen() {
         </div>
       )}
 
-      {/* Error / not verified */}
-      {linkQuery.isError && (
-        <div style={{
-          background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '20px 16px',
-          border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text-3)', fontSize: 14,
-        }}>
-          Партнёрские ссылки доступны только верифицированным экспертам и компаниям.
-        </div>
-      )}
+      {/* Error state — distinguish access-denied from temporary errors */}
+      {linkQuery.isError && (() => {
+        const isAccessDenied = (linkQuery.error as Error)?.message?.includes('required');
+        return (
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: '20px 16px',
+            border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text-3)', fontSize: 14,
+          }}>
+            {isAccessDenied
+              ? 'Партнёрские ссылки доступны только верифицированным экспертам и компаниям.'
+              : 'Не удалось загрузить данные. Попробуйте позже.'}
+          </div>
+        );
+      })()}
 
       {linkQuery.isSuccess && (
         <>

@@ -33,14 +33,28 @@ router.get('/link', async (req: AuthRequest, res: Response) => {
       select: { referralCode: true, specialization: true },
     });
     if (!tp) { res.status(403).json({ error: 'Verified expert profile required' }); return; }
-    if (!tp.referralCode) { res.status(503).json({ error: 'Referral code not yet assigned' }); return; }
 
-    const link = buildExpertAcquisitionLink(tp.referralCode);
+    // Lazy-assign referralCode: handles experts approved before the code-assignment logic
+    // was added to the approval flow (they have verificationStatus='verified' but referralCode=null).
+    let referralCode = tp.referralCode;
+    if (!referralCode) {
+      referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      try {
+        await prisma.trainerProfile.update({ where: { chatId }, data: { referralCode } });
+      } catch {
+        // Rare collision on the unique constraint — generate a fresh one
+        referralCode = Math.random().toString(36).substring(2, 10).toUpperCase() +
+          Math.random().toString(36).substring(2, 4).toUpperCase();
+        await prisma.trainerProfile.update({ where: { chatId }, data: { referralCode } });
+      }
+    }
+
+    const link = buildExpertAcquisitionLink(referralCode);
     const referrerType: 'expert' | 'company' =
       tp.specialization === 'Компания' ? 'company' : 'expert';
 
     res.json({
-      referralCode: tp.referralCode,
+      referralCode,
       link,
       referrerType,
       model: {

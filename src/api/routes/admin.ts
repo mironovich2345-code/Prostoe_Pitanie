@@ -55,9 +55,24 @@ router.get('/applications', async (_req: AuthRequest, res: Response) => {
 router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Response) => {
   const { chatId } = req.params as { chatId: string };
   try {
+    // Preserve existing referralCode if already set; generate one otherwise.
+    // Without a referralCode the expert cannot use the partnership/referral features.
+    const existing = await prisma.trainerProfile.findUnique({
+      where: { chatId },
+      select: { referralCode: true },
+    });
+    const referralCode = existing?.referralCode ??
+      Math.random().toString(36).substring(2, 10).toUpperCase();
+
     const updated = await prisma.trainerProfile.update({
       where: { chatId },
-      data: { verificationStatus: 'verified', verifiedAt: new Date(), rejectedAt: null, verificationPhotoData: null },
+      data: {
+        verificationStatus: 'verified',
+        verifiedAt: new Date(),
+        rejectedAt: null,
+        verificationPhotoData: null,
+        referralCode,
+      },
     });
     res.json({ ok: true, verificationStatus: updated.verificationStatus });
   } catch (err) {
