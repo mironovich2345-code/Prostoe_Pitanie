@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { telegramAuthMiddleware } from './middleware/telegramAuth';
+import { platformAuthMiddleware } from './middleware/platformAuth';
 import { preAuthRateLimit, generalRateLimit, authRateLimit, aiRateLimit } from './middleware/rateLimit';
 import bootstrapRouter from './routes/bootstrap';
 import nutritionRouter from './routes/nutrition';
@@ -18,6 +18,7 @@ import reviewsRouter from './routes/reviews';
 import adminRouter from './routes/admin';
 import companyRouter from './routes/company';
 import expertReferralRouter from './routes/expertReferral';
+import accountLinkRouter from './routes/accountLink';
 
 export function createApiServer() {
   const app = express();
@@ -34,8 +35,8 @@ export function createApiServer() {
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
 
-  // All /api routes require Telegram auth
-  app.use('/api', telegramAuthMiddleware as express.RequestHandler);
+  // All /api routes require platform auth (Telegram or MAX)
+  app.use('/api', platformAuthMiddleware as express.RequestHandler);
 
   // Rate limiting (runs after auth so req.chatId is already set)
   app.use('/api', generalRateLimit as express.RequestHandler);
@@ -65,6 +66,7 @@ export function createApiServer() {
   app.use('/api/admin', adminRouter);
   app.use('/api/company', companyRouter);
   app.use('/api/expert-referral', expertReferralRouter);
+  app.use('/api/account-link', accountLinkRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');

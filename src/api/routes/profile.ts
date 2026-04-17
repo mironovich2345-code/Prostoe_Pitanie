@@ -10,16 +10,32 @@ const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId;
   try {
-    const userId = req.userId;
-    // Read weights by userId OR legacy chatId (records not yet backfilled have userId=null)
+    // userId-first: after account linking MAX users resolve to canonical userId.
+    // Fallback to chatId for legacy records without a backfilled userId.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const weightWhere: any = userId
       ? { OR: [{ userId }, { chatId, userId: null }] }
       : { chatId };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const profileFetch: Promise<any> = userId
+      ? (prisma.userProfile.findFirst as (args: unknown) => Promise<unknown>)({ where: { userId } })
+          .then(async (p) => {
+            if (p) return p;
+            // Not found by userId → try chatId (legacy / new user before first profile write)
+            const legacy = await prisma.userProfile.findUnique({ where: { chatId } });
+            // Backfill userId if the legacy record doesn't have one yet
+            if (legacy && !(legacy as Record<string, unknown>)['userId']) {
+              prisma.userProfile.update({ where: { chatId }, data: { userId } }).catch(() => {});
+            }
+            return legacy;
+          })
+      : prisma.userProfile.findUnique({ where: { chatId } });
+
     const [profile, weights] = await Promise.all([
-      prisma.userProfile.findUnique({ where: { chatId } }),
+      profileFetch,
       prisma.weightEntry.findMany({ where: weightWhere, orderBy: { createdAt: 'desc' }, take: 10 }),
     ]);
     res.json({

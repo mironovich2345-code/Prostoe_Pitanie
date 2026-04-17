@@ -90,6 +90,35 @@ model WebhookLog {
   createdAt   DateTime  @default(now())
 }
 
+// ─── Account linking (TG ↔ MAX multi-platform) ───────────────────────────────
+
+/// One-time cross-platform link request.
+/// Flow: initiator (new platform) creates request → gets a code → canonical user
+/// (existing platform) confirms with the code → UserIdentity of the new platform
+/// is reassigned to the canonical userId.
+model AccountLinkRequest {
+  id                  String    @id @default(uuid())
+  /// userId of the account that wants to be linked (the "new" / second platform)
+  initiatorUserId     String
+  /// Platform of the initiating account ('telegram' | 'max')
+  initiatorPlatform   String
+  /// Platform-specific ID of the initiating account (chatId for Telegram)
+  initiatorPlatformId String
+  /// Short uppercase hex code shown to the initiator; entered in the canonical account
+  code                String    @unique
+  /// pending → confirmed | expired | canceled
+  status              String    @default("pending")
+  /// userId of the account that confirmed the link (the canonical / first account)
+  canonicalUserId     String?
+  createdAt           DateTime  @default(now())
+  /// Code expires 15 minutes after creation
+  expiresAt           DateTime
+  confirmedAt         DateTime?
+
+  @@index([initiatorUserId, status])
+  @@index([status, expiresAt])
+}
+
 // ─── Existing models (still keyed by chatId during transition) ────────────────
 
 model UserProfile {

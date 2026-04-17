@@ -24,6 +24,8 @@ interface TrainerClientLinkFull {
 
 /**
  * Fetch an active/frozen trainer-client link including userId fields.
+ * Uses userId-OR-chatId for the trainer side so the same trainer works
+ * regardless of which platform they logged in from.
  * Uses `as any` because clientUserId / trainerUserId are absent from the
  * stale Prisma client; remove the cast after `prisma generate` runs.
  */
@@ -31,9 +33,14 @@ async function findActiveLink(
   trainerId: string,
   clientId: string,
   statuses: string[] = ['active', 'frozen'],
+  trainerUserId?: string | null,
 ): Promise<TrainerClientLinkFull | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const trainerFilter: any = trainerUserId
+    ? { OR: [{ trainerId }, { trainerUserId }] }
+    : { trainerId };
   return (prisma.trainerClientLink.findFirst as (args: unknown) => Promise<TrainerClientLinkFull | null>)({
-    where: { trainerId, clientId, status: { in: statuses } },
+    where: { ...trainerFilter, clientId, status: { in: statuses } },
   });
 }
 
@@ -50,12 +57,26 @@ function clientDataFilter(clientId: string, clientUserId?: string | null): any {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Returns true only if the caller has an active verified trainer profile. */
-async function isVerifiedTrainer(chatId: string): Promise<boolean> {
-  const tp = await prisma.trainerProfile.findUnique({
-    where: { chatId },
-    select: { verificationStatus: true },
+/**
+ * Find the caller's TrainerProfile using userId-OR-chatId lookup.
+ * userId-first: if the same person logs in from a different platform (e.g. MAX),
+ * their profile is still found via the platform-independent userId.
+ * Falls back to chatId for legacy records that have not been backfilled yet.
+ */
+async function findTrainerProfile(
+  chatId: string,
+  userId?: string | null,
+): Promise<{ chatId: string; userId: string | null; verificationStatus: string } | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+    where: userId ? { OR: [{ chatId }, { userId }] } : { chatId },
+    select: { chatId: true, userId: true, verificationStatus: true },
   });
+}
+
+/** Returns true only if the caller has an active verified trainer profile. */
+async function isVerifiedTrainer(chatId: string, userId?: string | null): Promise<boolean> {
+  const tp = await findTrainerProfile(chatId, userId);
   return tp?.verificationStatus === 'verified';
 }
 
@@ -69,13 +90,14 @@ function clientDisplayName(alias: string | null | undefined, preferredName: stri
 // PATCH /api/trainer/profile — update fullName, avatarData, bio, socialLink
 router.patch('/profile', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   const { fullName, avatarData, bio, socialLink } = req.body as { fullName?: string; avatarData?: string | null; bio?: string; socialLink?: string };
   if (avatarData != null && !validateImageDataUrl(avatarData, AVATAR_MAX_BYTES)) {
     res.status(400).json({ error: 'Invalid avatarData' });
     return;
   }
   try {
-    const tp = await prisma.trainerProfile.findUnique({ where: { chatId } });
+    const tp = await findTrainerProfile(chatId, userId);
     if (!tp) { res.status(404).json({ error: 'Trainer profile not found' }); return; }
 
     const data: Record<string, unknown> = {};
@@ -83,8 +105,10 @@ router.patch('/profile', async (req: AuthRequest, res: Response) => {
     if (avatarData !== undefined) data['avatarData'] = avatarData ?? null;
     if (bio !== undefined) data['bio'] = bio.trim() || null;
     if (socialLink !== undefined) data['socialLink'] = socialLink.trim() || null;
+    // Backfill userId if the profile was created before the userId migration
+    if (userId && !tp.userId) data['userId'] = userId;
 
-    const updated = await prisma.trainerProfile.update({ where: { chatId }, data });
+    const updated = await prisma.trainerProfile.update({ where: { chatId: tp.chatId }, data });
     res.json({ ok: true, fullName: updated.fullName, avatarData: updated.avatarData, bio: updated.bio, socialLink: updated.socialLink });
   } catch (err) {
     console.error('[trainer/profile PATCH]', err);
@@ -95,15 +119,21 @@ router.patch('/profile', async (req: AuthRequest, res: Response) => {
 // GET /api/trainer/clients — list trainer's clients
 router.get('/clients', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   try {
-    const trainerProfile = await prisma.trainerProfile.findUnique({ where: { chatId } });
+    const trainerProfile = await findTrainerProfile(chatId, userId);
     if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const links = await prisma.trainerClientLink.findMany({
-      where: { trainerId: chatId, status: { in: ['active', 'frozen'] } },
-    });
+    // Use OR on trainerUserId so clients connected from any platform are visible
+    const trainerUserId = trainerProfile.userId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const linkWhere: any = trainerUserId
+      ? { OR: [{ trainerId: trainerProfile.chatId }, { trainerUserId }], status: { in: ['active', 'frozen'] } }
+      : { trainerId: trainerProfile.chatId, status: { in: ['active', 'frozen'] } };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const links = await (prisma.trainerClientLink.findMany as (args: any) => Promise<any[]>)({ where: linkWhere });
     const clientIds = links.map(l => l.clientId);
     const [profiles, subscriptions] = await Promise.all([
       prisma.userProfile.findMany({
@@ -146,15 +176,15 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
 // GET /api/trainer/clients/:clientId — client card
 router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   const clientId = req.params['clientId'] as string;
   try {
-    if (!await isVerifiedTrainer(chatId)) {
+    const trainerProfile = await findTrainerProfile(chatId, userId);
+    if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await prisma.trainerClientLink.findFirst({
-      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
-    });
+    const link = await findActiveLink(trainerProfile.chatId, clientId, ['active', 'frozen'], trainerProfile.userId);
     if (!link) {
       res.status(403).json({ error: 'Client not found or access denied' });
       return;
@@ -193,16 +223,16 @@ router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
 // PATCH /api/trainer/clients/:clientId/alias — set trainer's private label for a client
 router.patch('/clients/:clientId/alias', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   const clientId = req.params['clientId'] as string;
   const { alias } = req.body as { alias?: string };
   try {
-    if (!await isVerifiedTrainer(chatId)) {
+    const trainerProfile = await findTrainerProfile(chatId, userId);
+    if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await prisma.trainerClientLink.findFirst({
-      where: { trainerId: chatId, clientId, status: { in: ['active', 'frozen'] } },
-    });
+    const link = await findActiveLink(trainerProfile.chatId, clientId, ['active', 'frozen'], trainerProfile.userId);
     if (!link) { res.status(404).json({ error: 'Client link not found' }); return; }
     const updated = await prisma.trainerClientLink.update({
       where: { id: link.id },
@@ -218,13 +248,15 @@ router.patch('/clients/:clientId/alias', async (req: AuthRequest, res: Response)
 // GET /api/trainer/clients/:clientId/stats
 router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   const clientId = req.params['clientId'] as string;
   try {
-    if (!await isVerifiedTrainer(chatId)) {
+    const trainerProfile = await findTrainerProfile(chatId, userId);
+    if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await findActiveLink(chatId, clientId);
+    const link = await findActiveLink(trainerProfile.chatId, clientId, ['active', 'frozen'], trainerProfile.userId);
     if (!link) {
       res.status(403).json({ error: 'Access denied' });
       return;
@@ -283,6 +315,7 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
 // GET /api/trainer/clients/:clientId/stats-range?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   const clientId = req.params['clientId'] as string;
   const { from, to } = req.query as { from?: string; to?: string };
   if (!from || !to) { res.status(400).json({ error: 'from and to required' }); return; }
@@ -290,11 +323,12 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
     res.status(400).json({ error: 'from and to must be YYYY-MM-DD' }); return;
   }
   try {
-    if (!await isVerifiedTrainer(chatId)) {
+    const trainerProfile = await findTrainerProfile(chatId, userId);
+    if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const link = await findActiveLink(chatId, clientId);
+    const link = await findActiveLink(trainerProfile.chatId, clientId, ['active', 'frozen'], trainerProfile.userId);
     if (!link) { res.status(403).json({ error: 'Access denied' }); return; }
 
     const since = link.fullHistoryAccess ? undefined : link.connectedAt;
@@ -324,15 +358,20 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
 // NOTE: meal lookups here stay on chatId (batch OR-of-ORs for N clients adds complexity; safe to harden later)
 router.get('/alerts', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   try {
-    const trainerProfile = await prisma.trainerProfile.findUnique({ where: { chatId } });
+    const trainerProfile = await findTrainerProfile(chatId, userId);
     if (!trainerProfile || trainerProfile.verificationStatus !== 'verified') {
       res.status(403).json({ error: 'Not a verified trainer' });
       return;
     }
-    const links = await prisma.trainerClientLink.findMany({
-      where: { trainerId: chatId, status: 'active' },
-    });
+    const trainerUserId = trainerProfile.userId;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const alertLinkWhere: any = trainerUserId
+      ? { OR: [{ trainerId: trainerProfile.chatId }, { trainerUserId }], status: 'active' }
+      : { trainerId: trainerProfile.chatId, status: 'active' };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const links = await (prisma.trainerClientLink.findMany as (args: any) => Promise<any[]>)({ where: alertLinkWhere });
     const clientIds = links.map(l => l.clientId);
     const aliasMap = Object.fromEntries(links.map(l => [l.clientId, l.clientAlias]));
 
@@ -369,9 +408,17 @@ router.get('/alerts', async (req: AuthRequest, res: Response) => {
 // GET /api/trainer/rewards
 router.get('/rewards', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   try {
+    const trainerProfile = await findTrainerProfile(chatId, userId);
+    // OR on trainerUserId so rewards created from any platform are visible
+    const trainerUserId = trainerProfile?.userId ?? null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rewardWhere: any = trainerUserId
+      ? { OR: [{ trainerId: trainerProfile!.chatId }, { trainerUserId }] }
+      : { trainerId: chatId };
     const rewards = await prisma.trainerReward.findMany({
-      where: { trainerId: chatId },
+      where: rewardWhere,
       orderBy: { createdAt: 'desc' },
     });
     const total = rewards.reduce((s, r) => s + r.amountRub, 0);

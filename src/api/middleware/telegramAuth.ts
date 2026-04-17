@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
   telegramUser?: TelegramUser;
   chatId?: string;
   userId?: string; // platform-independent internal ID (User.id)
+  platform?: 'telegram' | 'max'; // which platform this request came from
 }
 
 type ValidationResult =
@@ -68,6 +69,7 @@ export async function telegramAuthMiddleware(req: AuthRequest, res: Response, ne
     if (devChatId && process.env.NODE_ENV !== 'production') {
       req.telegramUser = { id: Number(devChatId), first_name: 'Dev' };
       req.chatId = devChatId;
+      req.platform = 'telegram';
       try {
         req.userId = await resolveUserId('telegram', devChatId, { firstName: 'Dev' });
       } catch {
@@ -91,6 +93,7 @@ export async function telegramAuthMiddleware(req: AuthRequest, res: Response, ne
 
   req.telegramUser = result.user;
   req.chatId = String(result.user.id);
+  req.platform = 'telegram';
 
   // Resolve platform-independent userId (non-fatal — existing chatId logic is unchanged)
   try {

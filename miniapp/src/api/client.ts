@@ -215,6 +215,25 @@ export const api = {
       payments: { total: number; today: number; week: number; month: number };
       aiCosts: { today: number | null; week: number | null; month: number | null; note: string };
     }>('/api/admin/stats'),
+  adminAiCostAggregate: () =>
+    request<{
+      period: { start: string; end: string };
+      totalCostUsd: number;
+      totalTokens: number;
+      totalRequests: number;
+      byScenario: Array<{ scenario: string; requests: number; costUsd: number }>;
+      byModel: Array<{ model: string; requests: number; costUsd: number }>;
+    }>('/api/admin/ai-cost'),
+  adminAiCostByUser: (userId: string) =>
+    request<{
+      userId: string | null;
+      chatId: string | null;
+      totalCostUsd: number;
+      totalTokens: number;
+      totalRequests: number;
+      byScenario: Array<{ scenario: string; requests: number; costUsd: number }>;
+      recent: Array<{ id: number; scenario: string; model: string; inputTokens: number; outputTokens: number; costUsd: number; createdAt: string }>;
+    }>(`/api/admin/ai-cost/user/${encodeURIComponent(userId)}`),
   adminGetSubscription: (chatId: string) =>
     request<{
       chatId: string;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
@@ -69,6 +69,13 @@ interface ResultViewProps {
 }
 
 function ResultView({ data, extendDays, setExtendDays, selectedPlan, setSelectedPlan, onAction, actionPending }: ResultViewProps) {
+  const aiCostKey = data.found ? (data.userId ?? data.chatId ?? null) : null;
+  const { data: aiCost } = useQuery({
+    queryKey: ['admin-ai-cost-user', aiCostKey],
+    queryFn: () => api.adminAiCostByUser(aiCostKey!),
+    enabled: !!aiCostKey,
+  });
+
   if (!data.found) {
     return (
       <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-3)', fontSize: 14 }}>
@@ -259,6 +266,45 @@ function ResultView({ data, extendDays, setExtendDays, selectedPlan, setSelected
               <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>с {fmtDate(l.connectedAt)}</span>
             </div>
           ))}
+        </Section>
+      )}
+
+      {aiCost && aiCost.totalRequests > 0 && (
+        <Section title="ИИ-расходы">
+          <Row label="Всего" value={`$${aiCost.totalCostUsd.toFixed(4)}`} />
+          <Row label="Запросов" value={aiCost.totalRequests.toLocaleString('ru')} />
+          <Row label="Токенов" value={aiCost.totalTokens.toLocaleString('ru')} />
+          {aiCost.byScenario.length > 0 && (
+            <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--text-3)', marginBottom: 6 }}>
+                По сценариям
+              </div>
+              {aiCost.byScenario.map(s => (
+                <div key={s.scenario} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-2)' }}>{s.scenario}</span>
+                  <span style={{ color: 'var(--text-3)' }}>{s.requests} · ${s.costUsd.toFixed(4)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {aiCost.recent.length > 0 && (
+            <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--text-3)', marginBottom: 6 }}>
+                Последние запросы
+              </div>
+              {aiCost.recent.slice(0, 5).map(r => (
+                <div key={r.id} style={{ fontSize: 12, marginBottom: 5 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{r.scenario}</span>
+                    <span style={{ color: 'var(--accent)' }}>${r.costUsd.toFixed(4)}</span>
+                  </div>
+                  <div style={{ color: 'var(--text-3)', marginTop: 1 }}>
+                    {r.model} · {r.inputTokens + r.outputTokens} tok · {fmtDate(r.createdAt)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Section>
       )}
     </>

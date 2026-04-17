@@ -106,6 +106,10 @@ export default function AdminStatsScreen() {
     queryKey: ['admin-stats'],
     queryFn: api.adminStats,
   });
+  const { data: aiCost } = useQuery({
+    queryKey: ['admin-ai-cost'],
+    queryFn: api.adminAiCostAggregate,
+  });
 
   return (
     <div className="screen">
@@ -161,15 +165,47 @@ export default function AdminStatsScreen() {
 
           {/* ── ИИ-расходы ── */}
           <SectionLabel>ИИ-расходы</SectionLabel>
-          <div style={{
-            background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-            border: '1px solid var(--border)', padding: '16px 18px',
-            marginBottom: 24,
-          }}>
-            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-              {data.aiCosts.note || 'Учёт будет доступен после внедрения AiCostLog'}
+          {aiCost ? (
+            <StatCard>
+              <BigRow
+                label="Всего расходов"
+                value={`$${aiCost.totalCostUsd.toFixed(4)}`}
+                color="var(--accent)"
+              />
+              <SmallRow label="Запросов" value={aiCost.totalRequests.toLocaleString('ru')} />
+              <SmallRow label="Токенов" value={aiCost.totalTokens.toLocaleString('ru')} last />
+              {aiCost.byScenario.length > 0 && (
+                <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--text-3)', marginBottom: 8 }}>
+                    По сценариям
+                  </div>
+                  {aiCost.byScenario.map((s, i) => (
+                    <div key={s.scenario} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      fontSize: 13, paddingBottom: i < aiCost.byScenario.length - 1 ? 6 : 0,
+                      marginBottom: i < aiCost.byScenario.length - 1 ? 6 : 0,
+                      borderBottom: i < aiCost.byScenario.length - 1 ? '1px solid var(--border)' : 'none',
+                    }}>
+                      <span style={{ color: 'var(--text-2)' }}>{s.scenario}</span>
+                      <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                        {s.requests} зап. · ${s.costUsd.toFixed(4)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </StatCard>
+          ) : (
+            <div style={{
+              background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+              border: '1px solid var(--border)', padding: '16px 18px',
+              marginBottom: 12,
+            }}>
+              <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
+                Загрузка...
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

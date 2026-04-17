@@ -57,12 +57,24 @@ router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Respo
   try {
     // Preserve existing referralCode if already set; generate one otherwise.
     // Without a referralCode the expert cannot use the partnership/referral features.
-    const existing = await prisma.trainerProfile.findUnique({
-      where: { chatId },
-      select: { referralCode: true },
-    });
+    const [existing, identity] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.trainerProfile.findUnique as (args: any) => Promise<{ referralCode: string | null; userId: string | null } | null>)({
+        where: { chatId },
+        select: { referralCode: true, userId: true },
+      }),
+      // Look up platform-independent userId so it gets written to TrainerProfile.
+      // If the expert later logs in from MAX, we can find their profile via userId.
+      (prisma as unknown as { userIdentity: { findFirst(args: unknown): Promise<{ userId: string } | null> } })
+        .userIdentity.findFirst({
+          where: { platformId: chatId },
+          select: { userId: true },
+        }),
+    ]);
     const referralCode = existing?.referralCode ??
       Math.random().toString(36).substring(2, 10).toUpperCase();
+    // Backfill userId only if not already set (prevents overwriting a correct value)
+    const resolvedUserId = existing?.userId ?? identity?.userId ?? null;
 
     const updated = await prisma.trainerProfile.update({
       where: { chatId },
@@ -72,6 +84,7 @@ router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Respo
         rejectedAt: null,
         verificationPhotoData: null,
         referralCode,
+        ...(resolvedUserId ? { userId: resolvedUserId } : {}),
       },
     });
     res.json({ ok: true, verificationStatus: updated.verificationStatus });

@@ -247,12 +247,20 @@ export async function refreshQualification(acquisitionId: number): Promise<EARec
   const now = new Date();
   if (acq.isQualified) return acq; // already qualified — nothing to do
 
-  const phase1Count = await prisma.trainerClientLink.count({
-    where: {
-      trainerId: acq.invitedExpertChatId,
-      connectedAt: { gte: acq.phase1StartsAt, lt: acq.phase1EndsAt },
-    },
-  });
+  // Use OR on trainerUserId so clients connected via any platform are counted.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const phase1LinkWhere: any = acq.invitedExpertUserId
+    ? {
+        OR: [{ trainerId: acq.invitedExpertChatId }, { trainerUserId: acq.invitedExpertUserId }],
+        connectedAt: { gte: acq.phase1StartsAt, lt: acq.phase1EndsAt },
+      }
+    : {
+        trainerId: acq.invitedExpertChatId,
+        connectedAt: { gte: acq.phase1StartsAt, lt: acq.phase1EndsAt },
+      };
+  const phase1Count = await (prisma.trainerClientLink.count as (args: unknown) => Promise<number>)(
+    { where: phase1LinkWhere },
+  );
 
   const updates: Record<string, unknown> = { phase1ClientCount: phase1Count, updatedAt: now };
 

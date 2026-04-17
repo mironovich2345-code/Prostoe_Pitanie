@@ -19,28 +19,87 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Use explicit select on every query to avoid touching new nullable columns
     // (userId, trainerUserId, clientUserId) that may not exist if migrations are pending.
+    // userId-first: after account linking, MAX users resolve to canonical userId and
+    // must see the canonical profile — not a newly created MAX-chatId profile.
     let step = 'parallel queries';
+
+    const profileSelect = {
+      chatId: true,
+      userId: true,
+      heightCm: true, currentWeightKg: true, desiredWeightKg: true,
+      dailyCaloriesKcal: true, dailyProteinG: true, dailyFatG: true,
+      dailyCarbsG: true, dailyFiberG: true, goalType: true,
+      notificationsEnabled: true, notificationCount: true, notificationTimes: true,
+      city: true, timezone: true, preferredName: true,
+      sex: true, birthDate: true, activityLevel: true,
+      referralCode: true, avatarData: true, trainerOfferType: true, referredByRole: true,
+    } as const;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function fetchProfile(): Promise<any> {
+      if (userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const byUserId = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)({
+          where: { userId },
+          select: profileSelect,
+        });
+        if (byUserId) return byUserId;
+        // Fallback: legacy chatId record (backfill userId if missing)
+        const legacy = await prisma.userProfile.findUnique({ where: { chatId }, select: profileSelect });
+        if (legacy && !legacy.userId) {
+          prisma.userProfile.update({ where: { chatId }, data: { userId } }).catch(() => {});
+        }
+        return legacy;
+      }
+      return prisma.userProfile.findUnique({ where: { chatId }, select: profileSelect });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function fetchTrainerProfile(): Promise<any> {
+      const select = {
+        chatId: true, userId: true,
+        verificationStatus: true, bio: true, specialization: true,
+        referralCode: true, fullName: true, socialLink: true,
+        documentLink: true, appliedAt: true, avatarData: true,
+      };
+      if (userId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const byUserId = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+          where: { OR: [{ chatId }, { userId }] },
+          select,
+        });
+        if (byUserId) {
+          // Backfill userId on TrainerProfile if missing
+          if (!byUserId.userId) {
+            prisma.trainerProfile.update({ where: { chatId: byUserId.chatId }, data: { userId } }).catch(() => {});
+          }
+          return byUserId;
+        }
+      }
+      return prisma.trainerProfile.findUnique({ where: { chatId }, select });
+    }
+
+    // Client link — OR on clientUserId for cross-platform visibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function fetchClientLink(): Promise<any> {
+      const select = {
+        trainerId: true, trainerUserId: true,
+        fullHistoryAccess: true, canViewPhotos: true, connectedAt: true,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const linkWhere: any = userId
+        ? { OR: [{ clientId: chatId }, { clientUserId: userId }], status: 'active' }
+        : { clientId: chatId, status: 'active' };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (prisma.trainerClientLink.findFirst as (args: any) => Promise<any>)({
+        where: linkWhere,
+        select,
+      });
+    }
+
     const [profile, trainerProfile, subscription, clientLink] = await Promise.all([
-      prisma.userProfile.findUnique({
-        where: { chatId },
-        select: {
-          heightCm: true, currentWeightKg: true, desiredWeightKg: true,
-          dailyCaloriesKcal: true, dailyProteinG: true, dailyFatG: true,
-          dailyCarbsG: true, dailyFiberG: true, goalType: true,
-          notificationsEnabled: true, notificationCount: true, notificationTimes: true,
-          city: true, timezone: true, preferredName: true,
-          sex: true, birthDate: true, activityLevel: true,
-          referralCode: true, avatarData: true, trainerOfferType: true, referredByRole: true,
-        },
-      }),
-      prisma.trainerProfile.findUnique({
-        where: { chatId },
-        select: {
-          verificationStatus: true, bio: true, specialization: true,
-          referralCode: true, fullName: true, socialLink: true,
-          documentLink: true, appliedAt: true, avatarData: true,
-        },
-      }),
+      fetchProfile(),
+      fetchTrainerProfile(),
       prisma.subscription.findUnique({
         where: { chatId },
         select: {
@@ -48,22 +107,26 @@ router.get('/', async (req: AuthRequest, res: Response) => {
           currentPeriodEnd: true, autoRenew: true,
         },
       }),
-      prisma.trainerClientLink.findFirst({
-        where: { clientId: chatId, status: 'active' },
-        select: {
-          trainerId: true, fullHistoryAccess: true,
-          canViewPhotos: true, connectedAt: true,
-        },
-      }),
+      fetchClientLink(),
     ]);
 
     let connectedTrainerProfile: { fullName: string | null; avatarData: string | null } | null = null;
     if (clientLink) {
       step = 'connectedTrainerProfile';
-      connectedTrainerProfile = await prisma.trainerProfile.findUnique({
-        where: { chatId: clientLink.trainerId },
-        select: { fullName: true, avatarData: true },
-      });
+      // Use trainerUserId if available (cross-platform trainer lookup)
+      const trainerSelect = { fullName: true, avatarData: true };
+      if (clientLink.trainerUserId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        connectedTrainerProfile = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+          where: { OR: [{ chatId: clientLink.trainerId }, { userId: clientLink.trainerUserId }] },
+          select: trainerSelect,
+        });
+      } else {
+        connectedTrainerProfile = await prisma.trainerProfile.findUnique({
+          where: { chatId: clientLink.trainerId },
+          select: trainerSelect,
+        });
+      }
     }
 
     res.json({
