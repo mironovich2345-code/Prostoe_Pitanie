@@ -114,6 +114,7 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
           currentWeightKg: true,    // shown in client card
           goalType: true,           // shown in client card
           dailyCaloriesKcal: true,  // shown in client card
+          avatarData: true,         // client profile photo
         },
       }),
       prisma.subscription.findMany({ where: { chatId: { in: clientIds } } }),
@@ -167,6 +168,7 @@ router.get('/clients/:clientId', async (req: AuthRequest, res: Response) => {
           desiredWeightKg: true,
           dailyCaloriesKcal: true,
           goalType: true,
+          avatarData: true,         // client profile photo
         },
       }),
       prisma.subscription.findUnique({ where: { chatId: clientId } }),

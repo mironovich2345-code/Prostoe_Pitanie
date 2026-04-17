@@ -25,21 +25,25 @@ interface LinkData {
 
 interface ClientItem {
   link: LinkData;
-  profile: UserProfile | null;
+  profile: (UserProfile & { avatarData?: string | null }) | null;
   subscription: SubscriptionInfo | null;
   displayName: string;
 }
 
-function ClientAvatar({ name }: { name: string }) {
+function ClientAvatar({ name, avatarData }: { name: string; avatarData?: string | null }) {
   const initial = name.charAt(0).toUpperCase();
   return (
     <div style={{
       width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-      background: 'var(--accent-soft)', border: '1.5px solid rgba(215,255,63,0.18)',
+      background: avatarData ? 'transparent' : 'var(--accent-soft)',
+      border: '1.5px solid rgba(215,255,63,0.18)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 16, fontWeight: 700, color: 'var(--accent)',
+      fontSize: 16, fontWeight: 700, color: 'var(--accent)', overflow: 'hidden',
     }}>
-      {initial}
+      {avatarData
+        ? <img src={avatarData} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : initial
+      }
     </div>
   );
 }
@@ -84,7 +88,7 @@ export default function CoachClientsScreen() {
                 display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
               }}
             >
-              <ClientAvatar name={name} />
+              <ClientAvatar name={name} avatarData={c.profile?.avatarData} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>
                   {name}

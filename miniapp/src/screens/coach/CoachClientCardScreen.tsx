@@ -116,7 +116,7 @@ export default function CoachClientCardScreen() {
 
   if (isLoading) return <div className="loading"><div className="spinner" /></div>;
 
-  const p = data?.profile as UserProfile | null;
+  const p = data?.profile as (UserProfile & { avatarData?: string | null }) | null;
   const sub = data?.subscription as SubscriptionInfo | null;
   const link = data?.link as LinkData | null;
   const clientActive = isClientActive(sub);
@@ -124,6 +124,7 @@ export default function CoachClientCardScreen() {
   const displayName = (data as { displayName?: string })?.displayName ?? `Клиент …${clientId?.slice(-4)}`;
   const defaultName = p?.preferredName?.trim() || `Клиент …${clientId?.slice(-4)}`;
   const initial = displayName.charAt(0).toUpperCase();
+  const avatarData = p?.avatarData ?? null;
 
   const GOAL_LABELS: Record<string, string> = {
     lose: 'Похудение', maintain: 'Поддержание', gain: 'Набор массы', track: 'Контроль питания',
@@ -212,11 +213,15 @@ export default function CoachClientCardScreen() {
       }}>
         <div style={{
           width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-          background: 'var(--accent-soft)', border: '2px solid rgba(215,255,63,0.18)',
+          background: avatarData ? 'transparent' : 'var(--accent-soft)',
+          border: '2px solid rgba(215,255,63,0.18)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, fontWeight: 700, color: 'var(--accent)',
+          fontSize: 22, fontWeight: 700, color: 'var(--accent)', overflow: 'hidden',
         }}>
-          {initial}
+          {avatarData
+            ? <img src={avatarData} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : initial
+          }
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{displayName}</div>
