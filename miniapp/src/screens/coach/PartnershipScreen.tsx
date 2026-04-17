@@ -73,7 +73,7 @@ export default function PartnershipScreen() {
           Партнёрство
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-          Приглашайте новых экспертов и получайте долю от их дохода.
+          Приглашайте новых экспертов и получайте 50% от их дохода в первый месяц.
         </div>
       </div>
 
@@ -113,13 +113,11 @@ export default function PartnershipScreen() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Первые {model.phase1Days} дней</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)' }}>{model.phase1Rate * 100}%</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)' }}>{model.phase1Rate * 100}% от дохода эксперта</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                    После месяца <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>(при &gt;{model.qualificationThreshold} клиентах)</span>
-                  </span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)' }}>{model.phase2Rate * 100}%</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>После {model.phase1Days} дней</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-3)' }}>—</span>
                 </div>
               </div>
               <div style={{
@@ -261,7 +259,7 @@ export default function PartnershipScreen() {
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Доход Месяц 1 (50%)</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Ваш доход за месяц 1 (50%)</span>
                             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{formatRub(r.phase1EarningsRub)}</span>
                           </div>
                           {r.isQualified && (
@@ -271,15 +269,14 @@ export default function PartnershipScreen() {
                                 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Клиенты после месяца 1</span>
                                 <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{r.phase2ClientCount} кл.</span>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Доход Месяц 2+ (100%)</span>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{formatRub(r.phase2EarningsRub)}</span>
+                              <div style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
+                                Эксперт квалифицирован — с месяца 2 он получает 100% самостоятельно.
                               </div>
                             </>
                           )}
                           {!r.isQualified && phase1Done && (
                             <div style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                              Квалификация не получена (нужно &gt;{5} клиентов в первый месяц)
+                              Квалификация не получена (нужно &gt;5 клиентов в первый месяц)
                             </div>
                           )}
                           {!r.isQualified && !phase1Done && (

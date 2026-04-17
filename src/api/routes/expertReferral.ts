@@ -62,8 +62,9 @@ router.get('/link', async (req: AuthRequest, res: Response) => {
         phase1Rate: PHASE1_RATE,
         phase2Rate: PHASE2_RATE,
         qualificationThreshold: QUALIFICATION_THRESHOLD,
-        description: `Первый месяц (${PHASE1_DAYS} дней): ${PHASE1_RATE * 100}% от доходов. ` +
-          `При привлечении более ${QUALIFICATION_THRESHOLD} клиентов в первый месяц — со второго месяца ${PHASE2_RATE * 100}% с новых клиентов.`,
+        description: `Первый месяц (${PHASE1_DAYS} дней): ${PHASE1_RATE * 100}% от дохода привлечённого эксперта. ` +
+          `После первого месяца реферер больше ничего не получает. ` +
+          `Если привлечённый эксперт наберёт более ${QUALIFICATION_THRESHOLD} клиентов за первый месяц — с 31 дня он получает 100% доходов самостоятельно.`,
       },
     });
   } catch (err) {

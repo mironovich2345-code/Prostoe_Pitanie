@@ -211,12 +211,8 @@ export async function computeStats(acquisition: EARecord): Promise<ExpertAcquisi
   const phase1Gross = await sumSucceededPayments(phase1ChatIds);
   const phase1EarningsRub = Math.round(phase1Gross * PHASE1_RATE * 100) / 100;
 
-  let phase2EarningsRub = 0;
-  if (acquisition.isQualified) {
-    const phase2Gross = await sumSucceededPayments(phase2ChatIds);
-    phase2EarningsRub = Math.round(phase2Gross * PHASE2_RATE * 100) / 100;
-  }
-
+  // Referrer earns only in phase 1 (50%). After phase 1, the 100% belongs to the
+  // invited expert themselves — the referrer gets nothing from phase-2 clients.
   return {
     acquisition,
     phase1ClientCount:   phase1Clients.length,
@@ -227,8 +223,8 @@ export async function computeStats(acquisition: EARecord): Promise<ExpertAcquisi
     phase2ClientCount:   phase2Clients.length,
     phase2ClientChatIds: phase2ChatIds,
     phase1EarningsRub,
-    phase2EarningsRub,
-    totalEarningsRub: Math.round((phase1EarningsRub + phase2EarningsRub) * 100) / 100,
+    phase2EarningsRub:   0,
+    totalEarningsRub:    phase1EarningsRub,
   };
 }
 
