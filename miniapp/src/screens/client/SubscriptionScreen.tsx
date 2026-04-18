@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { PageHeader } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
+import { api } from '../../api/client';
 import type { BootstrapData, SubscriptionStatus, TrainerOfferType } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
@@ -328,24 +330,22 @@ function PlanCard({
   );
 }
 
-// ─── Subscribe toast ───────────────────────────────────────────────────────
+// ─── Error toast ───────────────────────────────────────────────────────────
 
-function SubscribeToast({ onDone }: { onDone: () => void }) {
-  setTimeout(onDone, 2200);
+function ErrorToast({ message, onDone }: { message: string; onDone: () => void }) {
+  setTimeout(onDone, 3500);
   return (
     <div style={{
       position: 'fixed', bottom: 88, left: 16, right: 16, zIndex: 300,
       background: 'var(--surface)',
-      border: '1px solid var(--border)',
+      border: '1px solid rgba(255,59,48,0.4)',
       borderRadius: 'var(--r-md)',
       padding: '14px 18px',
       display: 'flex', alignItems: 'center', gap: 12,
       boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
     }}>
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flexShrink: 0 }} />
-      <span style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.4 }}>
-        Оплата будет доступна в ближайшее время
-      </span>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)', flexShrink: 0 }} />
+      <span style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.4 }}>{message}</span>
     </div>
   );
 }
@@ -354,7 +354,7 @@ function SubscribeToast({ onDone }: { onDone: () => void }) {
 
 export default function SubscriptionScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
-  const [toastVisible, setToastVisible] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const sub = bootstrap.subscription;
   const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
@@ -392,9 +392,30 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
     return 'available';
   }
 
-  function handleSubscribe(_planId: PlanDef['id']) {
-    // TODO: integrate payment when ready
-    setToastVisible(true);
+  const paymentMutation = useMutation({
+    mutationFn: ({ planId, offer }: { planId: 'pro' | 'optimal'; offer?: 'pro_3day' | 'month_1rub' }) =>
+      api.createPayment(planId, offer),
+    onSuccess: (data) => {
+      // Open YooKassa payment page.
+      // Prefer Telegram's openLink (opens in external browser, mini app stays open).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tgWebApp = window.Telegram?.WebApp as any;
+      const url = data.confirmationUrl;
+      if (typeof tgWebApp?.openLink === 'function') {
+        tgWebApp.openLink(url);
+      } else {
+        window.open(url, '_blank');
+      }
+    },
+    onError: (err: Error) => {
+      setErrorMsg(err.message || 'Не удалось создать платёж. Попробуйте позже.');
+    },
+  });
+
+  function handleSubscribe(planId: PlanDef['id']) {
+    setErrorMsg(null);
+    const offer = planId === 'pro' && proIntroOffer ? proIntroOffer : undefined;
+    paymentMutation.mutate({ planId, offer });
   }
 
   return (
@@ -417,14 +438,28 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
         <PlanCard
           key={plan.id}
           plan={plan}
-          cardState={getCardState(plan.id)}
+          cardState={paymentMutation.isPending ? 'unavailable' : getCardState(plan.id)}
           onSubscribe={handleSubscribe}
           introOffer={plan.id === 'pro' ? proIntroOffer : null}
         />
       ))}
 
-      {/* Toast */}
-      {toastVisible && <SubscribeToast onDone={() => setToastVisible(false)} />}
+      {/* Loading indicator while creating payment */}
+      {paymentMutation.isPending && (
+        <div style={{
+          position: 'fixed', bottom: 88, left: 16, right: 16, zIndex: 300,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--r-md)', padding: '14px 18px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        }}>
+          <div className="spinner" style={{ width: 16, height: 16, flexShrink: 0 }} />
+          <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Открываем страницу оплаты…</span>
+        </div>
+      )}
+
+      {/* Error */}
+      {errorMsg && <ErrorToast message={errorMsg} onDone={() => setErrorMsg(null)} />}
     </div>
   );
 }

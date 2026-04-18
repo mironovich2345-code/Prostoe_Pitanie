@@ -644,6 +644,28 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         </button>
       </div>
 
+      {/* Account link */}
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '12px 4px 8px' }}>
+        Аккаунт
+      </div>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12,
+      }}>
+        <button
+          onClick={() => navigate('/account-link')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            width: '100%', padding: '15px 20px',
+            background: 'none', border: 'none', cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Связать аккаунт</span>
+          <span style={{ fontSize: 18, color: 'var(--text-3)' }}>›</span>
+        </button>
+      </div>
+
       {/* Document upload bottom sheet */}
       {showDocSheet && (
         <>

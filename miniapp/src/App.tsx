@@ -53,6 +53,7 @@ import TrainerDetailScreen from './screens/client/TrainerDetailScreen';
 import DocumentsScreen from './screens/client/DocumentsScreen';
 import OnboardingScreen from './screens/client/OnboardingScreen';
 import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
+import AccountLinkScreen from './screens/client/AccountLinkScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import PartnershipScreen from './screens/coach/PartnershipScreen';
 import { api } from './api/client';
@@ -208,6 +209,7 @@ export default function App() {
             <Route path="/trainers" element={<TrainerListScreen />} />
             <Route path="/trainers/:trainerId" element={<TrainerDetailScreen />} />
             <Route path="/documents" element={<DocumentsScreen />} />
+            <Route path="/account-link" element={<AccountLinkScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
@@ -224,6 +226,7 @@ export default function App() {
             <Route path="/connect-client" element={<TrainerConnectionScreen />} />
             <Route path="/reviews" element={<CoachReviewsScreen />} />
             <Route path="/partnership" element={<PartnershipScreen />} />
+            <Route path="/account-link" element={<AccountLinkScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

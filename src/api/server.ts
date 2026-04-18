@@ -19,6 +19,8 @@ import adminRouter from './routes/admin';
 import companyRouter from './routes/company';
 import expertReferralRouter from './routes/expertReferral';
 import accountLinkRouter from './routes/accountLink';
+import paymentsRouter from './routes/payments';
+import webhooksRouter from './routes/webhooks';
 
 export function createApiServer() {
   const app = express();
@@ -31,6 +33,9 @@ export function createApiServer() {
 
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));
+
+  // YooKassa webhooks — no user auth (called by YooKassa servers)
+  app.use('/api/webhooks', webhooksRouter);
 
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
@@ -67,6 +72,7 @@ export function createApiServer() {
   app.use('/api/company', companyRouter);
   app.use('/api/expert-referral', expertReferralRouter);
   app.use('/api/account-link', accountLinkRouter);
+  app.use('/api/payments', paymentsRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');

@@ -303,4 +303,29 @@ export const api = {
         currentRate: number;
       } | null;
     }>('/api/expert-referral/my-acquisition'),
+
+  // ─── Payments (YooKassa) ──────────────────────────────────────────────────
+  createPayment: (planId: 'pro' | 'optimal', offer?: 'pro_3day' | 'month_1rub') =>
+    request<{ confirmationUrl: string; paymentId: string }>(
+      '/api/payments/create',
+      { method: 'POST', body: JSON.stringify({ planId, offer }) },
+    ),
+
+  // ─── Account linking (TG ↔ MAX cross-platform) ────────────────────────────
+  accountLinkRequest: () =>
+    request<{ code: string; expiresAt: string; ttlMinutes: number; instructions: string }>(
+      '/api/account-link/request', { method: 'POST' },
+    ),
+  accountLinkPending: () =>
+    request<{ pending: { code: string; expiresAt: string; initiatorPlatform: string } | null }>(
+      '/api/account-link/pending',
+    ),
+  accountLinkConfirm: (code: string) =>
+    request<{ ok: boolean; linkedPlatform: string; linkedPlatformId: string; message: string }>(
+      '/api/account-link/confirm', { method: 'POST', body: JSON.stringify({ code }) },
+    ),
+  accountLinkCancel: () =>
+    request<{ ok: boolean; canceled: number }>(
+      '/api/account-link/request', { method: 'DELETE' },
+    ),
 };
