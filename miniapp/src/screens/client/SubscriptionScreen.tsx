@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
 import { api } from '../../api/client';
@@ -354,7 +354,23 @@ function ErrorToast({ message, onDone }: { message: string; onDone: () => void }
 
 export default function SubscriptionScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Set to true after opening the YooKassa page so we know to re-fetch bootstrap
+  // when the user returns (visibility change after payment redirect).
+  const paymentStarted = useRef(false);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && paymentStarted.current) {
+        // User came back from YooKassa — refresh bootstrap so status updates immediately
+        qc.invalidateQueries({ queryKey: ['bootstrap'] });
+        paymentStarted.current = false;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [qc]);
 
   const sub = bootstrap.subscription;
   const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
@@ -401,6 +417,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tgWebApp = window.Telegram?.WebApp as any;
       const url = data.confirmationUrl;
+      paymentStarted.current = true;
       if (typeof tgWebApp?.openLink === 'function') {
         tgWebApp.openLink(url);
       } else {

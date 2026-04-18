@@ -97,16 +97,28 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Fetch subscription: prefer UserSubscription (userId-keyed, written by payment webhook)
+    // over the legacy Subscription (chatId-keyed, written by admin). After a successful payment,
+    // the webhook calls activateSubscription() which writes ONLY to UserSubscription; the legacy
+    // table is not touched. Reading legacy here would show stale "canceled" even after re-payment.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function fetchSubscription(): Promise<any> {
+      if (userId) {
+        const userSub = await (prisma as unknown as { userSubscription: { findUnique(a: any): Promise<any> } })
+          .userSubscription.findUnique({ where: { userId } });
+        if (userSub) return userSub;
+      }
+      // Fallback: legacy chatId-keyed table (no userId yet, or new user without UserSubscription)
+      return prisma.subscription.findUnique({
+        where: { chatId },
+        select: { planId: true, status: true, trialEndsAt: true, currentPeriodEnd: true, autoRenew: true },
+      });
+    }
+
     const [profile, trainerProfile, subscription, clientLink] = await Promise.all([
       fetchProfile(),
       fetchTrainerProfile(),
-      prisma.subscription.findUnique({
-        where: { chatId },
-        select: {
-          planId: true, status: true, trialEndsAt: true,
-          currentPeriodEnd: true, autoRenew: true,
-        },
-      }),
+      fetchSubscription(),
       fetchClientLink(),
     ]);
 

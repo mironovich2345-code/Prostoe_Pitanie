@@ -119,6 +119,7 @@ export async function activateSubscription(
     update: {
       planId,
       status: 'active',
+      autoRenew: true,        // reset after cancel (admin sets it to false)
       currentPeriodEnd: isIntro ? null : periodEnd,
       trialEndsAt: isIntro ? periodEnd : null,
       gracePeriodEnd: null,
