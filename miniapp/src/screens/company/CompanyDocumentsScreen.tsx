@@ -12,11 +12,7 @@ export default function CompanyDocumentsScreen() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-        >‹</button>
+      <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Документы</div>
       </div>
 

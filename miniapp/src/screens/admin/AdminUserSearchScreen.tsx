@@ -347,12 +347,6 @@ export default function AdminUserSearchScreen() {
 
   return (
     <div className="screen">
-      <button
-        onClick={() => navigate(-1)}
-        style={{ background: 'none', border: 'none', fontSize: 16, marginBottom: 12, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-      >
-        ← Назад
-      </button>
       <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text)', marginBottom: 6 }}>
         Поиск пользователя
       </div>

@@ -146,18 +146,9 @@ export default function TrainerDetailScreen() {
 
   return (
     <div className="screen">
-      {/* Back button */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-        >
-          ‹
-        </button>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-          Профиль эксперта
-        </h1>
-      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0, marginBottom: 20 }}>
+        Профиль эксперта
+      </h1>
 
       {isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
@@ -173,9 +164,6 @@ export default function TrainerDetailScreen() {
           <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>
             Не удалось загрузить профиль эксперта
           </div>
-          <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={() => navigate(-1)}>
-            Назад
-          </button>
         </div>
       )}
 

@@ -51,7 +51,6 @@ export default function CoachPayoutsScreen() {
 
   return (
     <div className="screen">
-      <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', fontSize: 22, marginBottom: 12, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}>‹</button>
       <h1 style={{ marginBottom: 16 }}>Начисления</h1>
 
       {/* Balance tiles */}

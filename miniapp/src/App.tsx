@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useBootstrap } from './hooks/useBootstrap';
 import { useTelegramReady } from './hooks/useTelegramReady';
 import ClientLayout from './layouts/ClientLayout';
@@ -61,6 +61,44 @@ import { api } from './api/client';
 import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
 
+// Root paths per mode — BackButton is hidden on these (they are tab/home screens)
+const ROOT_PATHS: Record<AppMode, string[]> = {
+  client:  ['/', '/shop', '/stats', '/profile', '/diary', '/onboarding'],
+  coach:   ['/', '/alerts', '/profile'],
+  company: ['/', '/stats', '/profile'],
+  admin:   ['/'],
+};
+
+/**
+ * Syncs Telegram native BackButton visibility with the current route.
+ * Must be rendered inside <BrowserRouter> so useLocation / useNavigate work.
+ */
+function TelegramNavSync({ mode }: { mode: AppMode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg?.BackButton) return;
+
+    const isRoot = ROOT_PATHS[mode].includes(location.pathname);
+    if (isRoot) {
+      tg.BackButton.hide();
+      return;
+    }
+
+    const handleBack = () => navigate(-1);
+    tg.BackButton.show();
+    tg.BackButton.onClick(handleBack);
+
+    return () => {
+      tg.BackButton.offClick(handleBack);
+    };
+  }, [location.pathname, mode, navigate]);
+
+  return null;
+}
+
 function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: string; bsError?: string }) {
   const lines = [
     `tg: ${diag.hasTelegram ? 'yes' : 'NO'}`,
@@ -86,6 +124,8 @@ export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
+    // Match the native Telegram header to the app's dark background (#0A0A0A)
+    (window.Telegram?.WebApp as any)?.setHeaderColor?.('bg_color');
     // Prevent Telegram from intercepting vertical swipe gestures on Android
     // (would otherwise compete with in-app scroll and require two-finger scroll)
     (window.Telegram?.WebApp as any)?.disableVerticalSwipes?.();
@@ -173,6 +213,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <TelegramNavSync mode={mode} />
       {mode === 'client' ? (
         <Routes>
           <Route path="/onboarding" element={<OnboardingScreen />} />

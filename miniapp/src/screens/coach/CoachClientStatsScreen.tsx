@@ -733,12 +733,6 @@ export default function CoachClientStatsScreen() {
 
   return (
     <div className="screen">
-      <button
-        onClick={() => navigate(-1)}
-        style={{ background: 'none', border: 'none', fontSize: 16, marginBottom: 12, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-      >
-        ← Назад
-      </button>
       <h1 style={{ marginBottom: 16, fontSize: 18 }}>Статистика · {displayName}</h1>
 
       <div className="period-tabs" style={{ marginBottom: 16 }}>

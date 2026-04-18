@@ -34,12 +34,6 @@ export default function CoachReferralsScreen() {
 
   return (
     <div className="screen">
-      <button
-        onClick={() => navigate(-1)}
-        style={{ background: 'none', border: 'none', fontSize: 16, marginBottom: 16, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-      >
-        ← Назад
-      </button>
 
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 6 }}>

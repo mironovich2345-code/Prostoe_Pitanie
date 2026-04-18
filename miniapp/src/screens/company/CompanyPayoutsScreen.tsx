@@ -51,10 +51,6 @@ export default function CompanyPayoutsScreen() {
 
   return (
     <div className="screen">
-      <button
-        onClick={() => navigate(-1)}
-        style={{ background: 'none', border: 'none', fontSize: 22, marginBottom: 12, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-      >‹</button>
 
       <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 20 }}>
         Вывод средств

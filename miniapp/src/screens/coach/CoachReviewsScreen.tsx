@@ -146,16 +146,7 @@ export default function CoachReviewsScreen() {
 
   return (
     <div className="screen">
-      {/* Back header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{ background: 'none', border: 'none', fontSize: 22, padding: 0, color: 'var(--accent)', cursor: 'pointer' }}
-        >
-          ‹
-        </button>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Мои отзывы</h1>
-      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0, marginBottom: 20 }}>Мои отзывы</h1>
 
       {/* Average rating banner */}
       {avg !== null && reviews.length > 0 && (
@@ -195,7 +186,6 @@ export default function CoachReviewsScreen() {
           border: '1px solid var(--border)', padding: '32px 20px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>Не удалось загрузить отзывы</div>
-          <button className="btn btn-secondary" style={{ fontSize: 14 }} onClick={() => navigate(-1)}>Назад</button>
         </div>
       )}
 
