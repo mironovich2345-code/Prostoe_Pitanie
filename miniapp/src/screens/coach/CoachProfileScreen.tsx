@@ -623,6 +623,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
       }}>
         <FinanceRow icon={<IconReferral />} label="Рефералы" path="/referrals" navigate={navigate} />
         <FinanceRow icon={<IconRequisites />} label="Реквизиты" path="/requisites" navigate={navigate} />
+        <FinanceRow icon={<IconPayout />} label="Вывод средств" path="/payouts" navigate={navigate} />
         <FinanceRow icon={<IconPartnership />} label="Партнёрство" path="/partnership" navigate={navigate} />
       </div>
 
