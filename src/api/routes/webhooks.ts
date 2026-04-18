@@ -67,12 +67,14 @@ async function markLogProcessed(logId: string | null, error?: string) {
   } catch { /* best-effort */ }
 }
 
-// ─── Route ────────────────────────────────────────────────────────────────────
+// ─── Shared handler (exported for alias mount in server.ts) ──────────────────
 
-router.post('/yookassa', async (req: Request, res: Response) => {
+export async function handleYooKassaWebhook(req: Request, res: Response): Promise<void> {
   const body = req.body as { event?: string; object?: { id?: string } };
   const eventType = body?.event ?? 'unknown';
   const yookassaPaymentId = body?.object?.id;
+
+  console.log(`[webhook/yk] received event=${eventType} ykId=${yookassaPaymentId ?? 'none'}`);
 
   // Always respond 200 quickly so YooKassa doesn't retry indefinitely
   res.json({ ok: true });
@@ -80,6 +82,7 @@ router.post('/yookassa', async (req: Request, res: Response) => {
   const logId = await logWebhook('yookassa', eventType, JSON.stringify(body));
 
   if (!yookassaPaymentId) {
+    console.warn('[webhook/yk] missing payment id in payload');
     await markLogProcessed(logId, 'missing payment id in payload');
     return;
   }
@@ -91,8 +94,9 @@ router.post('/yookassa', async (req: Request, res: Response) => {
   }
 
   try {
-    // ── Re-fetch payment from YooKassa to verify authenticity ──────────────
+    // ── Re-fetch from YooKassa to verify authenticity (prevents spoofed webhooks) ─
     const verified = await fetchYooKassaPayment(yookassaPaymentId);
+    console.log(`[webhook/yk] re-fetched ykId=${verified.id} status=${verified.status}`);
 
     // Find our local Payment record
     const payment = await paymentDb.findFirst({
@@ -100,40 +104,50 @@ router.post('/yookassa', async (req: Request, res: Response) => {
     });
 
     if (!payment) {
-      // Could be a payment created outside our app, or a race condition on first webhook
+      console.warn(`[webhook/yk] local Payment not found for ykId=${verified.id}`);
       await markLogProcessed(logId, 'payment record not found');
       return;
     }
 
+    console.log(`[webhook/yk] local payment id=${payment.id} status=${payment.status} userId=${payment.userId}`);
+
     if (verified.status === 'succeeded') {
-      // Idempotent: if already succeeded, skip
+      // Idempotent: already processed
       if (payment.status === 'succeeded') {
+        console.log(`[webhook/yk] already succeeded — skipping`);
         await markLogProcessed(logId);
         return;
       }
 
       await paymentDb.update({ where: { id: payment.id }, data: { status: 'succeeded' } });
+      console.log(`[webhook/yk] Payment ${payment.id} → succeeded`);
 
-      // Activate subscription
       const periodEnd = payment.periodEnd ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const planId = payment.planId as PlanId;
       await activateSubscription(payment.userId, planId, periodEnd);
 
-      console.log(`[webhooks/yookassa] activated ${planId} for user ${payment.userId}`);
+      console.log(`[webhook/yk] subscription activated planId=${planId} userId=${payment.userId} periodEnd=${periodEnd.toISOString()}`);
 
     } else if (verified.status === 'canceled') {
       if (payment.status !== 'canceled') {
         await paymentDb.update({ where: { id: payment.id }, data: { status: 'canceled' } });
+        console.log(`[webhook/yk] Payment ${payment.id} → canceled`);
       }
-      console.log(`[webhooks/yookassa] payment canceled for user ${payment.userId}`);
+    } else {
+      console.log(`[webhook/yk] unhandled status=${verified.status} — no action`);
     }
 
     await markLogProcessed(logId);
   } catch (err) {
     const msg = (err as Error).message;
-    console.error('[webhooks/yookassa] error:', msg);
+    console.error('[webhook/yk] error:', msg);
     await markLogProcessed(logId, msg);
   }
-});
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+// Primary path: /api/webhooks/yookassa  (mounted before auth in server.ts)
+router.post('/yookassa', handleYooKassaWebhook);
 
 export default router;

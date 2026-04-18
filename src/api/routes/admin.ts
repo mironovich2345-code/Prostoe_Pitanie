@@ -2,6 +2,8 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { getAiCostLogDbFull } from '../../ai/aiCost';
+import { fetchYooKassaPayment } from '../../services/yookassaService';
+import { activateSubscription, type PlanId } from '../../services/subscriptionService';
 
 const router = Router();
 
@@ -641,6 +643,79 @@ router.get('/ai-cost/user/:userId', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('[admin/ai-cost/user]', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/admin/payments/reconcile — fix stuck pending payments ──────────
+//
+// For payments where the webhook never arrived (e.g. wrong URL was configured in
+// YooKassa). Fetches the current status from YooKassa by providerPaymentId and,
+// if the payment succeeded, marks it succeeded and activates the subscription.
+//
+// Body: { providerPaymentId: string }
+//
+// Idempotent — safe to call multiple times for the same payment.
+router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Response) => {
+  const { providerPaymentId } = req.body as { providerPaymentId?: string };
+  if (!providerPaymentId) {
+    res.status(400).json({ error: 'providerPaymentId required' });
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentDb = (prisma as unknown as { payment: any }).payment as {
+    findFirst(args: { where: object }): Promise<{
+      id: string; userId: string; planId: string; status: string; periodEnd: Date | null;
+    } | null>;
+    update(args: { where: { id: string }; data: object }): Promise<{ id: string }>;
+  };
+
+  try {
+    // 1. Re-fetch from YooKassa
+    const verified = await fetchYooKassaPayment(providerPaymentId);
+    console.log(`[admin/reconcile] ykId=${verified.id} status=${verified.status}`);
+
+    // 2. Find local Payment
+    const payment = await paymentDb.findFirst({ where: { providerPaymentId: verified.id } });
+    if (!payment) {
+      res.status(404).json({ error: 'Local Payment record not found', ykStatus: verified.status });
+      return;
+    }
+
+    console.log(`[admin/reconcile] local id=${payment.id} status=${payment.status} userId=${payment.userId}`);
+
+    if (verified.status === 'succeeded') {
+      if (payment.status === 'succeeded') {
+        res.json({ ok: true, action: 'already_succeeded', paymentId: payment.id });
+        return;
+      }
+
+      await paymentDb.update({ where: { id: payment.id }, data: { status: 'succeeded' } });
+
+      const periodEnd = payment.periodEnd ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await activateSubscription(payment.userId, payment.planId as PlanId, periodEnd);
+
+      console.log(`[admin/reconcile] activated planId=${payment.planId} userId=${payment.userId}`);
+      res.json({
+        ok: true,
+        action: 'activated',
+        paymentId: payment.id,
+        userId: payment.userId,
+        planId: payment.planId,
+        periodEnd: periodEnd.toISOString(),
+      });
+    } else if (verified.status === 'canceled') {
+      if (payment.status !== 'canceled') {
+        await paymentDb.update({ where: { id: payment.id }, data: { status: 'canceled' } });
+      }
+      res.json({ ok: true, action: 'marked_canceled', paymentId: payment.id });
+    } else {
+      res.json({ ok: true, action: 'no_change', ykStatus: verified.status, paymentId: payment.id });
+    }
+  } catch (err) {
+    const msg = (err as Error).message;
+    console.error('[admin/reconcile] error:', msg);
+    res.status(500).json({ error: msg });
   }
 });
 

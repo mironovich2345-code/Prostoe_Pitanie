@@ -20,7 +20,7 @@ import companyRouter from './routes/company';
 import expertReferralRouter from './routes/expertReferral';
 import accountLinkRouter from './routes/accountLink';
 import paymentsRouter from './routes/payments';
-import webhooksRouter from './routes/webhooks';
+import webhooksRouter, { handleYooKassaWebhook } from './routes/webhooks';
 
 export function createApiServer() {
   const app = express();
@@ -34,8 +34,12 @@ export function createApiServer() {
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
-  // YooKassa webhooks — no user auth (called by YooKassa servers)
+  // YooKassa webhooks — registered BEFORE platformAuthMiddleware (YooKassa has no user token)
+  // Primary path:  POST /api/webhooks/yookassa
+  // Legacy alias:  POST /api/payments/yookassa/webhook  ← what was configured in YooKassa dashboard
+  // Both point to the same handler.
   app.use('/api/webhooks', webhooksRouter);
+  app.post('/api/payments/yookassa/webhook', handleYooKassaWebhook as express.RequestHandler);
 
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
