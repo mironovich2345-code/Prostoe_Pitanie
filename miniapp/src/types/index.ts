@@ -92,6 +92,8 @@ export interface SubscriptionInfo {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   autoRenew: boolean;
+  /** True when a YooKassa payment method is saved and auto-renewal can actually trigger. */
+  hasPaymentMethod?: boolean;
 }
 
 export interface ConnectedTrainerInfo {

@@ -11,6 +11,11 @@
  *
  * Re-fetch pattern for webhooks: always re-fetch payment from YooKassa API
  * to verify authenticity (prevents spoofed webhook calls).
+ *
+ * Recurring payments:
+ *   First payment: pass savePaymentMethod=true → YooKassa saves the card.
+ *   After payment.succeeded webhook: payment_method.id is stored in UserSubscription.providerSubId.
+ *   Renewal: createRecurringPayment() uses the saved payment_method_id (no confirmation_url needed).
  */
 
 const YOOKASSA_API = 'https://api.yookassa.ru/v3';
@@ -26,6 +31,13 @@ export interface YKPaymentObject {
   metadata?: Record<string, string>;
   created_at: string;
   expires_at?: string;
+  /** Present after payment is confirmed. saved=true means it can be reused for auto-payments. */
+  payment_method?: {
+    id: string;
+    saved: boolean;
+    type: string;
+    title?: string;
+  };
 }
 
 export interface CreatePaymentParams {
@@ -35,11 +47,30 @@ export interface CreatePaymentParams {
   userId: string;
   returnUrl: string;
   idempotenceKey: string;
+  /** Pass true to ask YooKassa to save the payment method for future auto-renewals. */
+  savePaymentMethod?: boolean;
 }
 
 export interface CreatePaymentResult {
   yookassaPaymentId: string;
   confirmationUrl: string;
+  status: string;
+  /** Set when YooKassa already returned the saved method ID (rare at creation time). */
+  paymentMethodId?: string;
+}
+
+export interface RecurringPaymentParams {
+  paymentMethodId: string;
+  amountRub: number;
+  description: string;
+  planId: string;
+  userId: string;
+  idempotenceKey: string;
+}
+
+export interface RecurringPaymentResult {
+  yookassaPaymentId: string;
+  /** 'succeeded' | 'canceled' | 'pending' */
   status: string;
 }
 
@@ -55,17 +86,24 @@ function authHeader(): string {
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 /**
- * Create a new YooKassa payment.
+ * Create a new YooKassa payment (first purchase — requires user redirect).
  * Returns the confirmation URL the user should be redirected to.
+ *
+ * Pass savePaymentMethod=true to ask YooKassa to save the card for future auto-renewals.
+ * The actual payment_method.id becomes available after the payment succeeds (via webhook).
  */
 export async function createYooKassaPayment(p: CreatePaymentParams): Promise<CreatePaymentResult> {
-  const body = {
+  const body: Record<string, unknown> = {
     amount: { value: p.amountRub.toFixed(2), currency: 'RUB' },
     capture: true,
     confirmation: { type: 'redirect', return_url: p.returnUrl },
     description: p.description,
     metadata: { userId: p.userId, planId: p.planId },
   };
+
+  if (p.savePaymentMethod) {
+    body['save_payment_method'] = true;
+  }
 
   const res = await fetch(`${YOOKASSA_API}/payments`, {
     method: 'POST',
@@ -91,7 +129,47 @@ export async function createYooKassaPayment(p: CreatePaymentParams): Promise<Cre
     yookassaPaymentId: data.id,
     confirmationUrl,
     status: data.status,
+    paymentMethodId: data.payment_method?.id,
   };
+}
+
+/**
+ * Create a recurring (auto-renewal) payment using a previously saved payment method.
+ * No confirmation_url is needed — the charge happens server-side without user interaction.
+ *
+ * YooKassa processes saved-card payments synchronously in most cases:
+ *   status = 'succeeded' → charge went through, activate subscription immediately
+ *   status = 'canceled'  → charge failed (insufficient funds, expired card, etc.)
+ *   status = 'pending'   → processing; wait for payment.succeeded / payment.canceled webhook
+ *
+ * The idempotenceKey must be unique per (userId, period) to prevent duplicate charges.
+ */
+export async function createRecurringPayment(p: RecurringPaymentParams): Promise<RecurringPaymentResult> {
+  const body = {
+    amount: { value: p.amountRub.toFixed(2), currency: 'RUB' },
+    capture: true,
+    payment_method_id: p.paymentMethodId,
+    description: p.description,
+    metadata: { userId: p.userId, planId: p.planId, type: 'renewal' },
+  };
+
+  const res = await fetch(`${YOOKASSA_API}/payments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader(),
+      'Content-Type': 'application/json',
+      'Idempotence-Key': p.idempotenceKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`YooKassa ${res.status}: ${text}`);
+  }
+
+  const data = await res.json() as YKPaymentObject;
+  return { yookassaPaymentId: data.id, status: data.status };
 }
 
 /**

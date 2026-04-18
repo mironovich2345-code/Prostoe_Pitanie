@@ -76,7 +76,21 @@ function statusBarColor(status: SubscriptionStatus | 'free'): string {
 
 // ─── Current plan card (top) ───────────────────────────────────────────────
 
-function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
+function CurrentPlanCard({
+  bootstrap,
+  confirmingCancel,
+  isCancelling,
+  onRequestCancel,
+  onConfirmCancel,
+  onAbortCancel,
+}: {
+  bootstrap: BootstrapData;
+  confirmingCancel: boolean;
+  isCancelling: boolean;
+  onRequestCancel: () => void;
+  onConfirmCancel: () => void;
+  onAbortCancel: () => void;
+}) {
   const sub = bootstrap.subscription;
   const statusKey = (sub?.status ?? 'free') as SubscriptionStatus | 'free';
   const active = isActiveStatus(statusKey);
@@ -131,12 +145,86 @@ function CurrentPlanCard({ bootstrap }: { bootstrap: BootstrapData }) {
             </span>
           </div>
         )}
-        {active && sub?.autoRenew && (
+        {/* autoRenew + saved payment method → real recurring billing */}
+        {active && sub?.autoRenew && sub?.hasPaymentMethod && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Автопродление</span>
             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent)' }}>
               Включено
             </span>
+          </div>
+        )}
+
+        {/* autoRenew=true but no saved payment method — be honest with the user */}
+        {active && sub?.autoRenew && !sub?.hasPaymentMethod && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Автопродление</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: 'var(--surface-2)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                Недоступно
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>
+              Способ оплаты не поддерживает автосписание — продлите вручную до окончания периода.
+            </div>
+          </div>
+        )}
+
+        {/* Cancel auto-renewal — only shown when a real payment method is saved */}
+        {active && sub?.autoRenew && sub?.hasPaymentMethod && (
+          <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            {!confirmingCancel ? (
+              <button
+                onClick={onRequestCancel}
+                disabled={isCancelling}
+                style={{
+                  width: '100%', padding: '10px 0', fontSize: 13, fontWeight: 600,
+                  borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text-3)',
+                  cursor: 'pointer', textAlign: 'center',
+                }}
+              >
+                Отключить автосписание
+              </button>
+            ) : (
+              <div style={{
+                background: 'rgba(255,59,48,0.07)', border: '1px solid rgba(255,59,48,0.2)',
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+                  Отключить автосписание?
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
+                  Текущий оплаченный период сохранится. После его окончания подписка не продлится автоматически — нужно будет продлить вручную.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={onConfirmCancel}
+                    disabled={isCancelling}
+                    style={{
+                      flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 700,
+                      borderRadius: 10, border: 'none',
+                      background: 'rgba(255,59,48,0.15)', color: 'var(--danger)',
+                      cursor: isCancelling ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {isCancelling ? 'Отключаем...' : 'Да, отключить'}
+                  </button>
+                  <button
+                    onClick={onAbortCancel}
+                    disabled={isCancelling}
+                    style={{
+                      flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 600,
+                      borderRadius: 10, border: '1px solid var(--border)',
+                      background: 'var(--surface-2)', color: 'var(--text-2)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {!active && sub && (
@@ -356,9 +444,22 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   // Set to true after opening the YooKassa page so we know to re-fetch bootstrap
   // when the user returns (visibility change after payment redirect).
   const paymentStarted = useRef(false);
+
+  const cancelAutoRenewMutation = useMutation({
+    mutationFn: api.cancelAutoRenew,
+    onSuccess: () => {
+      setConfirmingCancel(false);
+      qc.invalidateQueries({ queryKey: ['bootstrap'] });
+    },
+    onError: () => {
+      setConfirmingCancel(false);
+      setErrorMsg('Не удалось отключить автосписание. Попробуйте позже.');
+    },
+  });
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -440,7 +541,14 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
       <PageHeader title="Подписка" onBack={() => navigate('/profile')} />
 
       {/* Current plan status */}
-      <CurrentPlanCard bootstrap={bootstrap} />
+      <CurrentPlanCard
+        bootstrap={bootstrap}
+        confirmingCancel={confirmingCancel}
+        isCancelling={cancelAutoRenewMutation.isPending}
+        onRequestCancel={() => setConfirmingCancel(true)}
+        onConfirmCancel={() => cancelAutoRenewMutation.mutate()}
+        onAbortCancel={() => setConfirmingCancel(false)}
+      />
 
       {/* Plans section label */}
       <div style={{

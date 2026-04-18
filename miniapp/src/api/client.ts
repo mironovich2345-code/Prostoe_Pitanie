@@ -334,6 +334,11 @@ export const api = {
       '/api/payments/create',
       { method: 'POST', body: JSON.stringify({ planId, offer }) },
     ),
+  cancelAutoRenew: () =>
+    request<{ ok: boolean; autoRenew: boolean }>(
+      '/api/subscription/auto-renew',
+      { method: 'PATCH', body: JSON.stringify({ enabled: false }) },
+    ),
 
   // ─── Account linking (TG ↔ MAX cross-platform) ────────────────────────────
   accountLinkRequest: () =>

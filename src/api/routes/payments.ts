@@ -110,6 +110,9 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
         userId,
         returnUrl,
         idempotenceKey,
+        // Ask YooKassa to save the payment method so future auto-renewals can charge
+        // without requiring the user to re-enter their card details.
+        savePaymentMethod: true,
       });
     } catch (err) {
       // Mark the local payment as failed so it doesn't stay orphaned

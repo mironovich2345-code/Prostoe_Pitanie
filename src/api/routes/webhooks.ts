@@ -222,6 +222,26 @@ export async function handleYooKassaWebhook(req: Request, res: Response): Promis
 
       console.log(`[webhook/yk] subscription activated planId=${planId} userId=${payment.userId} periodEnd=${periodEnd.toISOString()}`);
 
+      // Save the YooKassa payment method ID for future auto-renewals.
+      // payment_method.id is only reliable (saved=true) after the payment succeeds.
+      const paymentMethodId = verified.payment_method?.id;
+      if (paymentMethodId && verified.payment_method?.saved === true) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const subDb = (prisma as unknown as { userSubscription: any }).userSubscription as {
+            update(args: object): Promise<unknown>;
+          };
+          await subDb.update({
+            where: { userId: payment.userId },
+            data: { providerSubId: paymentMethodId, paymentProvider: 'yookassa' },
+          });
+          console.log(`[webhook/yk] saved payment method ${paymentMethodId} for userId=${payment.userId}`);
+        } catch (err) {
+          // Non-fatal: renewal still possible via manual action; log and move on.
+          console.warn(`[webhook/yk] could not save payment method:`, (err as Error).message);
+        }
+      }
+
       // Fire-and-forget referral reward — non-fatal if it fails
       createReferralRewardIfApplicable(payment.userId, {
         id: payment.id,

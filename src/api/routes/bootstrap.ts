@@ -187,6 +187,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         trialEndsAt: subscription.trialEndsAt,
         currentPeriodEnd: subscription.currentPeriodEnd,
         autoRenew: subscription.autoRenew,
+        // True when YooKassa has a saved payment method for this user (providerSubId set).
+        // Used by the UI to show/hide the "Disable auto-renewal" button.
+        hasPaymentMethod: !!(subscription.providerSubId),
       } : null,
       connectedTrainer: clientLink ? {
         trainerId: clientLink.trainerId,

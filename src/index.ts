@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { createApiServer } from './api/server';
+import { runRenewalJob } from './services/renewalJob';
+import { runHoldReleaseJob } from './services/holdReleaseJob';
 import { Telegraf, Markup } from 'telegraf';
 import prisma from './db';
 import { message } from 'telegraf/filters';
@@ -1299,6 +1301,37 @@ setInterval(() => {
     console.error('[reminder] ошибка рассылки:', msg);
   });
 }, 60_000);
+
+// ── Subscription renewal job: every hour ──────────────────────────────────────
+// Finds subscriptions expiring within ±24 h with a saved payment method and
+// attempts auto-charge via YooKassa (no user interaction required).
+const RENEWAL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+setInterval(() => {
+  runRenewalJob().catch((err: unknown) => {
+    console.error('[renewal] unhandled error:', err instanceof Error ? err.message : String(err));
+  });
+}, RENEWAL_INTERVAL_MS);
+// Run once at startup (after a short delay to let DB connections settle)
+setTimeout(() => {
+  runRenewalJob().catch((err: unknown) => {
+    console.error('[renewal] startup run error:', err instanceof Error ? err.message : String(err));
+  });
+}, 30_000);
+
+// ── Hold-release job: every 24 hours ──────────────────────────────────────────
+// Transitions TrainerReward records from pending_hold → available once holdUntil has passed.
+const HOLD_RELEASE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+setInterval(() => {
+  runHoldReleaseJob().catch((err: unknown) => {
+    console.error('[hold-release] unhandled error:', err instanceof Error ? err.message : String(err));
+  });
+}, HOLD_RELEASE_INTERVAL_MS);
+// Run once at startup
+setTimeout(() => {
+  runHoldReleaseJob().catch((err: unknown) => {
+    console.error('[hold-release] startup run error:', err instanceof Error ? err.message : String(err));
+  });
+}, 10_000);
 
 bot.action('reminder_add_meal', async (ctx) => {
   await ctx.answerCbQuery();
