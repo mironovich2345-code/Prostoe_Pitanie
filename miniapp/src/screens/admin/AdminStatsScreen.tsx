@@ -156,6 +156,48 @@ export default function AdminStatsScreen() {
             { label: 'Без оплат', value: data.subscriptions.neverPaid, color: 'var(--text-3)' },
           ]} />
 
+          {/* ── Оплаты ── */}
+          <SectionLabel>Оплаты (₽)</SectionLabel>
+          {data.paymentRevenue && (
+            <StatCard>
+              <div style={{ display: 'flex', justifyContent: 'space-around', padding: '14px 18px' }}>
+                {[
+                  { label: 'Сегодня', value: data.paymentRevenue.today },
+                  { label: 'Неделя',  value: data.paymentRevenue.week },
+                  { label: 'Месяц',   value: data.paymentRevenue.month },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: value > 0 ? 'var(--accent)' : 'var(--text-3)', letterSpacing: -0.3 }}>
+                      {value.toLocaleString('ru')} ₽
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                      {label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </StatCard>
+          )}
+
+          {/* ── Тарифы ── */}
+          <SectionLabel>Тарифы</SectionLabel>
+          {data.plans && (
+            <ThreeTiles items={[
+              { label: 'Бесплатно', value: data.plans.free.toLocaleString('ru'),    color: 'var(--text-3)' },
+              { label: 'Optimal',   value: data.plans.optimal.toLocaleString('ru'), color: '#7EB8F0' },
+              { label: 'Pro',       value: data.plans.pro.toLocaleString('ru'),     color: 'var(--accent)' },
+            ]} />
+          )}
+
+          {/* ── Автосписание ── */}
+          <SectionLabel>Автосписание</SectionLabel>
+          {data.autoRenew && (
+            <StatCard>
+              <SmallRow label="С автосписанием"    value={data.autoRenew.on.toLocaleString('ru')}  color="#4CAF50" />
+              <SmallRow label="Без автосписания"   value={data.autoRenew.off.toLocaleString('ru')} color="var(--text-3)" last />
+            </StatCard>
+          )}
+
           {/* ── Вознаграждения ── */}
           <SectionLabel>Вознаграждения тренеров</SectionLabel>
           <StatCard>

@@ -237,6 +237,17 @@ router.get('/rewards/:trainerId', async (req: AuthRequest, res: Response) => {
 
 // ─── GET /api/admin/stats — platform statistics ────────────────────────────
 
+// Stale Prisma casts for tables not yet in the generated client
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const statsPaymentDb = (prisma as unknown as { payment: any }).payment as {
+  aggregate(args: object): Promise<{ _sum: { amountRub: number | null } }>;
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const statsUserSubDb = (prisma as unknown as { userSubscription: any }).userSubscription as {
+  count(args?: object): Promise<number>;
+  groupBy(args: object): Promise<Array<{ planId: string; _count: { _all: number } }>>;
+};
+
 router.get('/stats', async (_req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
@@ -257,6 +268,13 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       subsActive,
       subsExpired,
       subsNeverPaid,
+      // Payment revenue from the Payment table (succeeded only)
+      payRevToday,
+      payRevWeek,
+      payRevMonth,
+      // AutoRenew counts from UserSubscription (canonical source)
+      autoRenewOn,
+      autoRenewOff,
     ] = await Promise.all([
       prisma.userProfile.count(),
       prisma.userProfile.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -273,6 +291,13 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       prisma.userProfile.count({
         where: { chatId: { notIn: (await prisma.subscription.findMany({ select: { chatId: true } })).map(s => s.chatId) } },
       }),
+      // Payment revenue: sum amountRub where status='succeeded', by time window
+      statsPaymentDb.aggregate({ where: { status: 'succeeded', createdAt: { gte: startOfToday } }, _sum: { amountRub: true } } as object),
+      statsPaymentDb.aggregate({ where: { status: 'succeeded', createdAt: { gte: startOfWeek } },  _sum: { amountRub: true } } as object),
+      statsPaymentDb.aggregate({ where: { status: 'succeeded', createdAt: { gte: startOfMonth } }, _sum: { amountRub: true } } as object),
+      // AutoRenew: count from UserSubscription (1 row per user, canonical)
+      statsUserSubDb.count({ where: { autoRenew: true } } as object),
+      statsUserSubDb.count({ where: { autoRenew: false } } as object),
     ]);
 
     // Experts vs Companies among verified
@@ -290,6 +315,25 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       prisma.trainerReward.count({ where: { createdAt: { gte: startOfMonth } } }),
       prisma.trainerReward.count(),
     ]);
+
+    // Plan breakdown: group active/trial UserSubscriptions by planId
+    // 'pro' | 'intro' (Pro 3-day) → Pro; 'optimal' | 'client_monthly' → Optimal
+    // Free = all other users (no active UserSubscription)
+    const activePlanGroups = await statsUserSubDb.groupBy({
+      by: ['planId'],
+      where: { status: { in: ['active', 'trial'] } },
+      _count: { _all: true },
+    } as object);
+    type PlanGroup = { planId: string; _count: { _all: number } };
+    const proUsersCount = (activePlanGroups as PlanGroup[])
+      .filter(g => g.planId === 'pro' || g.planId === 'intro')
+      .reduce((s, g) => s + g._count._all, 0);
+    const optimalUsersCount = (activePlanGroups as PlanGroup[])
+      .filter(g => g.planId === 'optimal' || g.planId === 'client_monthly')
+      .reduce((s, g) => s + g._count._all, 0);
+    // freeUsersCount = all users minus those on an active paid plan in UserSubscription
+    // (users with only a legacy Subscription row are counted as free in this metric)
+    const freeUsersCount = totalUsers - proUsersCount - optimalUsersCount;
 
     // AI costs — no historical data; structure prepared for future tracking via AiCostLog model
     // Currently 0 / no data until AiCostLog migration is applied
@@ -322,6 +366,21 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
         today: paymentsToday,
         week: paymentsWeek,
         month: paymentsMonth,
+      },
+      // ── New fields ──
+      paymentRevenue: {
+        today: Math.round(payRevToday._sum.amountRub ?? 0),
+        week:  Math.round(payRevWeek._sum.amountRub  ?? 0),
+        month: Math.round(payRevMonth._sum.amountRub ?? 0),
+      },
+      autoRenew: {
+        on:  autoRenewOn,
+        off: autoRenewOff,
+      },
+      plans: {
+        free:    freeUsersCount,
+        optimal: optimalUsersCount,
+        pro:     proUsersCount,
       },
       aiCosts,
     });

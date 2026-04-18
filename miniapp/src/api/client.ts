@@ -213,6 +213,9 @@ export const api = {
       experts: { total: number; newToday: number; newWeek: number; newMonth: number };
       subscriptions: { total: number; active: number; expired: number; neverPaid: number };
       payments: { total: number; today: number; week: number; month: number };
+      paymentRevenue: { today: number; week: number; month: number };
+      autoRenew: { on: number; off: number };
+      plans: { free: number; optimal: number; pro: number };
       aiCosts: { today: number | null; week: number | null; month: number | null; note: string };
     }>('/api/admin/stats'),
   adminAiCostAggregate: () =>
