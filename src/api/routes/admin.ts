@@ -335,6 +335,35 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
     // (users with only a legacy Subscription row are counted as free in this metric)
     const freeUsersCount = totalUsers - proUsersCount - optimalUsersCount;
 
+    // Offer obligations: aggregate non-cancelled TrainerReward amounts by offer type
+    // We join referredChatId → UserProfile.trainerOfferType to derive the offer bucket.
+    const rewardsMonth = await prisma.trainerReward.findMany({
+      where: { status: { not: 'cancelled' }, createdAt: { gte: startOfMonth } },
+      select: { referredChatId: true, amountRub: true, createdAt: true },
+    });
+    const uniqueReferredIds = [...new Set(rewardsMonth.map(r => r.referredChatId))];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const referredProfiles = uniqueReferredIds.length > 0
+      ? await (prisma.userProfile.findMany as (args: any) => Promise<Array<{ chatId: string; trainerOfferType: string | null }>>)({
+          where: { chatId: { in: uniqueReferredIds } },
+          select: { chatId: true, trainerOfferType: true },
+        })
+      : [];
+    const offerTypeByClient = Object.fromEntries(
+      referredProfiles.map(p => [p.chatId, normalizeOfferType(p.trainerOfferType)])
+    );
+
+    function aggregateObligations(rewards: Array<{ referredChatId: string; amountRub: number; createdAt: Date }>, since: Date) {
+      let oneTime = 0, lifetime = 0;
+      for (const r of rewards) {
+        if (r.createdAt < since) continue;
+        const t = offerTypeByClient[r.referredChatId];
+        if (t === 'one_time') oneTime += r.amountRub;
+        else if (t === 'lifetime') lifetime += r.amountRub;
+      }
+      return { oneTime: Math.round(oneTime), lifetime: Math.round(lifetime) };
+    }
+
     // AI costs — no historical data; structure prepared for future tracking via AiCostLog model
     // Currently 0 / no data until AiCostLog migration is applied
     const aiCosts = { today: null as number | null, week: null as number | null, month: null as number | null, note: 'Учёт ведётся с момента внедрения' };
@@ -382,10 +411,34 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
         optimal: optimalUsersCount,
         pro:     proUsersCount,
       },
+      offerObligations: {
+        day:   aggregateObligations(rewardsMonth, startOfToday),
+        week:  aggregateObligations(rewardsMonth, startOfWeek),
+        month: aggregateObligations(rewardsMonth, startOfMonth),
+      },
       aiCosts,
     });
   } catch (err) {
     console.error('[admin/stats]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/admin/trainer-requisites/:chatId — view trainer/company requisites ──
+
+router.get('/trainer-requisites/:chatId', async (req: AuthRequest, res: Response) => {
+  const { chatId } = req.params as { chatId: string };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tp = await (prisma.trainerProfile.findUnique as (args: any) => Promise<{ fullName: string | null; specialization: string | null; requisitesData: string | null } | null>)({
+      where: { chatId },
+      select: { fullName: true, specialization: true, requisitesData: true },
+    });
+    if (!tp) { res.status(404).json({ error: 'Trainer profile not found' }); return; }
+    const requisites = tp.requisitesData ? JSON.parse(tp.requisitesData) : null;
+    res.json({ fullName: tp.fullName, specialization: tp.specialization, requisites });
+  } catch (err) {
+    console.error('[admin/trainer-requisites]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

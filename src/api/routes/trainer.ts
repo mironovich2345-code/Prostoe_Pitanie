@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
-import { validateImageDataUrl, AVATAR_MAX_BYTES, validateDocumentDataUrl, DOCUMENT_MAX_BYTES } from '../utils/validateImage';
+import { validateImageDataUrl, AVATAR_MAX_BYTES, validateDocumentDataUrl, DOCUMENT_MAX_BYTES, PHOTO_MAX_BYTES } from '../utils/validateImage';
+import { recognizeRequisites } from '../../ai/recognizeRequisites';
 
 const router = Router();
 
@@ -520,6 +521,70 @@ router.get('/documents/:id/file', async (req: AuthRequest, res: Response) => {
     res.send(buffer);
   } catch {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/trainer/requisites — load saved requisites for this trainer/expert
+router.get('/requisites', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const userId = req.userId ?? null;
+  try {
+    const tp = await findTrainerProfile(chatId, userId);
+    if (!tp) { res.status(403).json({ error: 'Trainer profile not found' }); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const full = await (prisma.trainerProfile.findUnique as (args: any) => Promise<{ requisitesData: string | null } | null>)({
+      where: { chatId: tp.chatId },
+      select: { requisitesData: true },
+    });
+    const data = full?.requisitesData ? JSON.parse(full.requisitesData) : null;
+    res.json({ requisites: data });
+  } catch (err) {
+    console.error('[trainer/requisites GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/trainer/requisites — save requisites
+router.patch('/requisites', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const userId = req.userId ?? null;
+  const { requisites } = req.body as { requisites: unknown };
+  if (!requisites || typeof requisites !== 'object') {
+    res.status(400).json({ error: 'requisites object required' });
+    return;
+  }
+  try {
+    const tp = await findTrainerProfile(chatId, userId);
+    if (!tp) { res.status(403).json({ error: 'Trainer profile not found' }); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (prisma.trainerProfile.update as (args: any) => Promise<unknown>)({
+      where: { chatId: tp.chatId },
+      data: { requisitesData: JSON.stringify(requisites) },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[trainer/requisites PATCH]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/trainer/requisites/recognize — AI recognition from photo/document
+router.post('/requisites/recognize', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const userId = req.userId ?? null;
+  const { imageData } = req.body as { imageData?: string };
+  if (!imageData) { res.status(400).json({ error: 'imageData required' }); return; }
+  if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
+  try {
+    const tp = await findTrainerProfile(chatId, userId);
+    if (!tp) { res.status(403).json({ error: 'Access denied' }); return; }
+    const result = await recognizeRequisites(imageData, { userId: req.userId, chatId: req.chatId, scenario: 'requisites_ocr' });
+    res.json({ recognized: result });
+  } catch (err) {
+    console.error('[trainer/requisites/recognize]', err);
+    res.status(500).json({ error: 'Recognition failed' });
   }
 });
 

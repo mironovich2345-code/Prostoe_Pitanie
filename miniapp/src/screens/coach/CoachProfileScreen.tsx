@@ -109,6 +109,17 @@ function IconReviews() {
     </svg>
   );
 }
+function IconRequisites() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  );
+}
 function IconEdit() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -611,6 +622,7 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
         border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12,
       }}>
         <FinanceRow icon={<IconReferral />} label="Рефералы" path="/referrals" navigate={navigate} />
+        <FinanceRow icon={<IconRequisites />} label="Реквизиты" path="/requisites" navigate={navigate} />
         <FinanceRow icon={<IconPartnership />} label="Партнёрство" path="/partnership" navigate={navigate} />
       </div>
 

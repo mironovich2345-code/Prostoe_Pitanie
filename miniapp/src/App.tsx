@@ -56,6 +56,7 @@ import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
 import AccountLinkScreen from './screens/client/AccountLinkScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import PartnershipScreen from './screens/coach/PartnershipScreen';
+import CoachRequisitesScreen from './screens/coach/CoachRequisitesScreen';
 import { api } from './api/client';
 import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
@@ -226,6 +227,7 @@ export default function App() {
             <Route path="/connect-client" element={<TrainerConnectionScreen />} />
             <Route path="/reviews" element={<CoachReviewsScreen />} />
             <Route path="/partnership" element={<PartnershipScreen />} />
+            <Route path="/requisites" element={<CoachRequisitesScreen />} />
             <Route path="/account-link" element={<AccountLinkScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

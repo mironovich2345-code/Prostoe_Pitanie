@@ -216,6 +216,7 @@ export const api = {
       paymentRevenue: { today: number; week: number; month: number };
       autoRenew: { on: number; off: number };
       plans: { free: number; optimal: number; pro: number };
+      offerObligations: { day: { oneTime: number; lifetime: number }; week: { oneTime: number; lifetime: number }; month: { oneTime: number; lifetime: number } };
       aiCosts: { today: number | null; week: number | null; month: number | null; note: string };
     }>('/api/admin/stats'),
   adminAiCostAggregate: () =>
@@ -249,6 +250,18 @@ export const api = {
       `/api/admin/subscriptions/${encodeURIComponent(chatId)}`,
       { method: 'PATCH', body: JSON.stringify({ action, days, plan }) },
     ),
+
+  // ─── Trainer (expert) requisites ──────────────────────────────────────────
+  trainerRequisites: () =>
+    request<{ requisites: Record<string, string> | null }>('/api/trainer/requisites'),
+  trainerSaveRequisites: (requisites: Record<string, string>) =>
+    request<{ ok: boolean }>('/api/trainer/requisites', { method: 'PATCH', body: JSON.stringify({ requisites }) }),
+  trainerRecognizeRequisites: (imageData: string) =>
+    request<{ recognized: Record<string, string> }>('/api/trainer/requisites/recognize', { method: 'POST', body: JSON.stringify({ imageData }) }),
+
+  // ─── Admin: trainer requisites lookup ────────────────────────────────────
+  adminTrainerRequisites: (chatId: string) =>
+    request<{ fullName: string | null; specialization: string | null; requisites: Record<string, string> | null }>(`/api/admin/trainer-requisites/${encodeURIComponent(chatId)}`),
 
   // ─── Company requisites ────────────────────────────────────────────────────
   companyRequisites: () =>

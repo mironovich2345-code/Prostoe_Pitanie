@@ -59,6 +59,7 @@ export function createApiServer() {
   app.use('/api/nutrition/analyze', aiRateLimit as express.RequestHandler);
   app.use('/api/nutrition/insight', aiRateLimit as express.RequestHandler);
   app.use('/api/company/requisites/recognize', aiRateLimit as express.RequestHandler);
+  app.use('/api/trainer/requisites/recognize', aiRateLimit as express.RequestHandler);
 
   app.use('/api/bootstrap', bootstrapRouter);
   app.use('/api/nutrition', nutritionRouter);

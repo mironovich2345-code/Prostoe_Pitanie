@@ -198,6 +198,42 @@ export default function AdminStatsScreen() {
             </StatCard>
           )}
 
+          {/* ── Обязательства по офферам ── */}
+          {data.offerObligations && (
+            <>
+              <SectionLabel>Обязательства по офферам (₽)</SectionLabel>
+              <StatCard>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', background: 'var(--surface-2)', padding: '8px 18px' }}>
+                  {(['day', 'week', 'month'] as const).map(period => (
+                    <div key={period} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>
+                        {period === 'day' ? 'Сегодня' : period === 'week' ? 'Неделя' : 'Месяц'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4, marginBottom: 6 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>100% оффер</div>
+                    {(['day', 'week', 'month'] as const).map(p => (
+                      <div key={p} style={{ fontSize: 13, fontWeight: 700, color: data.offerObligations[p].oneTime > 0 ? 'var(--accent)' : 'var(--text-3)', textAlign: 'right' }}>
+                        {data.offerObligations[p].oneTime.toLocaleString('ru')} ₽
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>20% оффер</div>
+                    {(['day', 'week', 'month'] as const).map(p => (
+                      <div key={p} style={{ fontSize: 13, fontWeight: 700, color: data.offerObligations[p].lifetime > 0 ? '#7EB8F0' : 'var(--text-3)', textAlign: 'right' }}>
+                        {data.offerObligations[p].lifetime.toLocaleString('ru')} ₽
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </StatCard>
+            </>
+          )}
+
           {/* ── Вознаграждения ── */}
           <SectionLabel>Вознаграждения тренеров</SectionLabel>
           <StatCard>

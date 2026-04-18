@@ -3,6 +3,41 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
+// ─── Requisites panel (lazy-fetched per payout row) ───────────────────────────
+
+function RequisitesPanel({ trainerId }: { trainerId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-trainer-requisites', trainerId],
+    queryFn: () => api.adminTrainerRequisites(trainerId),
+  });
+
+  if (isLoading) return <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>Загрузка реквизитов...</div>;
+  if (!data?.requisites) return <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>Реквизиты не заполнены</div>;
+
+  const { type, ...fields } = data.requisites as Record<string, string>;
+  const typeLabel = type === 'ooo' ? 'ООО' : type === 'ip' ? 'ИП' : type === 'selfemployed' ? 'Сам.зан.' : type;
+
+  const LABELS: Record<string, string> = {
+    companyName: 'Наименование', inn: 'ИНН', kpp: 'КПП', ogrn: 'ОГРН',
+    legalAddress: 'Адрес', accountNumber: 'Номер РС', corrAccount: 'Корр. счёт',
+    bik: 'БИК', director: 'Руководитель',
+  };
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+        Реквизиты {typeLabel && `· ${typeLabel}`}
+      </div>
+      {Object.entries(fields).filter(([, v]) => v).map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4, gap: 8 }}>
+          <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>{LABELS[k] ?? k}</span>
+          <span style={{ color: 'var(--text-2)', fontWeight: 500, textAlign: 'right', wordBreak: 'break-all' }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type Payout = {
   id: number;
   trainerId: string;
@@ -224,7 +259,8 @@ export default function AdminPayoutsScreen() {
                         {p.holdUntil && <><br />Холд до: {fmtDate(p.holdUntil)}</>}
                         {p.paidAt && <><br />Выплачено: {fmtDate(p.paidAt)}</>}
                       </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <RequisitesPanel trainerId={p.trainerId} />
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                         {ALL_STATUSES.filter(s => s !== p.status).map(s => (
                           <button
                             key={s}
