@@ -124,8 +124,11 @@ export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
-    // Match the native Telegram header to the app's dark background (#0A0A0A)
-    (window.Telegram?.WebApp as any)?.setHeaderColor?.('bg_color');
+    // Pin all Telegram chrome to the app's exact dark background.
+    // Use hex directly — 'bg_color' resolves to the user's Telegram theme color (may be purple).
+    (window.Telegram?.WebApp as any)?.setHeaderColor?.('#0A0A0A');
+    (window.Telegram?.WebApp as any)?.setBackgroundColor?.('#0A0A0A');
+    (window.Telegram?.WebApp as any)?.setBottomBarColor?.('#0A0A0A');
     // Prevent Telegram from intercepting vertical swipe gestures on Android
     // (would otherwise compete with in-app scroll and require two-finger scroll)
     (window.Telegram?.WebApp as any)?.disableVerticalSwipes?.();
@@ -172,7 +175,7 @@ export default function App() {
         <div>Не удалось загрузить данные</div>
         <div style={{ fontSize: 13, marginTop: 8 }}>{subtitle}</div>
         <button
-          style={{ marginTop: 16, padding: '8px 20px', fontSize: 14, borderRadius: 8, border: 'none', background: 'var(--tg-theme-button-color, #3390ec)', color: 'var(--tg-theme-button-text-color, #fff)', cursor: 'pointer' }}
+          style={{ marginTop: 16, padding: '8px 20px', fontSize: 14, borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#000', cursor: 'pointer' }}
           onClick={() => window.location.reload()}
         >
           Повторить
