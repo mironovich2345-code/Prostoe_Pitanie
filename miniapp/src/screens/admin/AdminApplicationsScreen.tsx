@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+
 import { api } from '../../api/client';
 
 type App = {
@@ -139,7 +139,6 @@ function ApplicationCard({ app, onAction }: { app: App; onAction: () => void }) 
 }
 
 export default function AdminApplicationsScreen() {
-  const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({

@@ -251,6 +251,10 @@ router.post('/confirm', async (req: AuthRequest, res: Response) => {
       });
     });
 
+    console.log(
+      `[account-link/confirm] linked: initiator=${linkReq.initiatorUserId} platform=${linkReq.initiatorPlatform} platformId=${linkReq.initiatorPlatformId} → canonicalUserId=${canonicalUserId}`,
+    );
+
     res.json({
       ok: true,
       linkedPlatform: linkReq.initiatorPlatform,

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -26,7 +26,6 @@ function fmtRub(n: number) {
 }
 
 export default function AdminRewardsScreen() {
-  const navigate = useNavigate();
   const { trainerId } = useParams<{ trainerId: string }>();
 
   const { data, isLoading } = useQuery({

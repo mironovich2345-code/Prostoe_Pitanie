@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+
 import { api } from '../../api/client';
 
 // ─── Primitives ────────────────────────────────────────────────────────────────
@@ -101,7 +101,6 @@ function ThreeTiles({ items }: { items: { label: string; value: string | number;
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 export default function AdminStatsScreen() {
-  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: api.adminStats,

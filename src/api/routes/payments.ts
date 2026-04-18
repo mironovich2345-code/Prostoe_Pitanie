@@ -123,6 +123,10 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
       data: { providerPaymentId: yookassaResult.yookassaPaymentId },
     });
 
+    console.log(
+      `[payments/create] payment created: id=${payment.id} userId=${userId} planId=${plan.actualPlanId} amount=${plan.amountRub} ykId=${yookassaResult.yookassaPaymentId}`,
+    );
+
     res.json({
       confirmationUrl: yookassaResult.confirmationUrl,
       paymentId: payment.id,

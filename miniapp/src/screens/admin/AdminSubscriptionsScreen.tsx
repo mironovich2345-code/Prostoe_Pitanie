@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 
 type SubRow = {
@@ -53,7 +53,6 @@ function SubBlock({ label, sub }: { label: string; sub: SubRow }) {
 }
 
 export default function AdminSubscriptionsScreen() {
-  const navigate = useNavigate();
   const location = useLocation();
   const prefill = (location.state as { prefillChatId?: string } | null)?.prefillChatId ?? '';
 
