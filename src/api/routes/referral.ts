@@ -53,6 +53,7 @@ router.get('/my-invited', async (req: AuthRequest, res: Response) => {
 /** GET /api/referral/trainer-offers — 3 offer links with stats (for verified trainers) */
 router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId ?? null;
   try {
     const trainerProfile = await prisma.trainerProfile.findUnique({
       where: { chatId },
@@ -65,9 +66,17 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
 
     const code = await ensureReferralCode(chatId);
 
-    // Per-offer users with chatId for reward aggregation
-    const referredUsers = await prisma.userProfile.findMany({
-      where: { referredBy: chatId, referredByRole: 'trainer' },
+    // Per-offer users with chatId for reward aggregation.
+    // referredByRole can be 'trainer' (trf_ links) or 'company' (crf_ links).
+    // Both use the same endpoint — match by chatId OR by userId to cover cross-platform trainers.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const referredUsersWhere: any = userId
+      ? { OR: [{ referredBy: chatId }, { referredByUserId: userId }], referredByRole: { in: ['trainer', 'company'] } }
+      : { referredBy: chatId, referredByRole: { in: ['trainer', 'company'] } };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const referredUsers = await (prisma.userProfile.findMany as (args: any) => Promise<any[]>)({
+      where: referredUsersWhere,
       select: { chatId: true, trainerOfferType: true, telegramUsername: true, preferredName: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -86,11 +95,19 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
       clientIdsByKey[key].push(u.chatId);
     }
 
-    // Fetch rewards for all referred clients to compute per-offer earnings
-    const allReferredChatIds = referredUsers.map(u => u.chatId);
-    const allRewards = allReferredChatIds.length > 0
+    // Fetch rewards for all referred clients to compute per-offer earnings.
+    // Use OR on trainerUserId so rewards created under any platform identity are visible.
+    const allReferredChatIds = referredUsers.map((u: { chatId: string }) => u.chatId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rewardWhere: any = allReferredChatIds.length === 0
+      ? null
+      : userId
+        ? { OR: [{ trainerId: chatId }, { trainerUserId: userId }], referredChatId: { in: allReferredChatIds } }
+        : { trainerId: chatId, referredChatId: { in: allReferredChatIds } };
+
+    const allRewards = rewardWhere
       ? await prisma.trainerReward.findMany({
-          where: { trainerId: chatId, referredChatId: { in: allReferredChatIds } },
+          where: rewardWhere,
           orderBy: { createdAt: 'asc' },
         })
       : [];

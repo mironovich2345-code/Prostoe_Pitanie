@@ -4,6 +4,7 @@ import prisma from '../../db';
 import { getAiCostLogDbFull } from '../../ai/aiCost';
 import { fetchYooKassaPayment } from '../../services/yookassaService';
 import { activateSubscription, type PlanId } from '../../services/subscriptionService';
+import { normalizeOfferType } from '../../utils/referral';
 
 const router = Router();
 
@@ -665,7 +666,7 @@ router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Resp
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paymentDb = (prisma as unknown as { payment: any }).payment as {
     findFirst(args: { where: object }): Promise<{
-      id: string; userId: string; planId: string; status: string; periodEnd: Date | null;
+      id: string; userId: string; planId: string; amountRub: number; status: string; periodEnd: Date | null;
     } | null>;
     update(args: { where: { id: string }; data: object }): Promise<{ id: string }>;
   };
@@ -695,6 +696,45 @@ router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Resp
       const periodEnd = payment.periodEnd ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       await activateSubscription(payment.userId, payment.planId as PlanId, periodEnd);
 
+      // Also create referral reward if applicable (same logic as the webhook handler)
+      let rewardCreated = false;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const profile = await (prisma.userProfile.findFirst as (args: any) => Promise<{
+          chatId: string; referredBy: string | null; referredByUserId: string | null;
+          referredByRole: string | null; trainerOfferType: string | null;
+        } | null>)({
+          where: { userId: payment.userId },
+          select: { chatId: true, referredBy: true, referredByUserId: true, referredByRole: true, trainerOfferType: true },
+        });
+        if (profile?.referredBy && (profile.referredByRole === 'trainer' || profile.referredByRole === 'company')) {
+          const offerType = normalizeOfferType(profile.trainerOfferType);
+          if (offerType && offerType !== 'month_1rub') {
+            const rewardRub = offerType === 'one_time' ? payment.amountRub : Math.round(payment.amountRub * 0.20 * 100) / 100;
+            if (rewardRub > 0) {
+              const existingReward = offerType === 'one_time'
+                ? await prisma.trainerReward.findFirst({ where: { trainerId: profile.referredBy, referredChatId: profile.chatId } })
+                : null;
+              if (!existingReward) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (prisma.trainerReward.create as (args: any) => Promise<any>)({
+                  data: {
+                    trainerId: profile.referredBy, trainerUserId: profile.referredByUserId ?? null,
+                    referredChatId: profile.chatId, referredUserId: payment.userId,
+                    planId: payment.planId, amountRub: rewardRub, status: 'pending_hold',
+                    holdUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                  },
+                });
+                rewardCreated = true;
+                console.log(`[admin/reconcile] referral reward created: ${rewardRub}₽ trainer=${profile.referredBy} offerType=${offerType}`);
+              }
+            }
+          }
+        }
+      } catch (rewardErr) {
+        console.error('[admin/reconcile] referral reward creation failed:', (rewardErr as Error).message);
+      }
+
       console.log(`[admin/reconcile] activated planId=${payment.planId} userId=${payment.userId}`);
       res.json({
         ok: true,
@@ -703,6 +743,7 @@ router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Resp
         userId: payment.userId,
         planId: payment.planId,
         periodEnd: periodEnd.toISOString(),
+        rewardCreated,
       });
     } else if (verified.status === 'canceled') {
       if (payment.status !== 'canceled') {
