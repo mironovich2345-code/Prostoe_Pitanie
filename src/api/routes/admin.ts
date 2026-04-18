@@ -440,10 +440,12 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
     // (users with only a legacy Subscription row are counted as free in this metric)
     const freeUsersCount = totalUsers - proUsersCount - optimalUsersCount;
 
-    // Offer obligations: aggregate non-cancelled TrainerReward amounts by offer type
+    // Offer obligations: aggregate only genuinely outstanding TrainerReward amounts.
+    // Included statuses (real debt): pending_hold | available | requested
+    // Excluded: paid_out (already paid to trainer) | cancelled (written off)
     // We join referredChatId → UserProfile.trainerOfferType to derive the offer bucket.
     const rewardsMonth = await prisma.trainerReward.findMany({
-      where: { status: { not: 'cancelled' }, createdAt: { gte: startOfMonth } },
+      where: { status: { in: ['pending_hold', 'available', 'requested'] }, createdAt: { gte: startOfMonth } },
       select: { referredChatId: true, amountRub: true, createdAt: true },
     });
     const uniqueReferredIds = [...new Set(rewardsMonth.map(r => r.referredChatId))];
