@@ -431,6 +431,145 @@ router.get('/rewards', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── Payout requests ──────────────────────────────────────────────────────────
+
+const MIN_PAYOUT_RUB = 2500;
+
+// Stale-cast DB accessor for PayoutRequest (not yet in generated client)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const payoutRequestDb = (prisma as unknown as { payoutRequest: any }).payoutRequest as {
+  findFirst(args: { where: object; orderBy?: object }): Promise<{
+    id: number; trainerId: string; trainerUserId: string | null;
+    amountRub: number; requisitesSnapshot: string; rewardIds: string;
+    status: string; note: string | null; createdAt: Date; updatedAt: Date;
+  } | null>;
+  create(args: { data: object }): Promise<{ id: number; status: string; amountRub: number; createdAt: Date }>;
+};
+
+// GET /api/trainer/payout-request — current pending/approved request for this trainer
+router.get('/payout-request', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const userId = req.userId ?? null;
+  try {
+    const tp = await findTrainerProfile(chatId, userId);
+    if (!tp) { res.status(403).json({ error: 'Trainer profile not found' }); return; }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = userId
+      ? { OR: [{ trainerId: tp.chatId }, { trainerUserId: userId }], status: { in: ['pending', 'approved'] } }
+      : { trainerId: tp.chatId, status: { in: ['pending', 'approved'] } };
+
+    const existing = await payoutRequestDb.findFirst({ where, orderBy: { createdAt: 'desc' } });
+    res.json({
+      request: existing ? {
+        id: existing.id,
+        amountRub: existing.amountRub,
+        status: existing.status,
+        requisitesSnapshot: JSON.parse(existing.requisitesSnapshot),
+        rewardIds: JSON.parse(existing.rewardIds),
+        createdAt: existing.createdAt.toISOString(),
+      } : null,
+    });
+  } catch (err) {
+    console.error('[trainer/payout-request GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/trainer/payout-request — create a withdrawal request
+router.post('/payout-request', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const userId = req.userId ?? null;
+  try {
+    const tp = await findTrainerProfile(chatId, userId);
+    if (!tp) { res.status(403).json({ error: 'Trainer profile not found' }); return; }
+    const trainerUserId = tp.userId ?? null;
+
+    // 1. Fetch requisites — must be filled
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trainerFull = await (prisma.trainerProfile.findUnique as (args: any) => Promise<{ requisitesData: string | null } | null>)({
+      where: { chatId: tp.chatId },
+      select: { requisitesData: true },
+    });
+    if (!trainerFull?.requisitesData) {
+      res.status(422).json({ error: 'Сначала заполните реквизиты', code: 'no_requisites' });
+      return;
+    }
+    let requisites: Record<string, string>;
+    try { requisites = JSON.parse(trainerFull.requisitesData); } catch {
+      res.status(422).json({ error: 'Реквизиты повреждены, заполните заново', code: 'no_requisites' });
+      return;
+    }
+    // Require at least companyName/inn and accountNumber to be non-empty
+    if (!requisites['inn'] || !requisites['accountNumber']) {
+      res.status(422).json({ error: 'Реквизиты заполнены не полностью. Укажите минимум ИНН и номер расчётного счёта', code: 'incomplete_requisites' });
+      return;
+    }
+
+    // 2. Fetch available rewards
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rewardWhere: any = trainerUserId
+      ? { OR: [{ trainerId: tp.chatId }, { trainerUserId }], status: 'available' }
+      : { trainerId: tp.chatId, status: 'available' };
+    const availableRewards = await prisma.trainerReward.findMany({ where: rewardWhere });
+    const totalAvailable = availableRewards.reduce((s, r) => s + r.amountRub, 0);
+
+    if (totalAvailable < MIN_PAYOUT_RUB) {
+      res.status(422).json({
+        error: `Минимальная сумма для вывода — ${MIN_PAYOUT_RUB.toLocaleString('ru')} ₽. Сейчас доступно ${Math.floor(totalAvailable).toLocaleString('ru')} ₽`,
+        code: 'below_minimum',
+        available: totalAvailable,
+      });
+      return;
+    }
+
+    // 3. Check for existing active request (dedup)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dupWhere: any = trainerUserId
+      ? { OR: [{ trainerId: tp.chatId }, { trainerUserId }], status: { in: ['pending', 'approved'] } }
+      : { trainerId: tp.chatId, status: { in: ['pending', 'approved'] } };
+    const duplicate = await payoutRequestDb.findFirst({ where: dupWhere });
+    if (duplicate) {
+      res.status(409).json({ error: 'У вас уже есть активная заявка на вывод', code: 'duplicate_request', requestId: duplicate.id });
+      return;
+    }
+
+    // 4. Create PayoutRequest and atomically move rewards to 'requested'
+    const rewardIds = availableRewards.map(r => r.id);
+    const created = await payoutRequestDb.create({
+      data: {
+        trainerId: tp.chatId,
+        trainerUserId,
+        amountRub: totalAvailable,
+        requisitesSnapshot: JSON.stringify(requisites),
+        rewardIds: JSON.stringify(rewardIds),
+        status: 'pending',
+      },
+    });
+
+    // Mark rewards as 'requested' with a link to the new PayoutRequest
+    await (prisma.trainerReward.updateMany as (args: any) => Promise<any>)({
+      where: { id: { in: rewardIds } },
+      data: { status: 'requested', payoutRequestId: created.id },
+    });
+
+    console.log(`[trainer/payout-request] created id=${created.id} trainer=${tp.chatId} amount=${totalAvailable} rewards=${rewardIds.length}`);
+
+    res.json({
+      ok: true,
+      request: {
+        id: created.id,
+        amountRub: created.amountRub,
+        status: created.status,
+        createdAt: created.createdAt.toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('[trainer/payout-request POST]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── Expert documents ─────────────────────────────────────────────────────────
 
 const VALID_DOC_TYPES = ['diploma', 'certificate', 'other'];

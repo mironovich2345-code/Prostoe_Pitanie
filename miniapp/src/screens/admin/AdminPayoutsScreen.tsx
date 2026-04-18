@@ -3,6 +3,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 
+// ─── Requisites formatting helpers ────────────────────────────────────────────
+
+const REQ_LABELS: Record<string, string> = {
+  companyName: 'Наименование', inn: 'ИНН', kpp: 'КПП', ogrn: 'ОГРН',
+  legalAddress: 'Адрес', accountNumber: 'Номер РС', corrAccount: 'Корр. счёт',
+  bik: 'БИК', director: 'Руководитель',
+};
+
+const TYPE_LABELS: Record<string, string> = { ooo: 'ООО', ip: 'ИП', selfemployed: 'Сам.зан.' };
+
+function formatRequisitesText(req: Record<string, string>): string {
+  const { type, ...fields } = req;
+  const header = TYPE_LABELS[type] ? `[${TYPE_LABELS[type]}]` : '';
+  const lines = Object.entries(fields)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${REQ_LABELS[k] ?? k}: ${v}`);
+  return [header, ...lines].filter(Boolean).join('\n');
+}
+
 // ─── Requisites panel (lazy-fetched per payout row) ───────────────────────────
 
 function RequisitesPanel({ trainerId }: { trainerId: string }) {
@@ -129,6 +148,204 @@ function SmallRow({ label, value, color, last }: { label: string; value: string;
   );
 }
 
+// ─── Payout requests panel ────────────────────────────────────────────────────
+
+type PayoutRequest = {
+  trainerId: string;
+  trainerName: string | null;
+  specialization: string | null;
+  requisites: Record<string, string> | null;
+  totalRub: number;
+  rewardIds: number[];
+  oldestCreatedAt: string;
+};
+
+const PR_STATUS_LABELS: Record<string, string> = {
+  pending:   'Ожидает',
+  approved:  'Одобрено',
+  paid:      'Выплачено',
+  cancelled: 'Отменено',
+};
+const PR_STATUS_COLORS: Record<string, string> = {
+  pending:   'var(--text-3)',
+  approved:  '#7EB8F0',
+  paid:      'var(--accent)',
+  cancelled: 'var(--danger)',
+};
+
+function PayoutRequestsSection() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-payout-requests'],
+    queryFn: api.adminPayoutRequests,
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      api.adminUpdatePayoutRequestStatus(id, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-payout-requests'] }),
+  });
+
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<number | null>(null);
+
+  const requests = data?.requests ?? [];
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+  const count = requests.length;
+
+  function copyRequisites(req: Record<string, string>, id: number) {
+    const text = formatRequisitesText(req);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(() => {/* ignore */});
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 18px',
+          background: pendingCount > 0 ? 'var(--accent-soft)' : 'var(--surface)',
+          border: `1px solid ${pendingCount > 0 ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: open ? 'var(--r-xl) var(--r-xl) 0 0' : 'var(--r-xl)',
+          cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: pendingCount > 0 ? 'var(--accent)' : 'var(--text)' }}>
+            Запросы на вывод
+          </span>
+          {isLoading ? (
+            <div className="spinner" style={{ width: 14, height: 14 }} />
+          ) : (
+            <span style={{
+              fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+              background: pendingCount > 0 ? 'var(--accent)' : 'var(--border)',
+              color: pendingCount > 0 ? '#000' : 'var(--text-3)',
+            }}>
+              {pendingCount > 0 ? `${pendingCount} новых` : count}
+            </span>
+          )}
+        </div>
+        <span style={{ fontSize: 18, color: 'var(--text-3)', lineHeight: 1 }}>{open ? '∧' : '∨'}</span>
+      </button>
+
+      {open && (
+        <div style={{
+          background: 'var(--surface)', borderRadius: '0 0 var(--r-xl) var(--r-xl)',
+          border: '1px solid var(--border)', borderTop: 'none', overflow: 'hidden',
+        }}>
+          {requests.length === 0 ? (
+            <div style={{ padding: '20px 18px', fontSize: 13, color: 'var(--text-3)', textAlign: 'center' }}>
+              Нет активных заявок
+            </div>
+          ) : (
+            requests.map((r, i) => {
+              const isCompany = r.specialization === 'Компания';
+              const hasCopied = copied === r.id;
+              const statusColor = PR_STATUS_COLORS[r.status] ?? 'var(--text-3)';
+              return (
+                <div key={r.id} style={{
+                  padding: '14px 18px',
+                  borderBottom: i < requests.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  {/* Header: name + status badge + amount */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
+                        {r.trainerName || r.trainerId}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                        {isCompany ? 'Компания' : 'Эксперт'} · {fmtDate(r.createdAt)} · #{r.id}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                        background: `${statusColor}18`, color: statusColor,
+                      }}>
+                        {PR_STATUS_LABELS[r.status] ?? r.status}
+                      </span>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: '#4CAF50', letterSpacing: -0.3 }}>
+                        {fmtRub(r.amountRub)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Requisites snapshot */}
+                  {r.requisites ? (
+                    <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '10px 12px', border: '1px solid var(--border)', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Реквизиты {r.requisites.type ? `· ${TYPE_LABELS[r.requisites.type] ?? r.requisites.type}` : ''}
+                        </span>
+                        <button
+                          onClick={() => copyRequisites(r.requisites!, r.id)}
+                          style={{
+                            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 8,
+                            background: hasCopied ? '#4CAF5020' : 'var(--surface)',
+                            border: `1px solid ${hasCopied ? '#4CAF50' : 'var(--border)'}`,
+                            color: hasCopied ? '#4CAF50' : 'var(--text-2)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {hasCopied ? '✓ Скопировано' : 'Скопировать'}
+                        </button>
+                      </div>
+                      {Object.entries(r.requisites).filter(([k, v]) => k !== 'type' && v).map(([k, v]) => (
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3, gap: 8 }}>
+                          <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>{REQ_LABELS[k] ?? k}</span>
+                          <span style={{ color: 'var(--text-2)', fontWeight: 500, textAlign: 'right', wordBreak: 'break-all', userSelect: 'text' }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--danger)', fontStyle: 'italic', marginBottom: 10 }}>
+                      Реквизиты не найдены в заявке
+                    </div>
+                  )}
+
+                  {/* Admin status actions */}
+                  {r.status === 'pending' && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button onClick={() => updateMutation.mutate({ id: r.id, status: 'approved' })} disabled={updateMutation.isPending}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer', background: '#7EB8F020', border: '1px solid #7EB8F040', color: '#7EB8F0' }}>
+                        Одобрить
+                      </button>
+                      <button onClick={() => updateMutation.mutate({ id: r.id, status: 'paid' })} disabled={updateMutation.isPending}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer', background: 'var(--accent-soft)', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
+                        Выплачено
+                      </button>
+                      <button onClick={() => updateMutation.mutate({ id: r.id, status: 'cancelled' })} disabled={updateMutation.isPending}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer', background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.25)', color: 'var(--danger)' }}>
+                        Отклонить
+                      </button>
+                    </div>
+                  )}
+                  {r.status === 'approved' && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => updateMutation.mutate({ id: r.id, status: 'paid' })} disabled={updateMutation.isPending}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer', background: 'var(--accent-soft)', border: '1px solid var(--accent)', color: 'var(--accent)' }}>
+                        Выплачено
+                      </button>
+                      <button onClick={() => updateMutation.mutate({ id: r.id, status: 'cancelled' })} disabled={updateMutation.isPending}
+                        style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 8, cursor: 'pointer', background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.25)', color: 'var(--danger)' }}>
+                        Отклонить
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 export default function AdminPayoutsScreen() {
@@ -185,6 +402,10 @@ export default function AdminPayoutsScreen() {
           <div className="spinner" />
         </div>
       )}
+
+      {/* ── Запросы на вывод — always visible, not gated on isLoading ── */}
+      <SectionLabel>Запросы на вывод</SectionLabel>
+      <PayoutRequestsSection />
 
       {!isLoading && (
         <>

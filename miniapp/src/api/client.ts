@@ -192,6 +192,10 @@ export const api = {
     request<{ ok: boolean }>(`/api/admin/experts/${encodeURIComponent(chatId)}/revoke`, { method: 'POST' }),
   adminPayouts: () =>
     request<{ payouts: Array<{ id: number; trainerId: string; trainerName: string | null; referredChatId: string; planId: string; amountRub: number; status: string; holdUntil: string | null; paidAt: string | null; createdAt: string }> }>('/api/admin/payouts'),
+  adminPayoutRequests: () =>
+    request<{ requests: Array<{ id: number; trainerId: string; trainerName: string | null; specialization: string | null; amountRub: number; requisites: Record<string, string> | null; rewardIds: number[]; status: string; note: string | null; createdAt: string }> }>('/api/admin/payout-requests'),
+  adminUpdatePayoutRequestStatus: (id: number, status: string, note?: string) =>
+    request<{ ok: boolean; id: number; status: string }>(`/api/admin/payout-requests/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) }),
   adminUpdatePayoutStatus: (id: number, status: string) =>
     request<{ ok: boolean }>(`/api/admin/payouts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   adminTrainerRewards: (trainerId: string) =>
@@ -252,6 +256,10 @@ export const api = {
     ),
 
   // ─── Trainer (expert) requisites ──────────────────────────────────────────
+  trainerPayoutRequest: () =>
+    request<{ request: { id: number; amountRub: number; status: string; requisitesSnapshot: Record<string, string>; rewardIds: number[]; createdAt: string } | null }>('/api/trainer/payout-request'),
+  trainerCreatePayoutRequest: () =>
+    request<{ ok: boolean; request: { id: number; amountRub: number; status: string; createdAt: string } }>('/api/trainer/payout-request', { method: 'POST' }),
   trainerRequisites: () =>
     request<{ requisites: Record<string, string> | null }>('/api/trainer/requisites'),
   trainerSaveRequisites: (requisites: Record<string, string>) =>

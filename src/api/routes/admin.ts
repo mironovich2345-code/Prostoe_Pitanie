@@ -183,6 +183,111 @@ router.get('/payouts', async (_req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── PayoutRequest stale-cast DB accessor ──────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const payoutReqDb = (prisma as unknown as { payoutRequest: any }).payoutRequest as {
+  findMany(args: { where?: object; orderBy?: object }): Promise<Array<{
+    id: number; trainerId: string; trainerUserId: string | null;
+    amountRub: number; requisitesSnapshot: string; rewardIds: string;
+    status: string; note: string | null; createdAt: Date; updatedAt: Date;
+  }>>;
+  findFirst(args: { where: object }): Promise<{
+    id: number; trainerId: string; amountRub: number; rewardIds: string; status: string;
+  } | null>;
+  update(args: { where: { id: number }; data: object }): Promise<{
+    id: number; status: string;
+  }>;
+};
+
+// ─── GET /api/admin/payout-requests — real PayoutRequest records ─────────────
+
+router.get('/payout-requests', async (_req: AuthRequest, res: Response) => {
+  try {
+    const rows = await payoutReqDb.findMany({
+      where: { status: { not: 'cancelled' } },
+      orderBy: { createdAt: 'desc' },
+    } as object);
+
+    if (rows.length === 0) { res.json({ requests: [] }); return; }
+
+    const trainerIds = [...new Set(rows.map(r => r.trainerId))];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trainers: Array<{ chatId: string; fullName: string | null; specialization: string | null }> =
+      await (prisma.trainerProfile.findMany as (args: any) => Promise<any>)({
+        where: { chatId: { in: trainerIds } },
+        select: { chatId: true, fullName: true, specialization: true },
+      });
+    const trainerMap = Object.fromEntries(trainers.map(t => [t.chatId, t]));
+
+    const requests = rows.map(r => {
+      const tp = trainerMap[r.trainerId];
+      let requisites: Record<string, string> | null = null;
+      try { requisites = JSON.parse(r.requisitesSnapshot); } catch { /* skip */ }
+      return {
+        id: r.id,
+        trainerId: r.trainerId,
+        trainerName: tp?.fullName ?? null,
+        specialization: tp?.specialization ?? null,
+        amountRub: r.amountRub,
+        requisites,
+        rewardIds: JSON.parse(r.rewardIds) as number[],
+        status: r.status,
+        note: r.note,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
+
+    res.json({ requests });
+  } catch (err) {
+    console.error('[admin/payout-requests]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── PATCH /api/admin/payout-requests/:id/status ─────────────────────────────
+
+router.patch('/payout-requests/:id/status', async (req: AuthRequest, res: Response) => {
+  const id = parseInt(req.params['id'] as string, 10);
+  const { status, note } = req.body as { status?: string; note?: string };
+  const VALID = ['pending', 'approved', 'paid', 'cancelled'];
+  if (!status || !VALID.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${VALID.join(', ')}` });
+    return;
+  }
+  try {
+    const pr = await payoutReqDb.findFirst({ where: { id } });
+    if (!pr) { res.status(404).json({ error: 'PayoutRequest not found' }); return; }
+
+    const rewardIds: number[] = JSON.parse(pr.rewardIds);
+
+    await payoutReqDb.update({
+      where: { id },
+      data: { status, ...(note !== undefined ? { note } : {}) },
+    });
+
+    // Cascade reward status changes
+    if (status === 'paid') {
+      await prisma.trainerReward.updateMany({
+        where: { id: { in: rewardIds } },
+        data: { status: 'paid_out', paidAt: new Date() },
+      });
+    } else if (status === 'cancelled') {
+      // Revert rewards back to available so trainer can re-request
+      await (prisma.trainerReward.updateMany as (args: any) => Promise<any>)({
+        where: { id: { in: rewardIds }, status: 'requested' },
+        data: { status: 'available', payoutRequestId: null },
+      });
+    }
+
+    console.log(`[admin/payout-requests] id=${id} → ${status}`);
+    res.json({ ok: true, id, status });
+  } catch (err) {
+    console.error('[admin/payout-requests/status]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── PATCH /api/admin/payouts/:id/status — update reward status ────────────
 
 router.patch('/payouts/:id/status', async (req: AuthRequest, res: Response) => {

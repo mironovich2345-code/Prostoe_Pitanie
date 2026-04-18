@@ -296,17 +296,38 @@ model TrainerReview {
 }
 
 model TrainerReward {
-  id             Int      @id @default(autoincrement())
-  trainerId      String   // chatId (legacy)
-  referredChatId String   // chatId (legacy)
-  trainerUserId  String?  // platform-independent; null for legacy records not yet backfilled
-  referredUserId String?  // platform-independent; null for legacy records not yet backfilled
-  planId         String
-  amountRub      Float    @default(0)
-  status         String   @default("pending_hold")
-  holdUntil      DateTime?
-  paidAt         DateTime?
-  createdAt      DateTime @default(now())
+  id               Int      @id @default(autoincrement())
+  trainerId        String   // chatId (legacy)
+  referredChatId   String   // chatId (legacy)
+  trainerUserId    String?  // platform-independent; null for legacy records not yet backfilled
+  referredUserId   String?  // platform-independent; null for legacy records not yet backfilled
+  planId           String
+  amountRub        Float    @default(0)
+  status           String   @default("pending_hold") // pending_hold | available | requested | paid_out | cancelled
+  payoutRequestId  Int?     // set when status='requested', links to PayoutRequest
+  holdUntil        DateTime?
+  paidAt           DateTime?
+  createdAt        DateTime @default(now())
+}
+
+// ─── Payout requests (trainer / company initiated) ────────────────────────────
+
+model PayoutRequest {
+  id                  Int      @id @default(autoincrement())
+  trainerId           String   // chatId — matches TrainerProfile.chatId
+  trainerUserId       String?  // platform-independent userId; null for legacy records
+  amountRub           Float
+  requisitesSnapshot  String   // JSON snapshot of requisites at request time
+  rewardIds           String   // JSON array of TrainerReward.id values covered by this request
+  status              String   @default("pending") // pending | approved | paid | cancelled
+  note                String?  // admin note
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([trainerId])
+  @@index([trainerUserId])
+  @@index([status])
 }
 
 model TrainerDocument {
