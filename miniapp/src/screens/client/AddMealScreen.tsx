@@ -985,6 +985,8 @@ export default function AddMealScreen() {
 
   // ── DONE ──────────────────────────────────────────────────────────────
   if (step === 'done') {
+    const doneBsData = qc.getQueryData<BootstrapData>(['bootstrap']);
+    const isDonePremium = isPremiumTier(doneBsData?.subscription);
     return (
       <div className="screen" style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -997,7 +999,30 @@ export default function AddMealScreen() {
         <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
           {MEAL_TYPES.find(t => t.key === mealType)?.label ?? 'Приём'} добавлен в дневник
         </div>
-        <div style={{ marginTop: 8, width: '100%', maxWidth: 320 }}>
+        {!isDonePremium && (
+          <div style={{
+            width: '100%', maxWidth: 320,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)', padding: '14px 16px',
+            textAlign: 'left',
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5, marginBottom: 10 }}>
+              Ты уже ведёшь питание. Подключи Optimal — и AI покажет, где теряешь результат.
+            </div>
+            <button
+              onClick={() => navigate('/subscription')}
+              style={{
+                padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                borderRadius: 8, border: 'none',
+                background: 'var(--accent-soft)', color: 'var(--accent)',
+                cursor: 'pointer',
+              }}
+            >
+              Выбрать Optimal →
+            </button>
+          </div>
+        )}
+        <div style={{ marginTop: 4, width: '100%', maxWidth: 320 }}>
           <button className="btn" style={{ fontSize: 14 }} onClick={resetAndSelect}>
             + Ещё
           </button>
@@ -1350,7 +1375,7 @@ export default function AddMealScreen() {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Фото</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-            {isPremium ? 'Сфотографируй блюдо — AI определит состав' : 'Доступно в Optimal и Pro'}
+            {isPremium ? 'Сфотографируй блюдо — AI определит состав' : 'Подключи Optimal — AI определит состав по фото'}
           </div>
         </div>
         {isPremium

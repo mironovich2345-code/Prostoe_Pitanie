@@ -68,7 +68,7 @@ export default function NotificationSettingsScreen() {
                 style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
                 onClick={() => isPremium ? navigate('/notifications/new') : navigate('/subscription')}
               >
-                {isPremium ? 'Добавить' : '🔒 Подключить подписку'}
+                {isPremium ? 'Добавить' : '🔒 Выбрать тариф'}
               </button>
             </div>
           ) : (
@@ -146,7 +146,7 @@ export default function NotificationSettingsScreen() {
                   style={{ width: '100%', padding: '13px 0', fontSize: 15 }}
                   onClick={() => isPremium ? navigate('/notifications/weight/new') : navigate('/subscription')}
                 >
-                  {isPremium ? 'Добавить' : '🔒 Подключить подписку'}
+                  {isPremium ? 'Добавить' : '🔒 Выбрать тариф'}
                 </button>
               </div>
             ) : (

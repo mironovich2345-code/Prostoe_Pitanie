@@ -732,7 +732,7 @@ export default function HomeScreen({ bootstrap }: Props) {
               fontSize: 13, color: trainer ? 'var(--accent)' : 'var(--text-3)', fontWeight: 600,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160,
             }}>
-              {trainer ? (trainer.fullName?.trim() || 'Эксперт') : 'Выбрать эксперта'}
+              {trainer ? (trainer.fullName?.trim() || 'Эксперт') : 'Подключить эксперта'}
             </span>
             <span style={{ color: 'var(--text-3)', fontSize: 16, flexShrink: 0 }}>›</span>
           </div>

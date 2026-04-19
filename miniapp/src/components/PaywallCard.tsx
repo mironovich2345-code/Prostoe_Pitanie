@@ -7,12 +7,34 @@ interface PaywallCardProps {
   compact?: boolean;
 }
 
+function getContextNote(plan: 'optimal' | 'pro', feature?: string): string {
+  const f = (feature ?? '').toLowerCase();
+  if (plan === 'pro') {
+    if (f.includes('эксперт') || f.includes('подключение')) {
+      return 'С экспертом проще держать режим: меньше срывов, выше дисциплина, быстрее результат.';
+    }
+    return 'Доступно в Pro — с экспертом, который видит рацион и помогает не съезжать с цели.';
+  }
+  // optimal
+  if (f.includes('прогноз')) {
+    return 'Подключи Optimal — и ты увидишь не только записи, но и куда движешься к своей цели.';
+  }
+  if (f.includes('анализ')) {
+    return 'Подключи Optimal, чтобы видеть не только записи, но и где теряешь результат.';
+  }
+  if (f.includes('история') || f.includes('статистик') || f.includes('вес')) {
+    return 'Подключи Optimal — получи полную аналитику питания и понимай свой прогресс.';
+  }
+  if (f.includes('уведомлен') || f.includes('напоминан')) {
+    return 'Подключи Optimal — настрой напоминания и не пропускай приёмы пищи.';
+  }
+  return 'Подключи Optimal — питание из хаоса превратится в управляемый процесс.';
+}
+
 export default function PaywallCard({ plan, feature, compact }: PaywallCardProps) {
   const navigate = useNavigate();
   const planLabel = plan === 'pro' ? 'Pro' : 'Optimal';
-  const planNote  = plan === 'pro'
-    ? 'Доступно в тарифе Pro'
-    : 'Доступно в тарифах Optimal и Pro';
+  const planNote  = getContextNote(plan, feature);
 
   if (compact) {
     return (
@@ -54,7 +76,7 @@ export default function PaywallCard({ plan, feature, compact }: PaywallCardProps
           cursor: 'pointer',
         }}
       >
-        Подключить →
+        Выбрать {planLabel} →
       </button>
     </div>
   );

@@ -15,7 +15,9 @@ interface PlanDef {
   label: string;
   price: string;
   tagline: string;
+  subtitle?: string;
   features: string[];
+  footer?: string;
   popular?: boolean;
 }
 
@@ -24,33 +26,31 @@ const PLANS: PlanDef[] = [
     id: 'pro',
     label: 'Pro',
     price: '499 ₽',
-    tagline: 'Для результата с поддержкой эксперта',
+    tagline: 'Идти к результату с экспертом',
+    subtitle: 'Когда нужен человек, который видит твой рацион и помогает держать курс.',
     popular: true,
     features: [
       'Всё, что входит в Optimal',
-      'Подключение эксперта',
-      'Гибкие права доступа для эксперта',
-      'Просмотр рациона экспертом',
-      'Оценка приёмов пищи и дней экспертом',
-      'Совместный контроль прогресса',
+      'Подключите эксперта-нутрициолога',
+      'Эксперт видит ваш рацион и оценивает приёмы',
+      'Совместный контроль прогресса и цели',
       'Расширенная реферальная программа',
     ],
+    footer: 'Для тех, кто хочет не просто начать — а прийти к результату.',
   },
   {
     id: 'optimal',
     label: 'Optimal',
     price: '399 ₽',
-    tagline: 'Для самостоятельного контроля питания',
+    tagline: 'Держать питание под контролем самому',
+    subtitle: 'Не просто записывай еду — понимай, что ешь и куда движешься.',
     features: [
-      'Анализ приёма пищи по фото / голосу / тексту',
-      'Автоматический подсчёт калорий и БЖУ',
-      'Сохранение приёмов пищи в дневник',
-      'Статистика по дням и неделям',
-      'Календарь питания с отмеченными приёмами',
-      'Редактирование уведомлений',
-      'История веса и прогресса',
-      'Прогноз достижения цели',
+      'Анализ еды по фото, голосу и тексту',
+      'Автоподсчёт калорий, белков, жиров и углеводов',
+      'Дневник, статистика, календарь питания и вес',
+      'Уведомления, прогноз цели и история прогресса',
     ],
+    footer: 'Для тех, кто хочет навести порядок в питании без лишних сложностей.',
   },
 ];
 
@@ -228,8 +228,10 @@ function CurrentPlanCard({
           </div>
         )}
         {!active && sub && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>
-            Подписка неактивна — выберите тариф ниже для повторного подключения
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, lineHeight: 1.5 }}>
+            {sub.status === 'past_due'
+              ? 'Оплата не прошла — выберите тариф ниже, чтобы не выпасть из режима.'
+              : 'Доступ закрыт. Чтобы не терять контроль над питанием — выберите тариф ниже.'}
           </div>
         )}
       </div>
@@ -329,7 +331,7 @@ function PlanCard({
 
       <div style={{ padding: '20px 18px 18px' }}>
 
-        {/* Plan name + tagline */}
+        {/* Plan name + tagline + subtitle */}
         <div style={{ paddingRight: 80, marginBottom: 4 }}>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1, marginBottom: 5,
             color: isPro ? 'var(--accent)' : 'var(--text)',
@@ -339,6 +341,11 @@ function PlanCard({
           <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>
             {plan.tagline}
           </div>
+          {plan.subtitle && (
+            <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, marginTop: 6 }}>
+              {plan.subtitle}
+            </div>
+          )}
         </div>
 
         {/* Price */}
@@ -366,7 +373,7 @@ function PlanCard({
         <div style={{ height: 1, background: 'var(--border)', marginBottom: 14 }} />
 
         {/* Features */}
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: plan.footer ? 14 : 18 }}>
           {plan.features.map((f) => (
             <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 9 }}>
               <div style={{
@@ -377,6 +384,16 @@ function PlanCard({
             </div>
           ))}
         </div>
+
+        {/* Footer note */}
+        {plan.footer && (
+          <div style={{
+            fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5,
+            fontStyle: 'italic', marginBottom: 16,
+          }}>
+            {plan.footer}
+          </div>
+        )}
 
         {/* CTA */}
         {isActive ? (
@@ -551,11 +568,16 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
       />
 
       {/* Plans section label */}
-      <div style={{
-        fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 12px',
-      }}>
-        Тарифы
+      <div style={{ padding: '0 2px 12px' }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: 1, color: 'var(--text-3)', marginBottom: 4,
+        }}>
+          Тарифы
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+          Optimal — самостоятельный контроль питания. Pro — когда нужен эксперт рядом.
+        </div>
       </div>
 
       {/* Pro first, then Optimal */}
@@ -568,6 +590,19 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
           introOffer={plan.id === 'pro' ? proIntroOffer : null}
         />
       ))}
+
+      {/* Supporting block below plans */}
+      {!subIsActive && (
+        <div style={{
+          marginTop: 4, marginBottom: 8, padding: '14px 16px',
+          background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+          border: '1px solid var(--border)',
+        }}>
+          <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.55 }}>
+            Без контроля питание легко уходит в хаос. Начни с Optimal — и ты будешь понимать, что ешь и куда движешься.
+          </div>
+        </div>
+      )}
 
       {/* Loading indicator while creating payment */}
       {paymentMutation.isPending && (

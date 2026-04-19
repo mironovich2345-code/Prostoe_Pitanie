@@ -195,9 +195,9 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
           <div style={{ opacity: 0.2, marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Эксперт не подключён</div>
-          <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 28, maxWidth: 260, margin: '0 auto 28px' }}>
-            Подключи персонального эксперта — он будет видеть твой дневник и давать рекомендации по питанию
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Пока без эксперта</div>
+          <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 28, maxWidth: 280, margin: '0 auto 28px' }}>
+            С экспертом проще держать режим: меньше срывов, выше дисциплина, быстрее результат. Он видит рацион — и помогает не уходить в сторону.
           </div>
           <button className="btn" style={{ width: 'auto', padding: '13px 32px', display: 'inline-block', fontSize: 15 }} onClick={() => navigate('/connect-trainer')}>
             Подключить эксперта
@@ -205,9 +205,9 @@ export default function MyTrainerScreen({ bootstrap }: Props) {
         </div>
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 16 }}>
           {[
-            'Эксперт видит твою статистику питания',
-            'Получай оценки от эксперта по каждому приёму',
-            'Ты сам выбираешь, какие данные доступны',
+            'Эксперт видит рацион и помогает его корректировать',
+            'Меньше срывов — ты не один на один с питанием',
+            'Персональная обратная связь по каждому дню',
           ].map((label, i, arr) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />

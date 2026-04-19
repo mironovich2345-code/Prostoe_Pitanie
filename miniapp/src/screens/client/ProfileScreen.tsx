@@ -316,10 +316,10 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-          Эксперт не подключён
+          Пока без эксперта
         </div>
-        <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 24, maxWidth: 260, margin: '0 auto 24px' }}>
-          Подключи персонального эксперта для контроля питания и достижения целей
+        <div style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.55, marginBottom: 24, maxWidth: 270, margin: '0 auto 24px' }}>
+          С экспертом легче не съехать с цели. Меньше срывов, больше контроля — и быстрее результат.
         </div>
         <button
           onClick={() => navigate('/connect-trainer')}
@@ -333,9 +333,9 @@ function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
       {/* Feature list */}
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         {[
-          'Эксперт видит твою статистику питания',
-          'Персональные рекомендации по рациону',
-          'Обратная связь и корректировка целей',
+          'Эксперт видит твой рацион и помогает с корректировкой',
+          'Персональная обратная связь по питанию и целям',
+          'Ты сам выбираешь, какие данные доступны эксперту',
         ].map((label, i, arr) => (
           <div
             key={label}
