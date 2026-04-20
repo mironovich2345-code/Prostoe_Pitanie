@@ -369,7 +369,10 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
   const qc = useQueryClient();
   const [addingId, setAddingId] = useState<number | null>(null);
   const [selectedMealType, setSelectedMealType] = useState('breakfast');
+  const [portionInput, setPortionInput] = useState('');        // portion grams for the add flow
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);  // inline rename
+  const [editTitle, setEditTitle] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['saved-meals'],
@@ -378,8 +381,8 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
   });
 
   const addMutation = useMutation({
-    mutationFn: ({ id, mealType }: { id: number; mealType: string }) =>
-      api.savedMealAddToDiary(id, mealType),
+    mutationFn: ({ id, mealType, portionGrams }: { id: number; mealType: string; portionGrams?: number }) =>
+      api.savedMealAddToDiary(id, mealType, portionGrams),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['diary'] });
       qc.invalidateQueries({ queryKey: ['nutrition-stats'] });
@@ -396,7 +399,38 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
     },
   });
 
+  const renameMutation = useMutation({
+    mutationFn: ({ id, title }: { id: number; title: string }) =>
+      api.savedMealUpdate(id, { title }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['saved-meals'] });
+      setEditingId(null);
+    },
+  });
+
   const meals = data?.savedMeals ?? [];
+
+  function startAdd(meal: (typeof meals)[number]) {
+    setAddingId(meal.id);
+    setSelectedMealType(meal.mealType ?? 'breakfast');
+    // Pre-fill portion with total weight if known, otherwise empty
+    setPortionInput(meal.totalWeightG != null ? String(Math.round(meal.totalWeightG)) : '');
+    setDeletingId(null);
+    setEditingId(null);
+  }
+
+  function handleConfirmAdd(meal: (typeof meals)[number]) {
+    const rawPortion = parseFloat(portionInput.replace(',', '.'));
+    const portionGrams = isFinite(rawPortion) && rawPortion > 0 ? rawPortion : undefined;
+    addMutation.mutate({ id: meal.id, mealType: selectedMealType, portionGrams });
+  }
+
+  function startEdit(meal: (typeof meals)[number]) {
+    setEditingId(meal.id);
+    setEditTitle(meal.title);
+    setDeletingId(null);
+    setAddingId(null);
+  }
 
   return (
     <div className="screen">
@@ -428,7 +462,7 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
             Нет сохранённых блюд
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-            После анализа блюда его можно будет сохранить сюда для быстрого повторного добавления
+            После анализа блюда нажми «Сохранить в постоянные» — и оно появится здесь
           </div>
         </div>
       )}
@@ -445,24 +479,75 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
               padding: '14px 16px', marginBottom: 10,
               transition: 'border-color 0.15s',
             }}>
-              {/* Title row */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                    {meal.title}
-                  </div>
-                  <MacroChips meal={meal} />
+              {/* Title row — inline edit mode */}
+              {editingId === meal.id ? (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    autoFocus
+                    style={{
+                      flex: 1, background: 'var(--surface-2)', border: '1px solid var(--accent)',
+                      borderRadius: 8, padding: '8px 10px', fontSize: 14, color: 'var(--text)', outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={() => renameMutation.mutate({ id: meal.id, title: editTitle })}
+                    disabled={renameMutation.isPending || !editTitle.trim()}
+                    style={{
+                      background: 'var(--accent)', border: 'none', borderRadius: 8,
+                      padding: '8px 12px', fontSize: 13, fontWeight: 700, color: '#000', cursor: 'pointer', flexShrink: 0,
+                    }}
+                  >
+                    {renameMutation.isPending ? '...' : '✓'}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    style={{
+                      background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8,
+                      padding: '8px 10px', fontSize: 13, color: 'var(--text-3)', cursor: 'pointer', flexShrink: 0,
+                    }}
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  onClick={() => setDeletingId(deletingId === meal.id ? null : meal.id)}
-                  style={{
-                    background: 'none', border: 'none', padding: '2px 6px',
-                    fontSize: 16, color: 'var(--text-3)', cursor: 'pointer', lineHeight: 1, flexShrink: 0,
-                  }}
-                >
-                  ···
-                </button>
-              </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                      {meal.title}
+                    </div>
+                    <MacroChips meal={meal} />
+                    {meal.totalWeightG != null && (
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                        Всё блюдо: {Math.round(meal.totalWeightG)} г
+                      </div>
+                    )}
+                  </div>
+                  {/* Action buttons: rename + delete */}
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <button
+                      onClick={() => startEdit(meal)}
+                      title="Переименовать"
+                      style={{
+                        background: 'none', border: 'none', padding: '4px 6px',
+                        fontSize: 13, color: 'var(--text-3)', cursor: 'pointer', lineHeight: 1,
+                      }}
+                    >
+                      ✏
+                    </button>
+                    <button
+                      onClick={() => setDeletingId(deletingId === meal.id ? null : meal.id)}
+                      style={{
+                        background: 'none', border: 'none', padding: '4px 6px',
+                        fontSize: 16, color: 'var(--text-3)', cursor: 'pointer', lineHeight: 1,
+                      }}
+                    >
+                      ···
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Delete confirm */}
               {deletingId === meal.id && (
@@ -485,13 +570,13 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
                 </div>
               )}
 
-              {/* Meal type picker (shown when tapping Add) */}
-              {addingId === meal.id && (
+              {/* Add flow: meal type + portion input */}
+              {addingId === meal.id && editingId !== meal.id && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
                     Тип приёма
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
                     {MEAL_TYPES.map(mt => (
                       <button
                         key={mt.key}
@@ -508,6 +593,41 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
                       </button>
                     ))}
                   </div>
+
+                  {/* Portion input — shown for all meals; optional when no totalWeightG */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 6 }}>
+                      Объём порции
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <input
+                          value={portionInput}
+                          onChange={e => setPortionInput(e.target.value.replace(/[^\d.,]/g, ''))}
+                          placeholder={meal.totalWeightG != null ? String(Math.round(meal.totalWeightG)) : 'всё блюдо'}
+                          inputMode="decimal"
+                          style={{
+                            width: '100%', boxSizing: 'border-box',
+                            background: 'var(--surface-2)', border: '1px solid var(--border)',
+                            borderRadius: 8, padding: '10px 28px 10px 12px', fontSize: 15,
+                            color: 'var(--text)', outline: 'none',
+                          }}
+                        />
+                        <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-3)', pointerEvents: 'none' }}>г</span>
+                      </div>
+                      {meal.totalWeightG != null && (
+                        <span style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0 }}>
+                          из {Math.round(meal.totalWeightG)} г
+                        </span>
+                      )}
+                    </div>
+                    {meal.totalWeightG == null && (
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.4 }}>
+                        Оставь пустым — добавится с исходными значениями
+                      </div>
+                    )}
+                  </div>
+
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       className="btn btn-secondary"
@@ -520,7 +640,7 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
                       className="btn"
                       style={{ fontSize: 13, flex: 1 }}
                       disabled={addMutation.isPending}
-                      onClick={() => addMutation.mutate({ id: meal.id, mealType: selectedMealType })}
+                      onClick={() => handleConfirmAdd(meal)}
                     >
                       {addMutation.isPending ? '...' : '✓ Добавить'}
                     </button>
@@ -528,16 +648,12 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
                 </div>
               )}
 
-              {/* Add button (shown when not in picker mode) */}
-              {addingId !== meal.id && deletingId !== meal.id && (
+              {/* Add button (shown when not in any expanded mode) */}
+              {addingId !== meal.id && deletingId !== meal.id && editingId !== meal.id && (
                 <button
                   className="btn btn-secondary"
                   style={{ fontSize: 13, marginTop: 10 }}
-                  onClick={() => {
-                    setAddingId(meal.id);
-                    setSelectedMealType(meal.mealType ?? 'breakfast');
-                    setDeletingId(null);
-                  }}
+                  onClick={() => startAdd(meal)}
                 >
                   + Добавить в дневник
                 </button>
@@ -578,6 +694,14 @@ export default function AddMealScreen() {
   const [builderAdding, setBuilderAdding] = useState(false);
   const [builderError, setBuilderError] = useState('');
   const [builderSavedOk, setBuilderSavedOk] = useState(false);
+
+  // ── Save-to-template state (used in result step after text/photo analysis) ─
+  type TemplateState = 'idle' | 'form' | 'saved';
+  const [templateState, setTemplateState] = useState<TemplateState>('idle');
+  const [templateTitle, setTemplateTitle] = useState('');
+  const [templateWeightInput, setTemplateWeightInput] = useState('');
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateError, setTemplateError] = useState('');
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -664,6 +788,34 @@ export default function AddMealScreen() {
     }
   }
 
+  async function handleSaveToTemplate() {
+    if (!result) return;
+    setTemplateSaving(true);
+    setTemplateError('');
+    try {
+      const rawWeight = parseFloat(templateWeightInput.replace(',', '.'));
+      const totalWeightG = isFinite(rawWeight) && rawWeight > 0 ? rawWeight
+        : result.weightG != null && result.weightG > 0 ? result.weightG
+        : null;
+      await api.savedMealCreate({
+        title: templateTitle.trim() || result.name || 'Блюдо',
+        totalWeightG,
+        caloriesKcal: result.caloriesKcal ?? null,
+        proteinG:     result.proteinG ?? null,
+        fatG:         result.fatG ?? null,
+        carbsG:       result.carbsG ?? null,
+        fiberG:       result.fiberG ?? null,
+        mealType,
+      });
+      qc.invalidateQueries({ queryKey: ['saved-meals'] });
+      setTemplateState('saved');
+    } catch {
+      setTemplateError('Не удалось сохранить. Попробуйте ещё раз.');
+    } finally {
+      setTemplateSaving(false);
+    }
+  }
+
   function resetAndSelect() {
     setStep('select');
     setTextInput('');
@@ -672,6 +824,11 @@ export default function AddMealScreen() {
     setError('');
     setMealType('breakfast');
     setShowEditSheet(false);
+    // Reset template save
+    setTemplateState('idle');
+    setTemplateTitle('');
+    setTemplateWeightInput('');
+    setTemplateError('');
     // Reset builder
     setIngredients([{ name: '', grams: '' }]);
     setBuilderResult(null);
@@ -770,8 +927,14 @@ export default function AddMealScreen() {
       setBuilderSaving(true);
       setBuilderError('');
       try {
+        // Total weight = sum of all ingredient grams
+        const totalWeightG = ingredients.reduce((sum, ing) => {
+          const g = parseFloat(ing.grams.replace(',', '.') || '0');
+          return sum + (isFinite(g) ? g : 0);
+        }, 0);
         await api.savedMealCreate({
           title: builderTitle.trim() || 'Блюдо',
+          totalWeightG: totalWeightG > 0 ? totalWeightG : null,
           caloriesKcal: builderResult.caloriesKcal ?? null,
           proteinG: builderResult.proteinG ?? null,
           fatG: builderResult.fatG ?? null,
@@ -1145,9 +1308,96 @@ export default function AddMealScreen() {
           </button>
         )}
 
-        <button className="btn" disabled={saving} onClick={handleSave} style={{ fontSize: 15 }}>
+        <button className="btn" disabled={saving} onClick={handleSave} style={{ fontSize: 15, marginBottom: 10 }}>
           {saving ? 'Сохраняем...' : '✓ Сохранить приём'}
         </button>
+
+        {/* Save to saved meals */}
+        {templateState === 'idle' && (
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: 14 }}
+            onClick={() => {
+              setTemplateTitle(result.name || '');
+              setTemplateWeightInput(result.weightG != null ? String(Math.round(result.weightG)) : '');
+              setTemplateState('form');
+            }}
+          >
+            ⭐ Сохранить в постоянные
+          </button>
+        )}
+        {templateState === 'form' && (
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+            border: '1px solid var(--border)', padding: '14px 16px',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 8 }}>
+              Сохранить в постоянные
+            </div>
+            <input
+              value={templateTitle}
+              onChange={e => setTemplateTitle(e.target.value)}
+              placeholder="Название блюда"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '10px 12px', fontSize: 14,
+                color: 'var(--text)', outline: 'none', marginBottom: 8,
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input
+                  value={templateWeightInput}
+                  onChange={e => setTemplateWeightInput(e.target.value.replace(/[^\d.,]/g, ''))}
+                  placeholder="Общий вес"
+                  inputMode="decimal"
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '10px 32px 10px 12px', fontSize: 14,
+                    color: 'var(--text)', outline: 'none',
+                  }}
+                />
+                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--text-3)', pointerEvents: 'none' }}>г</span>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0 }}>= всё блюдо</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10, lineHeight: 1.4 }}>
+              Вес нужен для пересчёта порции при добавлении в дневник
+            </div>
+            {templateError && (
+              <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8 }}>{templateError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1, fontSize: 13 }}
+                onClick={() => setTemplateState('idle')}
+              >
+                Отмена
+              </button>
+              <button
+                className="btn"
+                style={{ flex: 1, fontSize: 13 }}
+                disabled={templateSaving || !templateTitle.trim()}
+                onClick={handleSaveToTemplate}
+              >
+                {templateSaving ? '...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        )}
+        {templateState === 'saved' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', background: 'var(--accent-soft)',
+            borderRadius: 'var(--r-md)', fontSize: 13, color: 'var(--accent)', fontWeight: 600,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Сохранено в постоянные
+          </div>
+        )}
 
         {/* Edit sheet overlay */}
         {showEditSheet && (

@@ -217,6 +217,8 @@ export interface SavedMeal {
   chatId: string;
   userId: string | null;
   title: string;
+  /** Total weight of the whole dish in grams. When set, macros are scaled by portionGrams/totalWeightG on add. */
+  totalWeightG: number | null;
   caloriesKcal: number | null;
   proteinG: number | null;
   fatG: number | null;

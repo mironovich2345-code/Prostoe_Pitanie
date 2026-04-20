@@ -129,12 +129,14 @@ export const api = {
     request<{ ok: boolean }>(`/api/nutrition/meals/${mealId}`, { method: 'DELETE' }),
   savedMealList: () =>
     request<{ savedMeals: import('../types').SavedMeal[] }>('/api/nutrition/saved-meals'),
-  savedMealCreate: (data: { title: string; caloriesKcal?: number | null; proteinG?: number | null; fatG?: number | null; carbsG?: number | null; fiberG?: number | null; mealType?: string | null; notes?: string | null }) =>
+  savedMealCreate: (data: { title: string; totalWeightG?: number | null; caloriesKcal?: number | null; proteinG?: number | null; fatG?: number | null; carbsG?: number | null; fiberG?: number | null; mealType?: string | null; notes?: string | null }) =>
     request<{ savedMeal: import('../types').SavedMeal }>('/api/nutrition/saved-meals', { method: 'POST', body: JSON.stringify(data) }),
+  savedMealUpdate: (id: number, data: { title: string }) =>
+    request<{ savedMeal: import('../types').SavedMeal }>(`/api/nutrition/saved-meals/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   savedMealDelete: (id: number) =>
     request<{ ok: boolean }>(`/api/nutrition/saved-meals/${id}`, { method: 'DELETE' }),
-  savedMealAddToDiary: (id: number, mealType: string) =>
-    request<{ ok: boolean; meal: import('../types').MealEntry }>(`/api/nutrition/saved-meals/${id}/add`, { method: 'POST', body: JSON.stringify({ mealType }) }),
+  savedMealAddToDiary: (id: number, mealType: string, portionGrams?: number) =>
+    request<{ ok: boolean; meal: import('../types').MealEntry }>(`/api/nutrition/saved-meals/${id}/add`, { method: 'POST', body: JSON.stringify({ mealType, portionGrams }) }),
   nutritionMealMedia: async (mealId: number): Promise<{ url: string; type: string }> => {
     const result = await request<{ url: string; type: string }>(`/api/nutrition/meals/${mealId}/media`);
     // If the server returned a backend stream URL, fetch it with auth headers and create a blob URL

@@ -489,12 +489,13 @@ function getSingleParam(value: string | string[]): string | undefined {
   return value;
 }
 
-type SavedMealRecord = { id: number; chatId: string; userId: string | null; title: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; mealType: string | null; notes: string | null; createdAt: Date; updatedAt: Date };
+type SavedMealRecord = { id: number; chatId: string; userId: string | null; title: string; totalWeightG: number | null; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; mealType: string | null; notes: string | null; createdAt: Date; updatedAt: Date };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const savedMealDb = (prisma as any).savedMeal as {
   findMany(args: unknown): Promise<SavedMealRecord[]>;
   findFirst(args: unknown): Promise<SavedMealRecord | null>;
   create(args: unknown): Promise<SavedMealRecord>;
+  update(args: unknown): Promise<SavedMealRecord>;
   delete(args: unknown): Promise<SavedMealRecord>;
 };
 
@@ -525,8 +526,9 @@ router.get('/saved-meals', async (req: AuthRequest, res: Response) => {
 // POST /api/nutrition/saved-meals — create a saved meal template
 router.post('/saved-meals', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { title, caloriesKcal, proteinG, fatG, carbsG, fiberG, mealType, notes } = req.body as {
+  const { title, totalWeightG, caloriesKcal, proteinG, fatG, carbsG, fiberG, mealType, notes } = req.body as {
     title?: string;
+    totalWeightG?: number | null;
     caloriesKcal?: number | null;
     proteinG?: number | null;
     fatG?: number | null;
@@ -542,6 +544,7 @@ router.post('/saved-meals', async (req: AuthRequest, res: Response) => {
         chatId,
         userId: req.userId ?? null,
         title: title.trim(),
+        totalWeightG: totalWeightG != null && totalWeightG > 0 ? totalWeightG : null,
         caloriesKcal: caloriesKcal ?? null,
         proteinG: proteinG ?? null,
         fatG: fatG ?? null,
@@ -554,6 +557,25 @@ router.post('/saved-meals', async (req: AuthRequest, res: Response) => {
     res.json({ savedMeal: meal });
   } catch (err) {
     console.error('[nutrition/saved-meals POST]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/nutrition/saved-meals/:id — rename a saved meal
+router.patch('/saved-meals/:id', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const id = parseInt(getSingleParam(req.params.id) ?? '', 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  const { title } = req.body as { title?: string };
+  const trimmedTitle = title?.trim();
+  if (!trimmedTitle) { res.status(400).json({ error: 'title required' }); return; }
+  try {
+    const existing = await savedMealDb.findFirst({ where: savedMealOwnerFilter(id, chatId, req.userId) });
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
+    const updated = await savedMealDb.update({ where: { id }, data: { title: trimmedTitle } });
+    res.json({ savedMeal: updated });
+  } catch (err) {
+    console.error('[nutrition/saved-meals PATCH]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -575,27 +597,44 @@ router.delete('/saved-meals/:id', async (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/nutrition/saved-meals/:id/add — add saved meal to diary as a new MealEntry
+// Body: { mealType?: string; portionGrams?: number }
+// If portionGrams is provided and the saved meal has totalWeightG > 0, all macros
+// are scaled proportionally (portionGrams / totalWeightG). Otherwise values are used as-is.
 router.post('/saved-meals/:id/add', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const id = parseInt(getSingleParam(req.params.id) ?? '', 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
-  const { mealType } = req.body as { mealType?: string };
+  const { mealType, portionGrams } = req.body as { mealType?: string; portionGrams?: number };
   try {
     const saved = await savedMealDb.findFirst({ where: savedMealOwnerFilter(id, chatId, req.userId) });
     if (!saved) { res.status(404).json({ error: 'Saved meal not found' }); return; }
+
+    // Portion scaling: only if portionGrams is a positive number and totalWeightG is set
+    const portion = portionGrams != null ? Number(portionGrams) : NaN;
+    const total   = saved.totalWeightG ?? 0;
+    const ratio   = isFinite(portion) && portion > 0 && total > 0 ? portion / total : 1;
+
+    function scale(v: number | null): number | null {
+      if (v == null) return null;
+      return Math.round(v * ratio * 10) / 10;
+    }
+
+    // Label the text with portion size so diary entries are informative
+    const portionLabel = ratio !== 1 ? ` (${Math.round(portion)} г)` : '';
+
     const meal = await prisma.mealEntry.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         chatId,
         userId: req.userId ?? null,
-        text: saved.title,
+        text: saved.title + portionLabel,
         mealType: mealType ?? saved.mealType ?? 'unknown',
         sourceType: 'saved',
-        caloriesKcal: saved.caloriesKcal,
-        proteinG: saved.proteinG,
-        fatG: saved.fatG,
-        carbsG: saved.carbsG,
-        fiberG: saved.fiberG,
+        caloriesKcal: scale(saved.caloriesKcal),
+        proteinG:     scale(saved.proteinG),
+        fatG:         scale(saved.fatG),
+        carbsG:       scale(saved.carbsG),
+        fiberG:       scale(saved.fiberG),
       } as any,
     });
     res.json({ ok: true, meal: omitPhotoData(meal) });

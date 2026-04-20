@@ -177,19 +177,20 @@ model MealEntry {
 }
 
 model SavedMeal {
-  id           Int      @id @default(autoincrement())
-  chatId       String   // legacy; kept for backward compatibility
-  userId       String?  // platform-independent; null for records without userId
-  title        String
-  caloriesKcal Float?
-  proteinG     Float?
-  fatG         Float?
-  carbsG       Float?
-  fiberG       Float?
-  mealType     String?  // optional default meal type for quick-add
-  notes        String?  // reserved for future ingredient assembly payload
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  chatId         String   // legacy; kept for backward compatibility
+  userId         String?  // platform-independent; null for records without userId
+  title          String
+  totalWeightG   Float?   // total weight of the whole dish in grams; used to scale macros per portion
+  caloriesKcal   Float?
+  proteinG       Float?
+  fatG           Float?
+  carbsG         Float?
+  fiberG         Float?
+  mealType       String?  // optional default meal type for quick-add
+  notes          String?  // reserved for ingredient assembly payload (JSON)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   @@index([userId])
   @@index([chatId])
 }
