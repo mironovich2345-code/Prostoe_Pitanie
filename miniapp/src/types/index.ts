@@ -179,6 +179,14 @@ export interface FoodAnalysis {
   confidence?: 'high' | 'medium' | 'low';
   needsClarification?: boolean;
   clarificationQuestion?: string | null;
+  /** Image classification: food photo vs nutrition label / screenshot */
+  imageType?: 'food_photo' | 'nutrition_screenshot' | 'product_label';
+  /** What the extracted macros are based on (for labels/screenshots) */
+  nutritionPer?: '100g' | 'portion' | 'package' | null;
+  /** Total package weight in grams if visible on label */
+  packageWeightG?: number | null;
+  /** Single serving size in grams if visible on label */
+  servingSizeG?: number | null;
 }
 
 export interface NutritionTotals {

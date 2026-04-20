@@ -695,6 +695,21 @@ export default function AddMealScreen() {
   const [builderError, setBuilderError] = useState('');
   const [builderSavedOk, setBuilderSavedOk] = useState(false);
 
+  // ── Rename state (inline edit of dish name in result step) ──────────────
+  const [displayName, setDisplayName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  // ── Clarification / "Другое" state (photo re-analysis with user context) ─
+  const [clarifyOtherOpen, setClarifyOtherOpen] = useState(false);
+  const [otherInput, setOtherInput] = useState('');
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState('');
+
+  // ── Screenshot portion step: user specifies how many grams they ate ───────
+  const [portionInput, setPortionInput] = useState('');
+  const [portionConfirmed, setPortionConfirmed] = useState(false);
+
   // ── Save-to-template state (used in result step after text/photo analysis) ─
   type TemplateState = 'idle' | 'form' | 'saved';
   const [templateState, setTemplateState] = useState<TemplateState>('idle');
@@ -712,6 +727,11 @@ export default function AddMealScreen() {
     try {
       const r = await api.nutritionAnalyze(textInput.trim());
       setResult(r);
+      setDisplayName(r.name || '');
+      setEditingName(false);
+      setClarifyOtherOpen(false);
+      setOtherInput('');
+      setRefineError('');
       setStep('result');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
@@ -745,6 +765,12 @@ export default function AddMealScreen() {
     try {
       const r = await api.nutritionAnalyzePhoto(photoPreview);
       setResult(r);
+      setDisplayName(r.name || '');
+      setPortionInput('');
+      setPortionConfirmed(false);
+      setClarifyOtherOpen(false);
+      setOtherInput('');
+      setRefineError('');
       setStep('result');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
@@ -765,7 +791,8 @@ export default function AddMealScreen() {
     setSaving(true);
     setError('');
     try {
-      const text = result.name + (result.composition ? ` (${result.composition})` : '')
+      const name = displayName || result.name;
+      const text = name + (result.composition ? ` (${result.composition})` : '')
         + (sourceType === 'text' && textInput ? ` — ${textInput}` : '');
       await api.nutritionAdd({
         text,
@@ -798,7 +825,7 @@ export default function AddMealScreen() {
         : result.weightG != null && result.weightG > 0 ? result.weightG
         : null;
       await api.savedMealCreate({
-        title: templateTitle.trim() || result.name || 'Блюдо',
+        title: templateTitle.trim() || displayName || result.name || 'Блюдо',
         totalWeightG,
         caloriesKcal: result.caloriesKcal ?? null,
         proteinG:     result.proteinG ?? null,
@@ -824,6 +851,18 @@ export default function AddMealScreen() {
     setError('');
     setMealType('breakfast');
     setShowEditSheet(false);
+    // Reset rename
+    setDisplayName('');
+    setEditingName(false);
+    setNameInput('');
+    // Reset clarification
+    setClarifyOtherOpen(false);
+    setOtherInput('');
+    setRefining(false);
+    setRefineError('');
+    // Reset portion step
+    setPortionInput('');
+    setPortionConfirmed(false);
     // Reset template save
     setTemplateState('idle');
     setTemplateTitle('');
@@ -841,6 +880,52 @@ export default function AddMealScreen() {
   function handleEditSave(updated: Partial<FoodAnalysis>) {
     setResult(prev => prev ? { ...prev, ...updated } : prev);
     setShowEditSheet(false);
+  }
+
+  async function handleRefine() {
+    if (!photoPreview || !otherInput.trim()) return;
+    setRefining(true);
+    setRefineError('');
+    try {
+      const r = await api.nutritionRefinePhoto(photoPreview, otherInput.trim());
+      setResult(r);
+      setDisplayName(r.name || '');
+      setClarifyOtherOpen(false);
+      setOtherInput('');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg === 'NOT_FOOD') {
+        setRefineError('Не удалось распознать как еду. Попробуй уточнить иначе.');
+      } else {
+        setRefineError('Не удалось пересчитать. Попробуй ещё раз.');
+      }
+    } finally {
+      setRefining(false);
+    }
+  }
+
+  function handlePortionConfirm() {
+    if (!result) return;
+    const grams = parseFloat(portionInput.replace(',', '.'));
+    if (!isFinite(grams) || grams <= 0) return;
+    // Macros from the label are per 100 g → scale by grams/100
+    const ratio = grams / 100;
+    const scaleKcal = (v: number | null | undefined) =>
+      v != null ? Math.round(v * ratio) : null;
+    const scaleMacro = (v: number | null | undefined) =>
+      v != null ? Math.round(v * ratio * 10) / 10 : null;
+    setResult(prev => prev ? {
+      ...prev,
+      caloriesKcal: scaleKcal(prev.caloriesKcal),
+      proteinG:     scaleMacro(prev.proteinG),
+      fatG:         scaleMacro(prev.fatG),
+      carbsG:       scaleMacro(prev.carbsG),
+      fiberG:       scaleMacro(prev.fiberG),
+      weightG:      Math.round(grams),
+      // After scaling, nutritionPer is no longer '100g'
+      nutritionPer: 'portion',
+    } : prev);
+    setPortionConfirmed(true);
   }
 
   // ── Shared back-button ────────────────────────────────────────────────
@@ -1196,13 +1281,91 @@ export default function AddMealScreen() {
 
   // ── RESULT ────────────────────────────────────────────────────────────
   if (step === 'result' && result) {
-    const hasClarification = result.needsClarification && result.clarificationQuestion;
+    const isScreenshot = result.imageType === 'nutrition_screenshot' || result.imageType === 'product_label';
+    const needsPortionStep = isScreenshot && result.nutritionPer === '100g' && !portionConfirmed;
 
-    function handleClarify() {
-      // Go back to text input so user can add clarification
-      setResult(null);
-      setStep('text');
+    // ── PORTION SUB-STEP: user specifies how many grams they ate ──────────
+    if (needsPortionStep) {
+      const pkgLabel = result.packageWeightG
+        ? `Упаковка ${Math.round(result.packageWeightG)} г`
+        : result.servingSizeG
+        ? `Порция ${Math.round(result.servingSizeG)} г`
+        : null;
+      const portionGrams = parseFloat(portionInput.replace(',', '.'));
+      const portionValid = isFinite(portionGrams) && portionGrams > 0;
+      return (
+        <div className="screen">
+          <BackBtn to="photo" />
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+            Сколько ты съел?
+          </h1>
+          <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
+            Найдено: <strong style={{ color: 'var(--text)' }}>{result.name}</strong>.
+            Данные — на 100 г. Укажи, сколько граммов ты съел.
+          </div>
+
+          <div style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+            border: '1px solid var(--border)', padding: '18px 16px', marginBottom: 20,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 6 }}>
+              На 100 г
+            </div>
+            <NutritionRow result={result} />
+            {pkgLabel && (
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>{pkgLabel}</div>
+            )}
+          </div>
+
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="1"
+              value={portionInput}
+              onChange={e => setPortionInput(e.target.value)}
+              placeholder="Например: 150"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'var(--surface)', border: '1px solid var(--border-2)',
+                borderRadius: 'var(--r-md)', padding: '16px 44px 16px 16px',
+                fontSize: 20, fontWeight: 700, color: 'var(--text)', outline: 'none',
+              }}
+            />
+            <span style={{
+              position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+              fontSize: 14, fontWeight: 600, color: 'var(--text-3)', pointerEvents: 'none',
+            }}>г</span>
+          </div>
+
+          {portionValid && (
+            <div style={{
+              background: 'var(--surface-2)', borderRadius: 'var(--r-md)',
+              padding: '10px 14px', marginBottom: 14, fontSize: 13, color: 'var(--text-2)',
+            }}>
+              {portionGrams} г →{' '}
+              <strong style={{ color: 'var(--accent)' }}>
+                {result.caloriesKcal != null ? Math.round(result.caloriesKcal * portionGrams / 100) : '—'} ккал
+              </strong>
+              {result.proteinG != null && ` · Б ${Math.round(result.proteinG * portionGrams / 100 * 10) / 10}г`}
+              {result.fatG != null && ` · Ж ${Math.round(result.fatG * portionGrams / 100 * 10) / 10}г`}
+              {result.carbsG != null && ` · У ${Math.round(result.carbsG * portionGrams / 100 * 10) / 10}г`}
+            </div>
+          )}
+
+          <button
+            className="btn"
+            disabled={!portionValid}
+            onClick={handlePortionConfirm}
+            style={{ fontSize: 15 }}
+          >
+            Продолжить →
+          </button>
+        </div>
+      );
     }
+
+    const hasClarification = result.needsClarification && result.clarificationQuestion;
 
     return (
       <div className="screen">
@@ -1224,13 +1387,49 @@ export default function AddMealScreen() {
                        maxHeight: 200, objectFit: 'cover', display: 'block' }}
             />
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          {/* Name — inline editable */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                {result.name}
-              </div>
-              {result.composition && (
-                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.4 }}>
+              {editingName ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    autoFocus
+                    style={{
+                      flex: 1, background: 'var(--surface-2)', border: '1px solid var(--accent)',
+                      borderRadius: 8, padding: '7px 10px', fontSize: 16, fontWeight: 700,
+                      color: 'var(--text)', outline: 'none',
+                    }}
+                  />
+                  <button
+                    onClick={() => { setDisplayName(nameInput.trim() || displayName); setEditingName(false); }}
+                    style={{ background: 'var(--accent)', border: 'none', borderRadius: 8,
+                             padding: '7px 10px', fontSize: 13, fontWeight: 700, color: '#000', cursor: 'pointer' }}
+                  >✓</button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)',
+                             borderRadius: 8, padding: '7px 10px', fontSize: 13, color: 'var(--text-3)', cursor: 'pointer' }}
+                  >✕</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
+                    {displayName || result.name}
+                  </div>
+                  <button
+                    onClick={() => { setNameInput(displayName || result.name); setEditingName(true); }}
+                    title="Переименовать"
+                    style={{
+                      background: 'none', border: 'none', padding: '2px 4px',
+                      fontSize: 13, color: 'var(--text-3)', cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+                    }}
+                  >✏</button>
+                </div>
+              )}
+              {result.composition && !editingName && (
+                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.4, marginTop: 4 }}>
                   {result.composition}
                 </div>
               )}
@@ -1241,29 +1440,115 @@ export default function AddMealScreen() {
               )}
             </div>
             {/* Исправить button — compact, secondary, right-aligned */}
-            <button
-              onClick={() => setShowEditSheet(true)}
-              style={{
-                flexShrink: 0, alignSelf: 'flex-start',
-                padding: '6px 12px', borderRadius: 8,
-                background: 'var(--surface-2)', border: '1px solid var(--border-2)',
-                fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
-                cursor: 'pointer', lineHeight: 1.3,
-              }}
-            >
-              Исправить
-            </button>
+            {!editingName && (
+              <button
+                onClick={() => setShowEditSheet(true)}
+                style={{
+                  flexShrink: 0, alignSelf: 'flex-start',
+                  padding: '6px 12px', borderRadius: 8,
+                  background: 'var(--surface-2)', border: '1px solid var(--border-2)',
+                  fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
+                  cursor: 'pointer', lineHeight: 1.3,
+                }}
+              >
+                Исправить
+              </button>
+            )}
           </div>
           <NutritionRow result={result} />
           <IngredientsList ingredients={result.ingredients} />
         </div>
 
-        {/* Clarification banner */}
+        {/* Clarification block — shown for low/medium confidence */}
         {hasClarification && (
-          <ClarificationBanner
-            question={result.clarificationQuestion!}
-            onClarify={handleClarify}
-          />
+          <div style={{
+            background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.25)',
+            borderRadius: 'var(--r-md)', padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>🤔</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#FF9F0A', marginBottom: 4 }}>
+                  AI не уверен — уточни для точности
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  {result.clarificationQuestion}
+                </div>
+              </div>
+            </div>
+            {!clarifyOtherOpen ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                {sourceType === 'text' && (
+                  <button
+                    onClick={() => { setResult(null); setStep('text'); }}
+                    style={{
+                      flex: 1, background: 'rgba(255,159,10,0.15)', border: '1px solid rgba(255,159,10,0.3)',
+                      borderRadius: 8, padding: '8px 12px',
+                      fontSize: 13, fontWeight: 600, color: '#FF9F0A', cursor: 'pointer',
+                    }}
+                  >
+                    Уточнить текст
+                  </button>
+                )}
+                {sourceType === 'photo' && (
+                  <button
+                    onClick={() => setClarifyOtherOpen(true)}
+                    style={{
+                      flex: 1, background: 'rgba(255,159,10,0.15)', border: '1px solid rgba(255,159,10,0.3)',
+                      borderRadius: 8, padding: '8px 12px',
+                      fontSize: 13, fontWeight: 600, color: '#FF9F0A', cursor: 'pointer',
+                    }}
+                  >
+                    Другое — уточнить
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6, lineHeight: 1.4 }}>
+                  Напиши, что это — например «греческий йогурт», «творог 5%», «куриная грудка с гречкой»
+                </div>
+                <textarea
+                  value={otherInput}
+                  onChange={e => setOtherInput(e.target.value)}
+                  placeholder="Что ты съел?"
+                  rows={2}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: 'var(--surface-2)', border: '1px solid var(--border-2)',
+                    borderRadius: 8, padding: '10px 12px', fontSize: 14,
+                    color: 'var(--text)', outline: 'none', resize: 'none',
+                    marginBottom: 8,
+                  }}
+                />
+                {refineError && (
+                  <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8 }}>{refineError}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { setClarifyOtherOpen(false); setOtherInput(''); setRefineError(''); }}
+                    style={{
+                      flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--text-3)', cursor: 'pointer',
+                    }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleRefine}
+                    disabled={refining || !otherInput.trim()}
+                    style={{
+                      flex: 2, background: '#FF9F0A', border: 'none',
+                      borderRadius: 8, padding: '8px 12px',
+                      fontSize: 13, fontWeight: 700, color: '#000', cursor: 'pointer',
+                    }}
+                  >
+                    {refining ? 'Пересчитываю...' : 'Пересчитать →'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Meal type picker */}
@@ -1318,7 +1603,7 @@ export default function AddMealScreen() {
             className="btn btn-secondary"
             style={{ fontSize: 14 }}
             onClick={() => {
-              setTemplateTitle(result.name || '');
+              setTemplateTitle(displayName || result.name || '');
               setTemplateWeightInput(result.weightG != null ? String(Math.round(result.weightG)) : '');
               setTemplateState('form');
             }}
@@ -1490,10 +1775,10 @@ export default function AddMealScreen() {
       <div className="screen">
         <BackBtn to="select" />
         <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-          Фото блюда
+          Фото или скриншот
         </h1>
         <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
-          Сфотографируй или выбери фото из галереи
+          Сфотографируй блюдо или загрузи скриншот КБЖУ / карточку продукта
         </div>
 
         <input
@@ -1625,7 +1910,7 @@ export default function AddMealScreen() {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Фото</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-            {isPremium ? 'Сфотографируй блюдо — AI определит состав' : 'Подключи Optimal — AI определит состав по фото'}
+            {isPremium ? 'Фото блюда или скриншот КБЖУ — AI разберёт состав' : 'Подключи Optimal — AI определит состав по фото или скриншоту'}
           </div>
         </div>
         {isPremium

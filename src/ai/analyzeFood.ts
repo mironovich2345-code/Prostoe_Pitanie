@@ -29,6 +29,14 @@ export interface FoodAnalysisResult {
   confidence?: 'high' | 'medium' | 'low';
   needsClarification?: boolean;
   clarificationQuestion?: string | null;
+  /** Image classification: food photo vs nutrition label / screenshot */
+  imageType?: 'food_photo' | 'nutrition_screenshot' | 'product_label';
+  /** What the extracted macros are based on (for labels/screenshots) */
+  nutritionPer?: '100g' | 'portion' | 'package' | null;
+  /** Total package weight in grams, if visible on label */
+  packageWeightG?: number | null;
+  /** Single serving size in grams, if visible on label */
+  servingSizeG?: number | null;
 }
 
 // ─── Text analysis prompt ──────────────────────────────────────────────────
@@ -95,44 +103,71 @@ needsClarification — ставь true если выполняется ХОТЯ 
 Если needsClarification=true, clarificationQuestion — ОДИН короткий вопрос на русском, помогающий уточнить самое важное.`;
 
 // ─── Photo analysis prompt ─────────────────────────────────────────────────
-const PHOTO_SYSTEM_PROMPT = `Ты — опытный диетолог. Пользователь присылает фото приёма пищи.
+const PHOTO_SYSTEM_PROMPT = `Ты — опытный диетолог. Пользователь присылает изображение — фото блюда, скриншот таблицы КБЖУ или фото этикетки продукта.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ШАГ 0. ОПРЕДЕЛИ ТИП ИЗОБРАЖЕНИЯ (imageType):
+
+"food_photo"           — фото реальной еды: тарелка с блюдом, приготовленная еда, упаковка в руке
+"nutrition_screenshot" — скриншот или фото таблицы КБЖУ / таблицы питательных веществ
+"product_label"        — фото этикетки, карточки товара в магазине/приложении, обёртки с составом
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЕСЛИ imageType = "nutrition_screenshot" или "product_label":
+
+Извлеки из изображения:
+1. Название продукта → name (короткое, на русском если возможно)
+2. КБЖУ: caloriesKcal, proteinG, fatG, carbsG, fiberG — только значения с этикетки, не рассчитывай сам
+3. Определи, за что указаны значения (nutritionPer):
+   "100g"    — написано "на 100 г" / "per 100g" / "на 100 мл"
+   "portion" — написано "на порцию" / "per serving" / "на 1 шт"
+   "package" — написано "на упаковку" / "per pack / per container" / "вся упаковка"
+4. Если видна масса упаковки (например "нетто 450 г") → packageWeightG
+5. Если видна масса порции → servingSizeG
+6. mealType — определи по продукту ("unknown" если неочевидно)
+7. confidence = "high" если КБЖУ чётко видны; "medium" если есть сомнения; "low" если значения нечитаемы
+8. needsClarification = false (данные этикетки не нуждаются в уточнении)
+   ИСКЛЮЧЕНИЕ: если значения нечитаемы — needsClarification = true
+9. ingredients = [] (не нужно перечислять состав с этикетки)
+10. weightG = null (будет указан пользователем при добавлении)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ЕСЛИ imageType = "food_photo":
+
+Сначала определи: это еда или нет?
+Если НЕ еда — верни строго:
+{"isFood": false, "imageType": "food_photo", "nutritionPer": null, "packageWeightG": null, "servingSizeG": null, "mealType": "unknown", "name": "", "items": [], "ingredients": [], "composition": "", "hasSauce": false, "hasCheese": false, "hasFattyComponent": false, "hasFried": false, "confidence": "high", "needsClarification": false, "clarificationQuestion": null, "caloriesKcal": null, "proteinG": null, "fatG": null, "carbsG": null, "fiberG": null, "weightG": null}
 
 ГЛАВНОЕ ПРАВИЛО: Всё видимое на фото — ОДИН приём пищи, одна запись.
-Даже если на фото несколько тарелок — это один приём, не разделяй.
-
-Сначала определи: это фото еды / блюда / напитка или нет?
-
-Если НЕ еда — верни строго:
-{"isFood": false, "mealType": "unknown", "name": "", "items": [], "ingredients": [], "composition": "", "confidence": "high", "needsClarification": false, "clarificationQuestion": null, "caloriesKcal": null, "proteinG": null, "fatG": null, "carbsG": null, "fiberG": null, "weightG": null}
 
 Если еда — анализируй строго в таком порядке:
 
-ШАГ 0. Определи тип приёма пищи (mealType):
-- "breakfast" / "lunch" / "dinner" / "snack" / "unknown" — по виду и составу блюд на фото.
+ШАГ 1. Определи тип приёма пищи (mealType):
+- "breakfast" / "lunch" / "dinner" / "snack" / "unknown" — по виду и составу блюд.
 Каша + яйца = завтрак. Суп + второе = обед. Лёгкое блюдо / кофе + бутерброд = перекус.
 
-ШАГ 1. Перечисли все видимые блюда/продукты (items[]).
-items — блюда уровня тарелки, не ингредиенты. ["Паста карбонара", "Салат", "Вода"] — правильно.
+ШАГ 2. Перечисли все видимые блюда/продукты (items[]).
+items — блюда уровня тарелки, не ингредиенты. ["Паста карбонара", "Салат"] — правильно.
 
-ШАГ 2. Что видно на фото детально?
+ШАГ 3. Что видно на фото детально?
 Перечисли все компоненты каждого блюда. Особое внимание на:
-- соусы (томатный, сливочный, карбонара, болоньезе, песто и т.д.)
-- сыр (пармезан, моцарелла, чеддер и т.д.)
+- соусы (томатный, сливочный, карбонара, болоньезе, песто)
+- сыр (пармезан, моцарелла, чеддер)
 - жирные мясные компоненты (бекон, фарш, колбаса, мраморное мясо)
 - жареные элементы (корочка, масло в жарке)
 - масло (сливочное, оливковое) и кремовые добавки
 - орехи, кунжут, топпинги
 
-ШАГ 3. Оцени вес каждого компонента в граммах.
+ШАГ 4. Оцени вес каждого компонента в граммах.
 Ресторанные порции часто 350–600г — не занижай.
 
-ШАГ 4. Посчитай КБЖУ суммированием по ВСЕМ компонентам всего приёма пищи.
+ШАГ 5. Посчитай КБЖУ суммированием по ВСЕМ компонентам всего приёма пищи.
 НЕ считай по названию — считай по ингредиентам.
 
-ШАГ 5. Оцени уверенность честно:
+ШАГ 6. Оцени уверенность честно:
 - "high": блюдо и все основные компоненты чётко видны, вес/порция оцениваются уверенно. НЕ ставь без оснований.
 - "medium": основное блюдо понятно, 1–2 компонента угаданы по контексту (соус, начинка).
-- "low": фото нечёткое / размытое, блюдо частично скрыто, несколько равновероятных интерпретаций.
+- "low": фото нечёткое/размытое, блюдо частично скрыто, несколько равновероятных интерпретаций.
 
 needsClarification — ставь true если выполняется ХОТЯ БЫ ОДНО условие:
 - часть блюда скрыта, не попала в кадр
@@ -142,14 +177,19 @@ needsClarification — ставь true если выполняется ХОТЯ 
 - confidence = "low"
 Если needsClarification=true, clarificationQuestion — ОДИН короткий вопрос на русском.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Верни ТОЛЬКО валидный JSON (без markdown, без пояснений):
 {
   "isFood": true,
+  "imageType": "food_photo" | "nutrition_screenshot" | "product_label",
+  "nutritionPer": "100g" | "portion" | "package" | null,
+  "packageWeightG": число или null,
+  "servingSizeG": число или null,
   "mealType": "breakfast" | "lunch" | "dinner" | "snack" | "unknown",
-  "name": "короткое название приёма пищи на русском",
-  "items": ["Блюдо 1", "Блюдо 2"],
-  "ingredients": ["ингредиент 1 ~XXг", "ингредиент 2 ~XXг"],
-  "composition": "краткое перечисление составляющих",
+  "name": "короткое название на русском",
+  "items": ["Блюдо 1"],
+  "ingredients": ["ингредиент ~XXг"],
+  "composition": "краткое перечисление",
   "hasSauce": true/false,
   "hasCheese": true/false,
   "hasFattyComponent": true/false,
@@ -165,13 +205,13 @@ needsClarification — ставь true если выполняется ХОТЯ 
   "weightG": число или null
 }
 
-Критические правила:
-- Один приём пищи = один JSON-объект. Никогда не дроби на несколько.
+Критические правила для food_photo:
+- Один приём пищи = один JSON-объект. Никогда не дроби.
 - Не упрощай ресторанное блюдо до "паста с овощами" если виден соус, сыр, мясо.
 - Соус к пасте — обычно 80–120г и добавляет 100–250 ккал.
 - Тёртый сыр сверху — обычно 15–30г, добавляет 60–120 ккал.
 - Если видишь корочку, поджаренные края, масло — не игнорируй жиры.
-- Если нельзя точно определить — лучше завысить немного, чем сильно занизить.
+- Лучше немного завысить, чем сильно занизить.
 - Не фантазируй о невидимых ингредиентах: если не видно — отметь в needsClarification.`;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -211,6 +251,16 @@ function normalizeClarity(
 function safeMealType(v: unknown): MealType {
   if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
   return 'unknown';
+}
+
+function safeImageType(v: unknown): 'food_photo' | 'nutrition_screenshot' | 'product_label' | undefined {
+  if (v === 'food_photo' || v === 'nutrition_screenshot' || v === 'product_label') return v;
+  return undefined;
+}
+
+function safeNutritionPer(v: unknown): '100g' | 'portion' | 'package' | null {
+  if (v === '100g' || v === 'portion' || v === 'package') return v;
+  return null;
 }
 
 function safeStringArray(v: unknown): string[] | undefined {
@@ -253,6 +303,10 @@ function buildResult(parsed: Record<string, unknown>, fallbackName: string): Foo
     carbsG: safeNum(parsed.carbsG) !== null ? Math.round(safeNum(parsed.carbsG)! * 10) / 10 : null,
     fiberG: safeNum(parsed.fiberG) !== null ? Math.round(safeNum(parsed.fiberG)! * 10) / 10 : null,
     weightG: safeNum(parsed.weightG) !== null ? Math.round(safeNum(parsed.weightG)!) : null,
+    imageType: safeImageType(parsed.imageType),
+    nutritionPer: safeNutritionPer(parsed.nutritionPer),
+    packageWeightG: safeNum(parsed.packageWeightG),
+    servingSizeG: safeNum(parsed.servingSizeG),
   };
 }
 
@@ -285,7 +339,7 @@ export async function analyzeFoodPhoto(fileUrl: string, costCtx?: AiCostContext)
         ],
       },
     ],
-    max_tokens: 700,
+    max_tokens: 800,
     temperature: 0.1,
   });
 
@@ -298,6 +352,54 @@ export async function analyzeFoodPhoto(fileUrl: string, costCtx?: AiCostContext)
   if (parsed.isFood === false) throw new NotFoodError();
 
   return buildResult(parsed, 'Блюдо на фото');
+}
+
+// ─── Photo re-analysis with user context ──────────────────────────────────────
+
+/**
+ * Re-analyze a photo with additional user-provided context (e.g. "это греческий йогурт").
+ * Used when user clicks "Другое" after a low-confidence result.
+ */
+export async function analyzeFoodPhotoWithContext(
+  fileUrl: string,
+  userContext: string,
+  costCtx?: AiCostContext,
+): Promise<FoodAnalysisResult> {
+  const openai = getClient();
+  const MODEL = 'gpt-4o';
+
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: PHOTO_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: fileUrl, detail: 'high' },
+          },
+          {
+            type: 'text',
+            text: `Пользователь уточнил: "${userContext}". Определи состав и КБЖУ с учётом этого уточнения.`,
+          },
+        ],
+      },
+    ],
+    max_tokens: 800,
+    temperature: 0.1,
+  });
+
+  if (costCtx) logAiCost(costCtx, MODEL, response.usage);
+
+  const raw = response.choices[0]?.message?.content ?? '{}';
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+  if (parsed.isFood === false) throw new NotFoodError();
+
+  return buildResult(parsed, userContext);
 }
 
 // ─── Text analysis ─────────────────────────────────────────────────────────

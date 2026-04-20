@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import { requirePremiumAccess } from '../middleware/requirePremiumAccess';
 import prisma from '../../db';
-import { analyzeFood, analyzeFoodPhoto, NotFoodError } from '../../ai/analyzeFood';
+import { analyzeFood, analyzeFoodPhoto, analyzeFoodPhotoWithContext, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
@@ -221,6 +221,30 @@ router.post('/analyze-photo', requirePremiumAccess, async (req: AuthRequest, res
       res.status(422).json({ error: 'NOT_FOOD' }); return;
     }
     console.error('[nutrition/analyze-photo]', err);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
+// POST /api/nutrition/analyze-photo/refine — re-analyze a photo with user context [premium]
+router.post('/analyze-photo/refine', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
+  const { imageData, userContext } = req.body as { imageData?: string; userContext?: string };
+  if (!imageData) { res.status(400).json({ error: 'Missing imageData' }); return; }
+  if (!userContext?.trim()) { res.status(400).json({ error: 'Missing userContext' }); return; }
+  if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
+  try {
+    const result = await analyzeFoodPhotoWithContext(
+      imageData,
+      userContext.trim(),
+      { userId: req.userId, chatId: req.chatId, scenario: 'food_photo' },
+    );
+    res.json(result);
+  } catch (err) {
+    if (err instanceof NotFoodError) {
+      res.status(422).json({ error: 'NOT_FOOD' }); return;
+    }
+    console.error('[nutrition/analyze-photo/refine]', err);
     res.status(500).json({ error: 'Analysis failed' });
   }
 });
