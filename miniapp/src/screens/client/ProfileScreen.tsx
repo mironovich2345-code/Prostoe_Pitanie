@@ -11,17 +11,6 @@ interface Props {
   onSwitchToAdmin?: () => void;
 }
 
-type ProfileTab = 'weight' | 'trainer';
-
-const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
-  { key: 'weight',  label: 'Вес'    },
-  { key: 'trainer', label: 'Мой эксперт' },
-];
-
-const ACTIVITY_LABELS: Record<number, string> = {
-  1.2: 'Почти нет', 1.375: 'Лёгкая', 1.55: 'Средняя', 1.725: 'Высокая', 1.9: 'Очень высокая',
-};
-
 // ─── ExpertChip ────────────────────────────────────────────────────────────
 
 function ExpertChip({ status }: { status: TrainerVerificationStatus | undefined }) {
@@ -202,38 +191,7 @@ function UserHeroCard({ bootstrap, onSwitchToCoach }: { bootstrap: BootstrapData
   );
 }
 
-// ─── Tab: Вес ──────────────────────────────────────────────────────────────
-
-function WeightTab({ bootstrap }: { bootstrap: BootstrapData }) {
-  const navigate = useNavigate();
-  const p = bootstrap.profile;
-  const weight = p?.currentWeightKg;
-
-  if (!weight) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 16px' }}>
-        <div style={{ opacity: 0.2, marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Вес не указан</div>
-        <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.5 }}>
-          Добавь данные о весе, чтобы отслеживать прогресс и динамику изменений
-        </div>
-        <button
-          onClick={() => navigate('/profile/edit-data')}
-          className="btn"
-          style={{ width: 'auto', padding: '11px 28px', display: 'inline-block', fontSize: 14 }}
-        >
-          Добавить данные
-        </button>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// ─── Tab: Тренер ───────────────────────────────────────────────────────────
+// ─── Trainer section ───────────────────────────────────────────────────────
 
 function TrainerTab({ bootstrap }: { bootstrap: BootstrapData }) {
   const navigate = useNavigate();
@@ -517,7 +475,6 @@ function ReferralSection() {
 
 export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAdmin }: Props) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<ProfileTab>('weight');
 
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
   const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
@@ -528,22 +485,10 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
       {/* User hero card */}
       <UserHeroCard bootstrap={bootstrap} onSwitchToCoach={isVerified ? onSwitchToCoach : undefined} />
 
-      {/* Segment tabs */}
-      <div className="period-tabs" style={{ marginBottom: 16 }}>
-        {PROFILE_TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`period-tab${tab === t.key ? ' active' : ''}`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Expert section */}
+      <div style={{ marginBottom: 16 }}>
+        <TrainerTab bootstrap={bootstrap} />
       </div>
-
-      {/* Tab content */}
-      {tab === 'weight'  && <WeightTab  bootstrap={bootstrap} />}
-      {tab === 'trainer' && <TrainerTab bootstrap={bootstrap} />}
 
       {/* Settings sections */}
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '16px 2px 10px' }}>

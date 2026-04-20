@@ -568,23 +568,15 @@ function GoalForecastCard({ profile, meals30 }: { profile: UserProfile; meals30:
 
 // ─── Meal Section Card ─────────────────────────────────────────────────────
 
-function MealSectionCard({ label, meals, onAdd }: { label: string; meals: MealEntry[]; onAdd: () => void }) {
+function MealSectionCard({ label, meals }: { label: string; meals: MealEntry[] }) {
   const totalCal = meals.reduce((s, m) => s + (m.caloriesKcal ?? 0), 0);
   const hasMeals = meals.length > 0;
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', marginBottom: 8, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: hasMeals ? '1px solid var(--border)' : 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{label}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {totalCal > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{totalCal} ккал</span>}
-          <button
-            onClick={e => { e.stopPropagation(); onAdd(); }}
-            style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 18, fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >+</button>
-        </div>
+        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{label}</span>
+        {totalCal > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{totalCal} ккал</span>}
       </div>
       {hasMeals ? (
         <div>
@@ -706,7 +698,7 @@ export default function HomeScreen({ bootstrap }: Props) {
       </div>
 
       {MEAL_SECTIONS.map(s => (
-        <MealSectionCard key={s.type} label={s.label} meals={mealsByType[s.type] ?? []} onAdd={() => navigate('/add')} />
+        <MealSectionCard key={s.type} label={s.label} meals={mealsByType[s.type] ?? []} />
       ))}
 
       <div style={{ marginTop: 6 }}>

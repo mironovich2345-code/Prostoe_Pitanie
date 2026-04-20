@@ -171,9 +171,11 @@ export default function ConnectTrainerScreen() {
       {isPro && step === 'code' && (
         <div>
           <div style={{ fontSize: 14, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.5 }}>
-            Попросите эксперта показать вам 6-значный код для подключения и введите его ниже.
+            Попросите эксперта показать вам 6-значный код и введите его ниже.
           </div>
-          <div style={{ marginBottom: 16 }}>
+
+          {/* Code input */}
+          <div style={{ marginBottom: 12 }}>
             <input
               value={code}
               onChange={e => {
@@ -192,46 +194,67 @@ export default function ConnectTrainerScreen() {
               }}
             />
           </div>
+
           {lookupError && (
-            <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>{lookupError}</div>
+            <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10, textAlign: 'center' }}>{lookupError}</div>
           )}
+
+          {/* Primary CTA */}
           <button
             className="btn"
             disabled={code.length < 6 || lookupMutation.isPending}
             onClick={() => { setConnectMode('code'); lookupMutation.mutate(); }}
-            style={{ fontSize: 15, marginBottom: 10 }}
+            style={{ fontSize: 15, marginBottom: 20 }}
           >
-            {lookupMutation.isPending ? 'Поиск...' : 'Найти эксперта →'}
+            {lookupMutation.isPending ? 'Поиск...' : 'Подключить по коду'}
           </button>
 
-          {/* QR scan button */}
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>или</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
+          {/* Secondary: QR scan */}
           <button
-            className="btn btn-secondary"
-            style={{ fontSize: 14, marginBottom: qrUnavailable ? 8 : 10 }}
             onClick={handleScanQr}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '13px 16px', marginBottom: qrUnavailable ? 8 : 12,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--r-md)', cursor: 'pointer',
+              fontSize: 14, fontWeight: 600, color: 'var(--text-2)',
+            }}
           >
-            Сканировать QR-код
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><path d="M17 17h4"/><path d="M21 14v3"/>
+            </svg>
+            Сканировать QR
           </button>
 
           {/* QR unavailable inline hint */}
           {qrUnavailable && (
             <div style={{
-              background: 'var(--surface)', borderRadius: 'var(--r-md)',
-              border: '1px solid var(--border)', padding: '12px 16px',
-              marginBottom: 10,
-              fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, textAlign: 'center',
+              fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5,
+              textAlign: 'center', marginBottom: 12,
             }}>
               Сканирование недоступно в этом браузере — введите код вручную
             </div>
           )}
 
-          {/* Browse expert list */}
+          {/* Tertiary: catalog */}
           <button
-            className="btn btn-ghost"
-            style={{ fontSize: 14 }}
             onClick={() => navigate('/trainers')}
+            style={{
+              width: '100%', padding: '10px 0', background: 'none', border: 'none',
+              cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text-3)',
+              textDecoration: 'underline', textDecorationColor: 'var(--border)',
+              textUnderlineOffset: 3,
+            }}
           >
-            Найти эксперта в каталоге
+            Выбрать из каталога
           </button>
         </div>
       )}
