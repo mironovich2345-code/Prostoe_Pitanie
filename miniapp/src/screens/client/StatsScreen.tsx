@@ -974,15 +974,22 @@ function WeightView() {
 
   // history is DESC (newest first): [0] = newest, [last] = oldest
   const currentWeight = history.length > 0 ? history[0].weightKg : profile?.currentWeightKg ?? null;
-  const startWeight   = history.length > 0 ? history[history.length - 1].weightKg : null;
   const current = currentWeight;
-  const target = profile?.desiredWeightKg;
+  const target = profile?.desiredWeightKg ?? null;
+  // Signed difference for direction-aware display labels (positive = over target, negative = under).
   const diff = currentWeight != null && target != null ? currentWeight - target : null;
 
-  // Progress: 0% = startWeight (oldest entry), 100% = targetWeight
-  const totalSpan = startWeight != null && target != null ? startWeight - target : null;
-  const pct = totalSpan != null && Math.abs(totalSpan) > 0.01 && currentWeight != null
-    ? Math.max(0, Math.min(100, Math.round(((startWeight! - currentWeight) / totalSpan) * 100)))
+  // Stable anchor: set when the user last changed their goal target.
+  // Falls back to oldest history entry, then to current weight (no history case).
+  const anchor = profile?.goalStartWeightKg
+    ?? (history.length > 0 ? history[history.length - 1].weightKg : null)
+    ?? currentWeight;
+
+  // Direction-agnostic progress: how much of the distance anchor→target has been covered.
+  const total = anchor != null && target != null ? Math.abs(anchor - target) : null;
+  const done  = anchor != null && currentWeight != null ? Math.abs(anchor - currentWeight) : null;
+  const pct   = total != null && done != null && total > 0.01
+    ? Math.max(0, Math.min(100, Math.round((done / total) * 100)))
     : null;
 
   const weight = current;

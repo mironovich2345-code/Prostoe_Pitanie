@@ -153,6 +153,8 @@ model UserProfile {
   trainerOfferType     String?
   referralLockedAt     DateTime?
   expertReferralSourceCode String?   // erf_ code captured when future expert first visited bot
+  goalStartWeightKg   Float?   // currentWeightKg at the moment the current desiredWeightKg was set
+  goalStartedAt       DateTime? // when the current goal anchor was recorded
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

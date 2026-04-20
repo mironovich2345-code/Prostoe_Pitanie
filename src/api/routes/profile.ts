@@ -58,6 +58,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         sex: profile.sex,
         birthDate: profile.birthDate,
         activityLevel: profile.activityLevel,
+        goalStartWeightKg: profile.goalStartWeightKg ?? null,
       } : null,
       weightHistory: weights,
     });
@@ -86,7 +87,6 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     const data: Parameters<typeof upsertProfile>[1] = {};
     if (heightCm !== undefined) data.heightCm = Number(heightCm);
     if (currentWeightKg !== undefined) data.currentWeightKg = Number(currentWeightKg);
-    if (desiredWeightKg !== undefined) data.desiredWeightKg = Number(desiredWeightKg);
     if (sex !== undefined) data.sex = sex;
     if (birthDate !== undefined) data.birthDate = new Date(birthDate);
     if (activityLevel !== undefined) data.activityLevel = Number(activityLevel);
@@ -102,6 +102,23 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     }
     if (preferredName !== undefined) data.preferredName = preferredName.trim() || undefined;
     if (goalType !== undefined) data.goalType = goalType;
+
+    // When desiredWeightKg changes, record a stable anchor (goalStartWeightKg) so that
+    // the progress bar doesn't shift as new weight entries push old ones off the history window.
+    if (desiredWeightKg !== undefined) {
+      data.desiredWeightKg = Number(desiredWeightKg);
+      const existing = await prisma.userProfile.findUnique({ where: { chatId } });
+      const existingTarget = existing?.desiredWeightKg;
+      const targetChanged = existingTarget == null || Math.abs(existingTarget - Number(desiredWeightKg)) > 0.01;
+      if (targetChanged) {
+        // Prefer the weight being set in this same request, otherwise use existing profile weight.
+        const anchorWeight = currentWeightKg !== undefined ? Number(currentWeightKg) : (existing?.currentWeightKg ?? null);
+        if (anchorWeight != null) {
+          data.goalStartWeightKg = anchorWeight;
+          data.goalStartedAt = new Date();
+        }
+      }
+    }
 
     const chatIdNum = parseInt(chatId, 10);
     await upsertProfile(chatIdNum, data, req.userId);
@@ -126,6 +143,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
         sex: updated.sex,
         birthDate: updated.birthDate,
         activityLevel: updated.activityLevel,
+        goalStartWeightKg: updated.goalStartWeightKg ?? null,
       } : null,
     });
   } catch (err) {

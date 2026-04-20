@@ -33,6 +33,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       city: true, timezone: true, preferredName: true,
       sex: true, birthDate: true, activityLevel: true,
       referralCode: true, avatarData: true, trainerOfferType: true, referredByRole: true,
+      goalStartWeightKg: true,
     } as const;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,6 +166,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         activityLevel: profile.activityLevel,
         referralCode: profile.referralCode,
         avatarData: profile.avatarData ?? null,
+        goalStartWeightKg: profile.goalStartWeightKg ?? null,
       } : null,
       trainerOfferType: normalizeOfferType(profile?.trainerOfferType),
       referralSource: (profile?.referredByRole === 'trainer' || profile?.referredByRole === 'company')

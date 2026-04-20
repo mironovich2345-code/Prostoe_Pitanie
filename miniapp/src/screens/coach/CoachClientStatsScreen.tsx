@@ -588,13 +588,19 @@ function WeightView({ history, profile }: {
   profile: UserProfile | null;
 }) {
   const currentWeight = history.length > 0 ? history[0].weightKg : profile?.currentWeightKg ?? null;
-  const startWeight   = history.length > 0 ? history[history.length - 1].weightKg : null;
-  const target = profile?.desiredWeightKg;
+  const target = profile?.desiredWeightKg ?? null;
   const diff = currentWeight != null && target != null ? currentWeight - target : null;
 
-  const totalSpan = startWeight != null && target != null ? startWeight - target : null;
-  const pct = totalSpan != null && Math.abs(totalSpan) > 0.01 && currentWeight != null
-    ? Math.max(0, Math.min(100, Math.round(((startWeight! - currentWeight) / totalSpan) * 100)))
+  // Stable anchor: goalStartWeightKg set when the client last changed their goal.
+  // Falls back to oldest history entry, then to current weight.
+  const anchor = profile?.goalStartWeightKg
+    ?? (history.length > 0 ? history[history.length - 1].weightKg : null)
+    ?? currentWeight;
+
+  const total = anchor != null && target != null ? Math.abs(anchor - target) : null;
+  const done  = anchor != null && currentWeight != null ? Math.abs(anchor - currentWeight) : null;
+  const pct   = total != null && done != null && total > 0.01
+    ? Math.max(0, Math.min(100, Math.round((done / total) * 100)))
     : null;
 
   return (

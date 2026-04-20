@@ -72,6 +72,7 @@ export interface UserProfile {
   sex: string | null;
   birthDate: string | null;
   activityLevel: number | null;
+  goalStartWeightKg: number | null;
 }
 
 export interface TrainerProfileInfo {

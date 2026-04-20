@@ -19,6 +19,8 @@ export interface UpdateProfileData {
   city?: string;
   timezone?: string;
   preferredName?: string;
+  goalStartWeightKg?: number | null;
+  goalStartedAt?: Date | null;
 }
 
 export async function getProfile(chatId: number) {
