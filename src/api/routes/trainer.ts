@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { validateImageDataUrl, AVATAR_MAX_BYTES, validateDocumentDataUrl, DOCUMENT_MAX_BYTES, PHOTO_MAX_BYTES } from '../utils/validateImage';
 import { recognizeRequisites } from '../../ai/recognizeRequisites';
+import { uploadObject, getObjectBuffer, deleteObject, trainerDocKey, mimeToExt, StorageNotConfiguredError } from '../../storage/r2';
 
 const router = Router();
 
@@ -613,11 +614,52 @@ router.post('/documents', async (req: AuthRequest, res: Response) => {
 
     const semi = fileData.indexOf(';');
     const mimeType = fileData.slice(5, semi); // strip 'data:'
+    const comma = fileData.indexOf(',');
+    const b64 = fileData.slice(comma + 1);
+    const fileBuffer = Buffer.from(b64, 'base64');
+    const sizeBytes = fileBuffer.length;
 
-    const doc = await prisma.trainerDocument.create({
-      data: { chatId, docType, title: title?.trim() || null, fileData, mimeType },
-    });
-    res.json({ document: { id: doc.id, docType: doc.docType, title: doc.title, mimeType: doc.mimeType, createdAt: doc.createdAt } });
+    // Try R2 upload. If R2 is not configured, fall back to legacy base64 storage.
+    try {
+      // Create the DB record first to get a stable id for the R2 key
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const draft = await (prisma.trainerDocument as any).create({
+        data: { chatId, docType, title: title?.trim() || null, fileData: null, mimeType, sizeBytes },
+      }) as { id: number; docType: string; title: string | null; mimeType: string; createdAt: Date };
+
+      const ext = mimeToExt(mimeType);
+      const key = trainerDocKey(chatId, draft.id, ext);
+
+      try {
+        await uploadObject(key, fileBuffer, mimeType);
+        // Update the record with the R2 key
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (prisma.trainerDocument as any).update({
+          where: { id: draft.id },
+          data: { storageKey: key, storageProvider: 'r2' },
+        });
+        res.json({ document: { id: draft.id, docType: draft.docType, title: draft.title, mimeType: draft.mimeType, createdAt: draft.createdAt } });
+        return;
+      } catch (r2Err) {
+        if (r2Err instanceof StorageNotConfiguredError) {
+          // R2 not configured — store base64 in the existing record and continue
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (prisma.trainerDocument as any).update({
+            where: { id: draft.id },
+            data: { fileData },
+          });
+          res.json({ document: { id: draft.id, docType: draft.docType, title: draft.title, mimeType: draft.mimeType, createdAt: draft.createdAt } });
+          return;
+        }
+        // R2 is configured but upload failed — clean up the draft record and return error
+        await prisma.trainerDocument.delete({ where: { id: draft.id } });
+        console.error('[trainer/documents POST] R2 upload failed', r2Err);
+        res.status(502).json({ error: 'File upload failed, please try again' });
+        return;
+      }
+    } catch {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -630,8 +672,20 @@ router.delete('/documents/:id', async (req: AuthRequest, res: Response) => {
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
 
   try {
-    const doc = await prisma.trainerDocument.findFirst({ where: { id, chatId } });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = await (prisma.trainerDocument as any).findFirst({
+      where: { id, chatId },
+      select: { id: true, storageKey: true },
+    }) as { id: number; storageKey: string | null } | null;
     if (!doc) { res.status(404).json({ error: 'Not found' }); return; }
+
+    // Delete R2 object before removing the DB record (fire-and-forget on error)
+    if (doc.storageKey) {
+      deleteObject(doc.storageKey).catch(err =>
+        console.error('[trainer/documents DELETE] R2 delete failed', err)
+      );
+    }
+
     await prisma.trainerDocument.delete({ where: { id } });
     res.json({ ok: true });
   } catch {
@@ -646,18 +700,28 @@ router.get('/documents/:id/file', async (req: AuthRequest, res: Response) => {
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
 
   try {
-    const doc = await prisma.trainerDocument.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = await (prisma.trainerDocument as any).findFirst({
       where: { id, chatId },
-      select: { fileData: true, mimeType: true },
-    });
+      select: { fileData: true, mimeType: true, storageKey: true },
+    }) as { fileData: string | null; mimeType: string; storageKey: string | null } | null;
     if (!doc) { res.status(404).json({ error: 'Not found' }); return; }
 
-    const comma = doc.fileData.indexOf(',');
-    const b64 = doc.fileData.slice(comma + 1);
-    const buffer = Buffer.from(b64, 'base64');
     res.setHeader('Content-Type', doc.mimeType);
     res.setHeader('Content-Disposition', 'inline');
-    res.send(buffer);
+
+    if (doc.storageKey) {
+      // R2-backed record
+      const buffer = await getObjectBuffer(doc.storageKey);
+      res.send(buffer);
+    } else if (doc.fileData) {
+      // Legacy base64 record
+      const comma = doc.fileData.indexOf(',');
+      const buffer = Buffer.from(doc.fileData.slice(comma + 1), 'base64');
+      res.send(buffer);
+    } else {
+      res.status(404).json({ error: 'File data not found' });
+    }
   } catch {
     res.status(500).json({ error: 'Internal server error' });
   }

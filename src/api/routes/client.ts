@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { triggerQualificationRefresh } from '../../services/expertAcquisitionService';
+import { getObjectBuffer } from '../../storage/r2';
 
 const router = Router();
 
@@ -134,18 +135,27 @@ router.get('/trainers/:trainerId/documents/:docId/file', async (req: AuthRequest
     });
     if (!tp) { res.status(404).json({ error: 'Expert not found' }); return; }
 
-    const doc = await (prisma as unknown as { trainerDocument: { findFirst(args: unknown): Promise<{ fileData: string; mimeType: string } | null> } }).trainerDocument.findFirst({
+    const doc = await (prisma as unknown as { trainerDocument: { findFirst(args: unknown): Promise<{ fileData: string | null; mimeType: string; storageKey: string | null } | null> } }).trainerDocument.findFirst({
       where: { id, chatId: trainerId },
-      select: { fileData: true, mimeType: true },
+      select: { fileData: true, mimeType: true, storageKey: true },
     }).catch(() => null);
     if (!doc) { res.status(404).json({ error: 'Document not found' }); return; }
 
-    const comma = doc.fileData.indexOf(',');
-    const b64 = doc.fileData.slice(comma + 1);
-    const buffer = Buffer.from(b64, 'base64');
     res.setHeader('Content-Type', doc.mimeType);
     res.setHeader('Content-Disposition', 'inline');
-    res.send(buffer);
+
+    if (doc.storageKey) {
+      // R2-backed record
+      const buffer = await getObjectBuffer(doc.storageKey);
+      res.send(buffer);
+    } else if (doc.fileData) {
+      // Legacy base64 record
+      const comma = doc.fileData.indexOf(',');
+      const buffer = Buffer.from(doc.fileData.slice(comma + 1), 'base64');
+      res.send(buffer);
+    } else {
+      res.status(404).json({ error: 'File data not found' });
+    }
   } catch (err) {
     console.error('[client/trainers/:trainerId/documents/:docId/file]', err);
     res.status(500).json({ error: 'Internal server error' });

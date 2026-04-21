@@ -18,8 +18,14 @@ function getAdminIds(): Set<string> {
 }
 
 function adminOnly(req: AuthRequest, res: Response, next: NextFunction): void {
-  const userId = req.chatId;
-  if (!userId || !getAdminIds().has(userId)) {
+  // ADMIN_USER_IDS may contain Telegram chatIds (legacy) or platform-independent userIds.
+  // Checking both ensures admin access works after TG↔MAX account linking:
+  //   - TG chatId still works (backward-compatible)
+  //   - canonical userId works cross-platform if added to ADMIN_USER_IDS
+  const adminIds = getAdminIds();
+  const isAdmin = (req.chatId && adminIds.has(req.chatId)) ||
+                  (req.userId  && adminIds.has(req.userId));
+  if (!isAdmin) {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
