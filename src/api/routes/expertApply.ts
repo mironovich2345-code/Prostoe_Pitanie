@@ -3,6 +3,7 @@ import { Telegram } from 'telegraf';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
+import { uploadObject, mimeToExt, StorageNotConfiguredError } from '../../storage/r2';
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -42,7 +43,50 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
 
   try {
     const userId = req.userId;
-    const trainerProfile = await prisma.trainerProfile.upsert({
+
+    // ── Build verification photo storage fields ─────────────────────────────────
+    // For new uploads: try R2. Fall back to base64 if R2 is not configured.
+    // For company applications (no photo): all fields stay null.
+    let photoFields: {
+      verificationPhotoData: string | null;
+      verificationPhotoStorageKey?: string;
+      verificationPhotoStorageProvider?: string;
+      verificationPhotoSizeBytes?: number;
+    } = { verificationPhotoData: null };
+
+    if (verificationPhotoData) {
+      const comma = verificationPhotoData.indexOf(',');
+      const semi  = verificationPhotoData.indexOf(';');
+      const mimeType = verificationPhotoData.slice(5, semi); // strip 'data:'
+      const fileBuffer = Buffer.from(verificationPhotoData.slice(comma + 1), 'base64');
+      const ext = mimeToExt(mimeType);
+      const storageKey = `trainer-verification-photos/${chatId}.${ext}`;
+
+      try {
+        await uploadObject(storageKey, fileBuffer, mimeType);
+        photoFields = {
+          verificationPhotoData: null,
+          verificationPhotoStorageKey: storageKey,
+          verificationPhotoStorageProvider: 'r2',
+          verificationPhotoSizeBytes: fileBuffer.length,
+        };
+      } catch (r2Err) {
+        if (r2Err instanceof StorageNotConfiguredError) {
+          // R2 not configured — store legacy base64
+          photoFields = { verificationPhotoData };
+        } else {
+          console.error('[expert/apply] R2 upload failed', r2Err);
+          res.status(502).json({ error: 'Photo upload failed, please try again' });
+          return;
+        }
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trainerProfile = await (prisma.trainerProfile.upsert as (args: any) => Promise<{
+      verificationStatus: string; bio: string | null; specialization: string | null;
+      referralCode: string | null; fullName: string | null; socialLink: string | null; appliedAt: Date | null;
+    }>)({
       where: { chatId },
       create: {
         chatId,
@@ -50,7 +94,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),
-        verificationPhotoData: verificationPhotoData ?? null,
+        ...photoFields,
         specialization: specialization?.trim() ?? null,
         bio: bio?.trim() ?? null,
         appliedAt: new Date(),
@@ -61,7 +105,7 @@ router.post('/apply', async (req: AuthRequest, res: Response) => {
         verificationStatus: 'pending',
         fullName: fullName.trim(),
         socialLink: socialLink.trim(),
-        verificationPhotoData: verificationPhotoData ?? null,
+        ...photoFields,
         specialization: specialization?.trim() ?? null,
         bio: bio?.trim() ?? null,
         appliedAt: new Date(),

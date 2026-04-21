@@ -228,9 +228,12 @@ model TrainerProfile {
   verificationNote        String?
   connectionCode          String?
   connectionCodeExpiresAt DateTime?
-  avatarData              String?   // base64 data URL
-  verificationPhotoData   String?   // base64 selfie for identity verification
-  requisitesData          String?   // JSON-encoded company requisites (ИП/ООО fields)
+  avatarData                       String?   // base64 data URL
+  verificationPhotoData            String?   // base64 selfie — populated for legacy records; null for R2-backed records
+  verificationPhotoStorageKey      String?   // R2 object key, e.g. trainer-verification-photos/{chatId}.jpg; null for legacy
+  verificationPhotoStorageProvider String?   // 'r2' — set together with storageKey; null for legacy records
+  verificationPhotoSizeBytes       Int?      // original file size in bytes; null for legacy records
+  requisitesData                   String?   // JSON-encoded company requisites (ИП/ООО fields)
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }

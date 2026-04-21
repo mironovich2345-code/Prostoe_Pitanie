@@ -5,6 +5,7 @@ import { getAiCostLogDbFull } from '../../ai/aiCost';
 import { fetchYooKassaPayment } from '../../services/yookassaService';
 import { activateSubscription, type PlanId } from '../../services/subscriptionService';
 import { normalizeOfferType } from '../../utils/referral';
+import { getObjectBuffer, deleteObject } from '../../storage/r2';
 
 const router = Router();
 
@@ -35,10 +36,28 @@ function adminOnly(req: AuthRequest, res: Response, next: NextFunction): void {
 router.use(adminOnly as import('express').RequestHandler);
 
 // ─── GET /api/admin/applications — pending trainer applications ─────────────
+//
+// Returns verificationPhotoData as a base64 data URL for all record types:
+//   - Legacy records: verificationPhotoData column already contains the data URL
+//   - R2-backed records: bytes fetched from R2 server-side, converted to data URL
+// The frontend AdminApplicationsScreen receives the same shape in both cases.
 
 router.get('/applications', async (_req: AuthRequest, res: Response) => {
+  type RawApp = {
+    chatId: string;
+    fullName: string | null;
+    socialLink: string | null;
+    specialization: string | null;
+    bio: string | null;
+    verificationPhotoData: string | null;
+    verificationPhotoStorageKey: string | null;
+    appliedAt: Date | null;
+    verificationStatus: string;
+  };
+
   try {
-    const pending = await prisma.trainerProfile.findMany({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pending = await ((prisma.trainerProfile.findMany as unknown) as (args: any) => Promise<RawApp[]>)({
       where: { verificationStatus: 'pending' },
       orderBy: { appliedAt: 'desc' },
       select: {
@@ -48,11 +67,42 @@ router.get('/applications', async (_req: AuthRequest, res: Response) => {
         specialization: true,
         bio: true,
         verificationPhotoData: true,
+        verificationPhotoStorageKey: true,
         appliedAt: true,
         verificationStatus: true,
       },
     });
-    res.json({ applications: pending });
+
+    // Resolve R2-backed photos to base64 data URLs (server-side, admin-only read path)
+    const applications = await Promise.all(pending.map(async app => {
+      let verificationPhotoData = app.verificationPhotoData;
+
+      if (!verificationPhotoData && app.verificationPhotoStorageKey) {
+        try {
+          const buffer = await getObjectBuffer(app.verificationPhotoStorageKey);
+          // Derive mime type from the key extension (.jpg → image/jpeg, .pdf not expected here)
+          const ext = app.verificationPhotoStorageKey.split('.').pop() ?? 'jpg';
+          const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          verificationPhotoData = `data:${mime};base64,${buffer.toString('base64')}`;
+        } catch (r2Err) {
+          console.error(`[admin/applications] R2 fetch failed for ${app.verificationPhotoStorageKey}`, r2Err);
+          // Leave verificationPhotoData as null — admin sees no photo rather than a crash
+        }
+      }
+
+      return {
+        chatId: app.chatId,
+        fullName: app.fullName,
+        socialLink: app.socialLink,
+        specialization: app.specialization,
+        bio: app.bio,
+        verificationPhotoData,
+        appliedAt: app.appliedAt,
+        verificationStatus: app.verificationStatus,
+      };
+    }));
+
+    res.json({ applications });
   } catch (err) {
     console.error('[admin/applications]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -68,9 +118,9 @@ router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Respo
     // Without a referralCode the expert cannot use the partnership/referral features.
     const [existing, identity] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (prisma.trainerProfile.findUnique as (args: any) => Promise<{ referralCode: string | null; userId: string | null } | null>)({
+      (prisma.trainerProfile.findUnique as (args: any) => Promise<{ referralCode: string | null; userId: string | null; verificationPhotoStorageKey: string | null } | null>)({
         where: { chatId },
-        select: { referralCode: true, userId: true },
+        select: { referralCode: true, userId: true, verificationPhotoStorageKey: true },
       }),
       // Look up platform-independent userId so it gets written to TrainerProfile.
       // If the expert later logs in from MAX, we can find their profile via userId.
@@ -85,13 +135,24 @@ router.post('/applications/:chatId/approve', async (req: AuthRequest, res: Respo
     // Backfill userId only if not already set (prevents overwriting a correct value)
     const resolvedUserId = existing?.userId ?? identity?.userId ?? null;
 
-    const updated = await prisma.trainerProfile.update({
+    // Clean up R2 verification photo now that it is no longer needed
+    if (existing?.verificationPhotoStorageKey) {
+      deleteObject(existing.verificationPhotoStorageKey).catch(err =>
+        console.error('[admin/approve] R2 delete failed', err)
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = await (prisma.trainerProfile.update as (args: any) => Promise<{ verificationStatus: string }>)({
       where: { chatId },
       data: {
         verificationStatus: 'verified',
         verifiedAt: new Date(),
         rejectedAt: null,
         verificationPhotoData: null,
+        verificationPhotoStorageKey: null,
+        verificationPhotoStorageProvider: null,
+        verificationPhotoSizeBytes: null,
         referralCode,
         ...(resolvedUserId ? { userId: resolvedUserId } : {}),
       },
@@ -109,9 +170,31 @@ router.post('/applications/:chatId/reject', async (req: AuthRequest, res: Respon
   const { chatId } = req.params as { chatId: string };
   const { note } = req.body as { note?: string };
   try {
-    const updated = await prisma.trainerProfile.update({
+    // Fetch storage key so we can clean up R2 before updating the record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existing = await (prisma.trainerProfile.findUnique as (args: any) => Promise<{ verificationPhotoStorageKey: string | null } | null>)({
       where: { chatId },
-      data: { verificationStatus: 'rejected', rejectedAt: new Date(), verificationNote: note?.trim() || null, verificationPhotoData: null },
+      select: { verificationPhotoStorageKey: true },
+    });
+
+    if (existing?.verificationPhotoStorageKey) {
+      deleteObject(existing.verificationPhotoStorageKey).catch(err =>
+        console.error('[admin/reject] R2 delete failed', err)
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = await (prisma.trainerProfile.update as (args: any) => Promise<{ verificationStatus: string }>)({
+      where: { chatId },
+      data: {
+        verificationStatus: 'rejected',
+        rejectedAt: new Date(),
+        verificationNote: note?.trim() || null,
+        verificationPhotoData: null,
+        verificationPhotoStorageKey: null,
+        verificationPhotoStorageProvider: null,
+        verificationPhotoSizeBytes: null,
+      },
     });
     res.json({ ok: true, verificationStatus: updated.verificationStatus });
   } catch (err) {
