@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
-import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
+import WeekCalendar, { TODAY, isoToLocalDate, getWeekDays } from '../../components/WeekCalendar';
+import type { DotSet } from '../../components/WeekCalendar';
 import type { MealEntry, UserProfile } from '../../types';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -231,7 +232,7 @@ function CompactDaySummary({ cal, p, f, c }: { cal: number; p: number; f: number
 
 // ─── Meal list ──────────────────────────────────────────────────────────────
 
-function MealList({ meals, ratingByMeal }: { meals: MealEntry[]; ratingByMeal: Record<string, string> }) {
+function MealList({ meals, ratingByMeal, canViewPhotos }: { meals: MealEntry[]; ratingByMeal: Record<string, string>; canViewPhotos?: boolean }) {
   if (meals.length === 0) {
     return (
       <div style={{
@@ -273,6 +274,13 @@ function MealList({ meals, ratingByMeal }: { meals: MealEntry[]; ratingByMeal: R
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 3 }}>{timeLabel}</div>
+                    {canViewPhotos && m.photoData && (
+                      <img
+                        src={m.photoData}
+                        alt="Фото приёма пищи"
+                        style={{ width: '100%', maxWidth: 260, borderRadius: 10, marginBottom: 6, display: 'block' }}
+                      />
+                    )}
                     <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.45 }}>{m.text || '—'}</div>
                     {m.caloriesKcal != null && (
                       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
@@ -294,13 +302,35 @@ function MealList({ meals, ratingByMeal }: { meals: MealEntry[]; ratingByMeal: R
 
 // ─── Day View ──────────────────────────────────────────────────────────────
 
-function DayView({ clientId, norms, ratingByMeal, ratingByDay }: {
+function DayView({ clientId, norms, ratingByMeal, ratingByDay, canViewPhotos }: {
   clientId: string;
   norms: { cal: number | null; p: number | null; f: number | null; c: number | null };
   ratingByMeal: Record<string, string>;
   ratingByDay: Record<string, string>;
+  canViewPhotos: boolean;
 }) {
   const [date, setDate] = useState(TODAY);
+
+  const weekDays = useMemo(() => getWeekDays(date), [date]);
+  const weekFrom = weekDays[0];
+  const weekTo   = weekDays[6];
+
+  const { data: weekData } = useQuery({
+    queryKey: ['trainer-client-week-dots', clientId, weekFrom, weekTo],
+    queryFn: () => api.trainerClientStatsRange(clientId, weekFrom, weekTo),
+  });
+
+  const dotsByDate = useMemo((): Record<string, DotSet> => {
+    const result: Record<string, DotSet> = {};
+    for (const m of weekData?.meals ?? []) {
+      const d = m.createdAt.split('T')[0];
+      if (!result[d]) result[d] = { breakfast: false, lunch: false, dinner: false };
+      if (m.mealType === 'breakfast') result[d].breakfast = true;
+      else if (m.mealType === 'lunch') result[d].lunch = true;
+      else if (m.mealType === 'dinner') result[d].dinner = true;
+    }
+    return result;
+  }, [weekData]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['trainer-client-day', clientId, date],
@@ -312,7 +342,7 @@ function DayView({ clientId, norms, ratingByMeal, ratingByDay }: {
 
   return (
     <>
-      <WeekCalendar selected={date} onSelect={setDate} />
+      <WeekCalendar selected={date} onSelect={setDate} dotsByDate={dotsByDate} />
 
       {isLoading ? (
         <div className="card" style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
@@ -328,7 +358,7 @@ function DayView({ clientId, norms, ratingByMeal, ratingByDay }: {
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', padding: '0 2px 10px' }}>
             Записи
           </div>
-          <MealList meals={meals} ratingByMeal={ratingByMeal} />
+          <MealList meals={meals} ratingByMeal={ratingByMeal} canViewPhotos={canViewPhotos} />
 
           {meals.length > 0 && (
             <div style={{ marginTop: 8, background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 14px', border: '1px solid var(--border)' }}>
@@ -349,11 +379,12 @@ const DAY_RATING_CHIP: Record<string, { label: string; color: string; bg: string
   improve:   { label: 'Улучшить', color: 'var(--warn, #F0A07A)', bg: 'rgba(240,160,122,0.12)' },
 };
 
-function WeekView({ clientId, norms, ratingByMeal, ratingByDay }: {
+function WeekView({ clientId, norms, ratingByMeal, ratingByDay, canViewPhotos }: {
   clientId: string;
   norms: { cal: number | null; p: number | null; f: number | null; c: number | null };
   ratingByMeal: Record<string, string>;
   ratingByDay: Record<string, string>;
+  canViewPhotos: boolean;
 }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -564,7 +595,7 @@ function WeekView({ clientId, norms, ratingByMeal, ratingByDay }: {
                     <div style={{ background: 'var(--surface-2)', borderBottom: !isLast ? '1px solid var(--border)' : 'none' }}>
                       <CompactDaySummary {...computeTotals(dayMeals)} />
                       <div style={{ padding: '10px 12px' }}>
-                        <MealList meals={dayMeals} ratingByMeal={ratingByMeal} />
+                        <MealList meals={dayMeals} ratingByMeal={ratingByMeal} canViewPhotos={canViewPhotos} />
                         <div style={{ marginTop: 8, background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '12px 14px', border: '1px solid var(--border)' }}>
                           <DayRatingBar date={day} clientId={clientId} existingRating={ratingByDay[day]} />
                         </div>
@@ -722,6 +753,7 @@ export default function CoachClientStatsScreen() {
   const profile = data?.profile as UserProfile | null;
   const displayName = data?.displayName ?? `Клиент …${clientId?.slice(-4)}`;
   const weightHistory = data?.weightHistory ?? [];
+  const canViewPhotos = data?.canViewPhotos ?? false;
 
   const norms = {
     cal: profile?.dailyCaloriesKcal ?? null,
@@ -753,8 +785,8 @@ export default function CoachClientStatsScreen() {
         ))}
       </div>
 
-      {tab === 'day'    && <DayView    clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} />}
-      {tab === 'week'   && <WeekView   clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} />}
+      {tab === 'day'    && <DayView    clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} canViewPhotos={canViewPhotos} />}
+      {tab === 'week'   && <WeekView   clientId={clientId!} norms={norms} ratingByMeal={ratingByMeal} ratingByDay={ratingByDay} canViewPhotos={canViewPhotos} />}
       {tab === 'weight' && <WeightView history={weightHistory} profile={profile} />}
     </div>
   );

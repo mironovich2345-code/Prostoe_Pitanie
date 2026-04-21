@@ -733,13 +733,8 @@ export default function AddMealScreen() {
       setOtherInput('');
       setRefineError('');
       setStep('result');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '';
-      if (msg === 'subscription_required') {
-        setError('Для AI-анализа нужна активная подписка. Перейди в раздел Подписка.');
-      } else {
-        setError(msg || 'Ошибка анализа. Попробуйте ещё раз.');
-      }
+    } catch {
+      setError('Ошибка анализа. Попробуйте ещё раз.');
     } finally {
       setAnalyzing(false);
     }
@@ -1558,17 +1553,24 @@ export default function AddMealScreen() {
         }}>
           Тип приёма пищи
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
           {MEAL_TYPES.map(mt => (
             <button
               key={mt.key}
               onClick={() => setMealType(mt.key)}
               style={{
-                padding: '10px 14px', fontSize: 13, fontWeight: 600, borderRadius: 'var(--r-sm)',
-                border: `2px solid ${mealType === mt.key ? 'var(--accent)' : 'var(--border)'}`,
+                padding: '15px 10px 13px',
+                fontSize: 15,
+                fontWeight: mealType === mt.key ? 700 : 500,
+                borderRadius: 12,
+                border: mealType === mt.key
+                  ? '1.5px solid rgba(215,255,63,0.35)'
+                  : '1px solid var(--border)',
                 background: mealType === mt.key ? 'var(--accent-soft)' : 'var(--surface)',
                 color: mealType === mt.key ? 'var(--accent)' : 'var(--text-2)',
                 cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'background 0.15s, border-color 0.15s',
               }}
             >
               {mt.label}

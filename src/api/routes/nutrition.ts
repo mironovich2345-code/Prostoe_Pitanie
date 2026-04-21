@@ -193,8 +193,8 @@ router.post('/analyze-ingredients', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/nutrition/analyze — analyze meal text via AI [premium]
-router.post('/analyze', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
+// POST /api/nutrition/analyze — analyze meal text via AI [free]
+router.post('/analyze', async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text?: string };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   try {
