@@ -4,7 +4,18 @@ import prisma from '../../db';
 
 const router = Router();
 
-async function isPremiumUser(chatId: string): Promise<boolean> {
+async function isPremiumUser(chatId: string, userId?: string | null): Promise<boolean> {
+  // Prefer the new UserSubscription table (written by payment webhooks).
+  // Fall back to the legacy Subscription table for records that pre-date the migration.
+  if (userId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userSub = await (prisma as unknown as { userSubscription: { findUnique(a: any): Promise<any> } })
+      .userSubscription.findUnique({ where: { userId }, select: { status: true } });
+    if (userSub) {
+      return userSub.status === 'active' || userSub.status === 'trial';
+    }
+  }
+  // Legacy fallback: chatId-keyed Subscription row
   const sub = await prisma.subscription.findUnique({ where: { chatId }, select: { status: true } });
   return sub?.status === 'active' || sub?.status === 'trial';
 }
@@ -81,7 +92,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    if (mealType !== 'weight' && !(await isPremiumUser(chatId))) {
+    if (mealType !== 'weight' && !(await isPremiumUser(chatId, req.userId))) {
       res.status(403).json({ error: 'Требуется подписка' });
       return;
     }
@@ -124,7 +135,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
     const existing = await prisma.mealReminder.findFirst({ where: { id, chatId } });
     if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
 
-    if (existing.mealType !== 'weight' && !(await isPremiumUser(chatId))) {
+    if (existing.mealType !== 'weight' && !(await isPremiumUser(chatId, req.userId))) {
       res.status(403).json({ error: 'Требуется подписка' });
       return;
     }
