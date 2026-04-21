@@ -4,14 +4,59 @@ import prisma from '../../db';
 
 const router = Router();
 
-// ─── GET /api/subscription — legacy chatId-keyed subscription ─────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const userSubDb = (prisma as unknown as { userSubscription: any }).userSubscription as {
+  findUnique(args: object): Promise<Record<string, unknown> | null>;
+};
+
+/** Normalize any subscription record to the SubscriptionInfo shape the frontend expects. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeUserSub(us: any) {
+  return {
+    planId:          us.planId,
+    status:          us.status,
+    trialEndsAt:     us.trialEndsAt    ? new Date(us.trialEndsAt).toISOString()    : null,
+    currentPeriodEnd: us.currentPeriodEnd ? new Date(us.currentPeriodEnd).toISOString() : null,
+    autoRenew:       us.autoRenew,
+    hasPaymentMethod: !!(us.providerSubId),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeLegacySub(sub: any) {
+  return {
+    planId:           sub.planId,
+    status:           sub.status,
+    trialEndsAt:      sub.trialEndsAt    ? new Date(sub.trialEndsAt).toISOString()    : null,
+    currentPeriodEnd: sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toISOString() : null,
+    autoRenew:        sub.autoRenew,
+    hasPaymentMethod: false, // legacy table has no providerSubId — auto-renewal not possible
+  };
+}
+
+// ─── GET /api/subscription — subscription status for the authenticated user ──
+//
+// UserSubscription (userId-keyed) is the canonical source: it is what the payment
+// webhook writes to after a successful charge. The legacy Subscription (chatId-keyed)
+// is kept as a read fallback for pre-migration users who have not yet been backfilled.
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId  = req.userId ?? null;
   try {
-    const subscription = await prisma.subscription.findUnique({ where: { chatId } });
-    res.json({ subscription });
+    // 1. Prefer UserSubscription (canonical: written by webhook + activateSubscription)
+    if (userId) {
+      const userSub = await userSubDb.findUnique({ where: { userId } } as object);
+      if (userSub) {
+        res.json({ subscription: normalizeUserSub(userSub) });
+        return;
+      }
+    }
+    // 2. Fallback: legacy Subscription (chatId-keyed, pre-migration users)
+    const legacySub = await prisma.subscription.findUnique({ where: { chatId } });
+    res.json({ subscription: legacySub ? normalizeLegacySub(legacySub) : null });
   } catch (err) {
+    console.error('[subscription GET]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

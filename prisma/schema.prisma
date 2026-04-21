@@ -176,6 +176,7 @@ model MealEntry {
   fiberG        Float?
   createdAt     DateTime @default(now())
   @@index([userId])
+  @@index([chatId])
 }
 
 model SavedMeal {
@@ -204,6 +205,7 @@ model WeightEntry {
   weightKg  Float
   createdAt DateTime @default(now())
   @@index([userId])
+  @@index([chatId])
 }
 
 model TrainerProfile {
@@ -246,6 +248,7 @@ model TrainerClientLink {
   connectedAt       DateTime @default(now())
   disconnectedAt    DateTime?
   @@unique([trainerId, clientId])
+  @@index([clientId])
 }
 
 model TrainerRating {

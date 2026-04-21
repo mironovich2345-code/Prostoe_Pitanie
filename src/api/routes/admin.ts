@@ -369,10 +369,10 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       newExpertsToday,
       newExpertsWeek,
       newExpertsMonth,
-      subsTotal,
-      subsActive,
-      subsExpired,
-      subsNeverPaid,
+      // UserSubscription (canonical: written by payment webhook + activateSubscription)
+      userSubTotal,
+      userSubActive,    // status IN ('active', 'trial')
+      userSubInactive,  // status IN ('expired', 'canceled', 'past_due')
       // Payment revenue from the Payment table (succeeded only)
       payRevToday,
       payRevWeek,
@@ -380,6 +380,9 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       // AutoRenew counts from UserSubscription (canonical source)
       autoRenewOn,
       autoRenewOff,
+      // Experts vs Companies: use count() to avoid loading all rows
+      expertCount,
+      companyCount,
     ] = await Promise.all([
       prisma.userProfile.count(),
       prisma.userProfile.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -389,13 +392,12 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       prisma.trainerProfile.count({ where: { verificationStatus: 'verified', verifiedAt: { gte: startOfToday } } }),
       prisma.trainerProfile.count({ where: { verificationStatus: 'verified', verifiedAt: { gte: startOfWeek } } }),
       prisma.trainerProfile.count({ where: { verificationStatus: 'verified', verifiedAt: { gte: startOfMonth } } }),
-      prisma.subscription.count(),
-      prisma.subscription.count({ where: { status: { in: ['active', 'trial'] } } }),
-      prisma.subscription.count({ where: { status: { in: ['expired', 'past_due', 'canceled'] } } }),
-      // Users who exist but have no subscription row at all
-      prisma.userProfile.count({
-        where: { chatId: { notIn: (await prisma.subscription.findMany({ select: { chatId: true } })).map(s => s.chatId) } },
-      }),
+      // UserSubscription counts — canonical source for subscription metrics.
+      // Legacy Subscription (chatId-keyed) is no longer counted here; users who are
+      // only in the legacy table will appear as neverPaid until the backfill script runs.
+      statsUserSubDb.count() as Promise<number>,
+      statsUserSubDb.count({ where: { status: { in: ['active', 'trial'] } } } as object) as Promise<number>,
+      statsUserSubDb.count({ where: { status: { in: ['expired', 'canceled', 'past_due'] } } } as object) as Promise<number>,
       // Payment revenue: sum amountRub where status='succeeded', by time window
       statsPaymentDb.aggregate({ where: { status: 'succeeded', createdAt: { gte: startOfToday } }, _sum: { amountRub: true } } as object),
       statsPaymentDb.aggregate({ where: { status: 'succeeded', createdAt: { gte: startOfWeek } },  _sum: { amountRub: true } } as object),
@@ -403,15 +405,18 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       // AutoRenew: count from UserSubscription (1 row per user, canonical)
       statsUserSubDb.count({ where: { autoRenew: true } } as object),
       statsUserSubDb.count({ where: { autoRenew: false } } as object),
+      // Experts vs Companies: count separately instead of loading all rows
+      prisma.trainerProfile.count({ where: { verificationStatus: 'verified', specialization: { not: 'Компания' } } }),
+      prisma.trainerProfile.count({ where: { verificationStatus: 'verified', specialization: 'Компания' } }),
     ]);
 
-    // Experts vs Companies among verified
-    const verifiedProfiles = await prisma.trainerProfile.findMany({
-      where: { verificationStatus: 'verified' },
-      select: { specialization: true },
-    });
-    const expertCount = verifiedProfiles.filter(p => p.specialization !== 'Компания').length;
-    const companyCount = verifiedProfiles.filter(p => p.specialization === 'Компания').length;
+    // Canonical subscription aggregates from UserSubscription.
+    // neverPaid = users with no UserSubscription row at all (never went through payment flow).
+    // Legacy-only users (not yet backfilled) also appear here — run scripts/backfill-subscriptions.ts to fix.
+    const subsTotal    = userSubTotal;
+    const subsActive   = userSubActive;
+    const subsExpired  = userSubInactive;
+    const subsNeverPaid = totalUsers - userSubTotal;
 
     // Payment counts — proxy via TrainerReward (real payment events)
     const [paymentsToday, paymentsWeek, paymentsMonth, paymentsTotal] = await Promise.all([
@@ -471,9 +476,22 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       return { oneTime: Math.round(oneTime), lifetime: Math.round(lifetime) };
     }
 
-    // AI costs — no historical data; structure prepared for future tracking via AiCostLog model
-    // Currently 0 / no data until AiCostLog migration is applied
-    const aiCosts = { today: null as number | null, week: null as number | null, month: null as number | null, note: 'Учёт ведётся с момента внедрения' };
+    // AI costs — aggregate from AiCostLog (costs in USD, returned as-is for admin display)
+    let aiCosts: { today: number | null; week: number | null; month: number | null } = { today: null, week: null, month: null };
+    try {
+      const aiDb = getAiCostLogDbFull();
+      const [aiToday, aiWeek, aiMonth] = await Promise.all([
+        aiDb.aggregate({ where: { createdAt: { gte: startOfToday } }, _sum: { costUsd: true } } as object),
+        aiDb.aggregate({ where: { createdAt: { gte: startOfWeek } },  _sum: { costUsd: true } } as object),
+        aiDb.aggregate({ where: { createdAt: { gte: startOfMonth } }, _sum: { costUsd: true } } as object),
+      ]);
+      type AiAgg = { _sum: { costUsd: number | null } };
+      aiCosts = {
+        today: (aiToday as AiAgg)._sum.costUsd ?? 0,
+        week:  (aiWeek  as AiAgg)._sum.costUsd ?? 0,
+        month: (aiMonth as AiAgg)._sum.costUsd ?? 0,
+      };
+    } catch { /* AiCostLog table may not exist yet on older deployments */ }
 
     res.json({
       users: {

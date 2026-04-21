@@ -25,7 +25,8 @@ import prisma from '../db';
 
 /** 'intro' = Pro intro 3-day at 1 ₽ (Pro only); 'pro'/'optimal' = recurring monthly plans; 'client_monthly' = legacy alias. */
 export type PlanId = 'client_monthly' | 'intro' | 'optimal' | 'pro';
-export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'expired';
+/** 'trial' is admin-granted only; canonical flow always uses status='active' with planId='intro'. */
+export type SubscriptionStatus = 'active' | 'trial' | 'past_due' | 'canceled' | 'expired';
 export type AccessLevel = 'full' | 'basic';
 
 /** Mirrors the UserSubscription Prisma model. Defined locally so the service
