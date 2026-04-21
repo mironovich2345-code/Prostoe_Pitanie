@@ -35,7 +35,7 @@ function formatEntry(entry: { text: string; mealType: string; sourceType: string
 // ── Inline keyboards ──────────────────────────────────────────────────
 // Profile editing is now only available in the mini app
 const profileViewMenu = Markup.inlineKeyboard([
-  ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Открыть приложение', process.env.MINIAPP_URL)]] : []),
+  ...(process.env.MINIAPP_URL ? [[Markup.button.webApp('📱 Открыть приложение', process.env.MINIAPP_URL)]] : []),
   [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
 ]);
 
@@ -50,7 +50,8 @@ const onboardingCancelMenu = Markup.inlineKeyboard([
 ]);
 
 const miniAppWelcomeMenu = Markup.inlineKeyboard([
-  ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Заполнить анкету', process.env.MINIAPP_URL)]] : []),
+  // web_app button required (not url) so Telegram passes initData and auth context is preserved.
+  ...(process.env.MINIAPP_URL ? [[Markup.button.webApp('📱 Заполнить анкету', process.env.MINIAPP_URL)]] : []),
   [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
 ]);
 
@@ -524,7 +525,7 @@ function buildSettingsKeyboard(profile: { notificationsEnabled: boolean | null }
   const enabled = profile?.notificationsEnabled !== false;
   return Markup.inlineKeyboard([
     [Markup.button.callback(enabled ? '🔕 Выключить уведомления' : '🔔 Включить уведомления', 'settings_toggle_notifications')],
-    ...(process.env.MINIAPP_URL ? [[Markup.button.url('📱 Настроить в приложении', process.env.MINIAPP_URL)]] : []),
+    ...(process.env.MINIAPP_URL ? [[Markup.button.webApp('📱 Настроить в приложении', process.env.MINIAPP_URL)]] : []),
     [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
   ]);
 }
