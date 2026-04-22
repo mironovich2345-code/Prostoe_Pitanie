@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { validateImageDataUrl, AVATAR_MAX_BYTES, validateDocumentDataUrl, DOCUMENT_MAX_BYTES, PHOTO_MAX_BYTES } from '../utils/validateImage';
 import { recognizeRequisites } from '../../ai/recognizeRequisites';
-import { uploadObject, getObjectBuffer, deleteObject, trainerDocKey, mimeToExt, StorageNotConfiguredError } from '../../storage/r2';
+import { uploadObject, getObjectBuffer, deleteObject, trainerDocKey, mimeToExt, extToMime, StorageNotConfiguredError } from '../../storage/r2';
 
 const router = Router();
 
@@ -87,6 +87,38 @@ function clientDisplayName(alias: string | null | undefined, preferredName: stri
   if (alias?.trim()) return alias.trim();
   if (preferredName?.trim()) return preferredName.trim();
   return `Клиент …${chatId.slice(-4)}`;
+}
+
+/**
+ * Resolve R2-backed meal photo data for a batch of meals.
+ *
+ * For each meal that has a `photoStorageKey` but no `photoData` (legacy base64),
+ * fetches the bytes from R2 in parallel and injects a base64 data URL into
+ * `photoData` so the trainer frontend receives the same shape it always has.
+ *
+ * Only call this when `canViewPhotos=true` — there is no point fetching photos
+ * that will immediately be masked to null by `maskMeal`.
+ *
+ * Privacy note: `maskMeal` (applied AFTER this function) nulls out `photoData`
+ * and `photoStorageKey` when `canViewPhotos=false`, so the storage key is never
+ * exposed to the client.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveMealPhotos(meals: any[]): Promise<any[]> {
+  return Promise.all(meals.map(async m => {
+    const storageKey: string | null = m.photoStorageKey ?? null;
+    if (!m.photoData && storageKey) {
+      try {
+        const buffer = await getObjectBuffer(storageKey);
+        const ext = storageKey.split('.').pop() ?? 'jpg';
+        return { ...m, photoData: `data:${extToMime(ext)};base64,${buffer.toString('base64')}` };
+      } catch (err) {
+        console.error('[resolveMealPhotos] R2 fetch failed', storageKey, err);
+        // Leave photoData as null; trainer sees no photo rather than a crash
+      }
+    }
+    return m;
+  }));
 }
 
 // PATCH /api/trainer/profile — update fullName, avatarData, bio, socialLink
@@ -297,13 +329,22 @@ router.get('/clients/:clientId/stats', async (req: AuthRequest, res: Response) =
     for (const m of todayMeals) todayCal += m.caloriesKcal ?? 0;
 
     const maskPhotos = !link.canViewPhotos;
-    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T =>
-      maskPhotos ? { ...m, photoFileId: null, photoData: null } : m;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T => {
+      if (!maskPhotos) return m;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { ...m, photoFileId: null, photoData: null, photoStorageKey: null } as any as T;
+    };
+
+    // Resolve R2-backed photos before applying the mask (only when trainer has photo access)
+    const [resolvedToday, resolvedRecent] = maskPhotos
+      ? [todayMeals, recentMeals]
+      : await Promise.all([resolveMealPhotos(todayMeals), resolveMealPhotos(recentMeals)]);
 
     res.json({
-      todayMeals: todayMeals.map(maskMeal),
+      todayMeals: resolvedToday.map(maskMeal),
       todayCalories: Math.round(todayCal),
-      recentMeals: recentMeals.map(maskMeal),
+      recentMeals: resolvedRecent.map(maskMeal),
       weightHistory: weights,
       profile,
       canViewPhotos: link.canViewPhotos,
@@ -346,10 +387,17 @@ router.get('/clients/:clientId/stats-range', async (req: AuthRequest, res: Respo
     });
 
     const maskPhotos = !link.canViewPhotos;
-    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T =>
-      maskPhotos ? { ...m, photoFileId: null, photoData: null } : m;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maskMeal = <T extends { photoFileId: string | null; photoData?: string | null }>(m: T): T => {
+      if (!maskPhotos) return m;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { ...m, photoFileId: null, photoData: null, photoStorageKey: null } as any as T;
+    };
 
-    res.json({ meals: meals.map(maskMeal) });
+    // Resolve R2-backed photos before applying the mask (only when trainer has photo access)
+    const resolvedMeals = maskPhotos ? meals : await resolveMealPhotos(meals);
+
+    res.json({ meals: resolvedMeals.map(maskMeal) });
   } catch (err) {
     console.error('[trainer/clients/:clientId/stats-range]', err);
     res.status(500).json({ error: 'Internal server error' });

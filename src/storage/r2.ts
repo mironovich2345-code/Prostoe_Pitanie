@@ -118,3 +118,15 @@ export function mimeToExt(mimeType: string): string {
   };
   return map[mimeType] ?? 'bin';
 }
+
+/** Derive a MIME type from a file extension. Falls back to 'application/octet-stream'. */
+export function extToMime(ext: string): string {
+  const map: Record<string, string> = {
+    'jpg':  'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png':  'image/png',
+    'webp': 'image/webp',
+    'pdf':  'application/pdf',
+  };
+  return map[ext.toLowerCase()] ?? 'application/octet-stream';
+}

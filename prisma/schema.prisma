@@ -168,7 +168,10 @@ model MealEntry {
   sourceType    String   @default("text")
   photoFileId   String?
   voiceFileId   String?
-  photoData     String?  // base64 data URL for photos uploaded via mini app
+  photoData            String?  // base64 data URL — populated for legacy records; null for R2-backed records
+  photoStorageKey      String?  // R2 object key, e.g. meal-photos/{chatId}/{ts}.jpg; null for legacy records
+  photoStorageProvider String?  // 'r2' — set together with storageKey; null for legacy records
+  photoSizeBytes       Int?     // original file size in bytes; null for legacy records
   caloriesKcal  Float?
   proteinG      Float?
   fatG          Float?

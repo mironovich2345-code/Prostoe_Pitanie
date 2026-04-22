@@ -5,13 +5,21 @@ import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto, analyzeFoodPhotoWithContext, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
+import { uploadObject, getObjectBuffer, deleteObject, mimeToExt, extToMime, StorageNotConfiguredError } from '../../storage/r2';
 
 const router = Router();
 
-/** Strip photoData from bulk meal responses — photos are served via /media endpoint */
+/**
+ * Strip photo fields from bulk meal responses.
+ * - photoData: never sent in bulk (data URLs are large)
+ * - photoStorageKey / photoStorageProvider / photoSizeBytes: internal storage metadata
+ * Individual photos are served via GET /meals/:id/media after access check.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function omitPhotoData<T extends { photoData?: unknown }>(meal: T): Omit<T, 'photoData'> {
-  const { photoData: _dropped, ...rest } = meal;
-  return rest;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { photoData: _pd, photoStorageKey: _pk, photoStorageProvider: _pp, photoSizeBytes: _ps, ...rest } = meal as any;
+  return rest as Omit<T, 'photoData'>;
 }
 
 /**
@@ -95,6 +103,15 @@ router.delete('/meals/:id', async (req: AuthRequest, res: Response) => {
   try {
     const meal = await prisma.mealEntry.findFirst({ where: ownerFilter(id, chatId, req.userId) });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
+
+    // Clean up R2 photo object if this is an R2-backed meal photo (fire-and-forget)
+    const photoStorageKey = (meal as unknown as { photoStorageKey?: string | null }).photoStorageKey;
+    if (photoStorageKey) {
+      deleteObject(photoStorageKey).catch(err =>
+        console.error('[nutrition/meals/:id DELETE] R2 delete failed', err)
+      );
+    }
+
     await prisma.mealEntry.delete({ where: { id } });
     res.json({ ok: true });
   } catch (err) {
@@ -103,30 +120,54 @@ router.delete('/meals/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/nutrition/meals/:id/media — returns media info for a meal
+// GET /api/nutrition/meals/:id/media — returns media info for a meal (owner-gated)
+//
+// Response shape: { url: string, type: 'photo' | 'voice' }
+//   - Mini-app photo (R2-backed):  url = base64 data URL fetched from R2 server-side
+//   - Mini-app photo (legacy):     url = legacy base64 data URL from photoData column
+//   - Bot photo/voice:             url = /api/nutrition/meals/:id/media/stream (server-side proxy)
 router.get('/meals/:id/media', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
-    const meal = await prisma.mealEntry.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const meal = await (prisma.mealEntry.findFirst as (args: any) => Promise<{
+      sourceType: string;
+      photoFileId: string | null;
+      voiceFileId: string | null;
+      photoData: string | null;
+      photoStorageKey: string | null;
+    } | null>)({
       where: ownerFilter(id, chatId, req.userId),
-      select: { sourceType: true, photoFileId: true, voiceFileId: true, photoData: true },
+      select: { sourceType: true, photoFileId: true, voiceFileId: true, photoData: true, photoStorageKey: true },
     });
     if (!meal) { res.status(404).json({ error: 'Not found' }); return; }
 
-    // Mini-app photo: stored as base64 data URL — return directly
-    if (meal.sourceType === 'photo' && meal.photoData) {
-      res.json({ url: meal.photoData, type: 'photo' }); return;
+    if (meal.sourceType === 'photo') {
+      // R2-backed record: fetch bytes server-side, return as base64 data URL
+      if (meal.photoStorageKey) {
+        const buffer = await getObjectBuffer(meal.photoStorageKey);
+        const ext = meal.photoStorageKey.split('.').pop() ?? 'jpg';
+        const mime = extToMime(ext);
+        res.json({ url: `data:${mime};base64,${buffer.toString('base64')}`, type: 'photo' });
+        return;
+      }
+      // Legacy base64 record: return directly
+      if (meal.photoData) {
+        res.json({ url: meal.photoData, type: 'photo' }); return;
+      }
+      // Bot photo: redirect to stream endpoint (bot token never leaves the server)
+      if (meal.photoFileId) {
+        res.json({ url: `/api/nutrition/meals/${id}/media/stream`, type: 'photo' }); return;
+      }
     }
 
-    // Bot photo/voice: redirect to stream endpoint (never expose bot token to client)
-    const hasTelegramFile = meal.sourceType === 'photo' ? !!meal.photoFileId
-                          : meal.sourceType === 'voice' ? !!meal.voiceFileId
-                          : false;
-    if (!hasTelegramFile) { res.status(404).json({ error: 'No media source' }); return; }
+    if (meal.sourceType === 'voice' && meal.voiceFileId) {
+      res.json({ url: `/api/nutrition/meals/${id}/media/stream`, type: 'voice' }); return;
+    }
 
-    res.json({ url: `/api/nutrition/meals/${id}/media/stream`, type: meal.sourceType });
+    res.status(404).json({ error: 'No media source' });
   } catch (err) {
     console.error('[nutrition/meals/:id/media]', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -267,9 +308,42 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   if (sourceType === 'photo' && imageData && !validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
     res.status(400).json({ error: 'Invalid imageData' }); return;
   }
+
+  // ── Resolve photo storage ─────────────────────────────────────────────────
+  // For new photo entries: try R2 upload. Fall back to legacy base64 if not configured.
+  let photoData: string | null = null;
+  let photoStorageKey: string | null = null;
+  let photoStorageProvider: string | null = null;
+  let photoSizeBytes: number | null = null;
+
+  if (sourceType === 'photo' && imageData) {
+    const semi = imageData.indexOf(';');
+    const comma = imageData.indexOf(',');
+    const mimeType = imageData.slice(5, semi);
+    const fileBuffer = Buffer.from(imageData.slice(comma + 1), 'base64');
+    const ext = mimeToExt(mimeType);
+    // Key includes millisecond timestamp + random suffix for uniqueness
+    const key = `meal-photos/${chatId}/${Date.now()}${Math.random().toString(36).slice(1, 6)}.${ext}`;
+
+    try {
+      await uploadObject(key, fileBuffer, mimeType);
+      photoStorageKey = key;
+      photoStorageProvider = 'r2';
+      photoSizeBytes = fileBuffer.length;
+    } catch (r2Err) {
+      if (r2Err instanceof StorageNotConfiguredError) {
+        // R2 not configured — store base64 in the legacy column
+        photoData = imageData;
+      } else {
+        console.error('[nutrition/add] R2 upload failed', r2Err);
+        res.status(502).json({ error: 'Photo upload failed, please try again' });
+        return;
+      }
+    }
+  }
+
   try {
     const meal = await prisma.mealEntry.create({
-      // userId is absent from stale Prisma client; cast removed after prisma generate
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         chatId,
@@ -277,7 +351,10 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         text: text.trim(),
         mealType: mealType ?? 'unknown',
         sourceType: sourceType ?? 'text',
-        photoData: (sourceType === 'photo' && imageData) ? imageData : null,
+        photoData,
+        photoStorageKey,
+        photoStorageProvider,
+        photoSizeBytes,
         caloriesKcal: caloriesKcal ?? null,
         proteinG: proteinG ?? null,
         fatG: fatG ?? null,
