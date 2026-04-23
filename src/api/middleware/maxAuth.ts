@@ -1,27 +1,25 @@
 /**
  * MAX (VK's MAX messenger) mini-app authentication middleware.
  *
- * ─── What is actually validated ───────────────────────────────────────────────
- * MAX mini-apps use the same HMAC-SHA256 initData pattern as Telegram:
- *   1. The client sends `x-max-init-data` header — a query string with
- *      `user=...&auth_date=...&hash=...` (and possibly other fields).
- *   2. We verify the HMAC-SHA256 signature using MAX_BOT_TOKEN.
- *      Key derivation: HMAC-SHA256("WebAppData", MAX_BOT_TOKEN) — same as Telegram.
- *   3. We check auth_date is within 1 hour to reject replayed tokens.
- *
- * ─── What is NOT yet confirmed ────────────────────────────────────────────────
- * - The exact `user` object structure from MAX (assumed similar to Telegram).
- * - Whether MAX uses a different HMAC key constant ("WebAppData" assumed).
- * - Whether MAX uses auth_date (assumed yes, same as Telegram).
- *
- * ─── Action required when MAX SDK docs are available ─────────────────────────
- * Only `validateMaxInitData` needs adjustment — the rest of the flow is stable.
+ * ─── Algorithm (per MAX docs) ─────────────────────────────────────────────────
+ *   1. Receive WebAppData query string via x-max-init-data header.
+ *   2. Split by '&' into key=value pairs; decodeURIComponent each key and value
+ *      individually (manual split, NOT URLSearchParams — avoids + → space
+ *      corruption that would break HMAC verification).
+ *   3. Extract 'hash', remove it from the set.
+ *   4. Sort remaining pairs by key (locale-insensitive ASCII sort).
+ *   5. Build data_check_string: "key=value\nkey2=value2" (decoded values).
+ *   6. secret_key  = HMAC-SHA256("WebAppData", MAX_BOT_TOKEN)
+ *   7. expected    = hex( HMAC-SHA256(secret_key, data_check_string) )
+ *   8. Compare expected with extracted hash.
  *
  * ─── chatId for MAX users ─────────────────────────────────────────────────────
- * MAX user IDs are numeric. To avoid collision with Telegram user IDs in
- * chatId-keyed tables, we prefix them: `req.chatId = 'max_' + maxUserId`.
- * This ensures legacy chatId-keyed upserts create separate, non-conflicting rows
- * until the user links their MAX account to an existing Telegram account.
+ * MAX user IDs are numeric. Prefix `max_` avoids collision with Telegram IDs.
+ *
+ * ─── Diagnostic logging ───────────────────────────────────────────────────────
+ * Logs only non-sensitive metadata: raw length, found keys, HMAC pass/fail,
+ * first 8 chars of expected hash (safe — not the full secret).
+ * Never logs token value or full initData.
  */
 
 import crypto from 'crypto';
@@ -32,13 +30,13 @@ import { resolveUserId } from '../utils/resolveUser';
 const MAX_AUTH_AGE_SECONDS = 3600;
 
 interface MaxUser {
-  /** Telegram-compat field name (may not be present in all MAX versions) */
+  /** Telegram-compat numeric ID field */
   id?: number;
-  /** MAX native field name */
+  /** MAX native numeric ID field */
   user_id?: number;
-  /** Telegram-compat display name field */
+  /** Telegram-compat display name */
   first_name?: string;
-  /** MAX native display name field */
+  /** MAX native display name */
   name?: string;
   last_name?: string;
   username?: string;
@@ -49,43 +47,113 @@ type MaxValidationResult =
   | { ok: false; reason: 'invalid' | 'expired' | 'no_token' };
 
 /**
- * Validates the `x-max-init-data` header using HMAC-SHA256.
- * Assumes the same format and key-derivation as Telegram WebApp initData.
- * Adjust the HMAC constant and user-field parsing when MAX SDK docs confirm the spec.
+ * Parse a WebAppData query string into a Map, decoding each key and value
+ * individually with decodeURIComponent (not URLSearchParams, to avoid the
+ * application/x-www-form-urlencoded '+' → space substitution that would
+ * corrupt JSON values and break the HMAC verification).
  */
-function validateMaxInitData(initData: string, botToken: string): MaxValidationResult {
+function parseWebAppData(raw: string): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const segment of raw.split('&')) {
+    if (!segment) continue;
+    const eqIdx = segment.indexOf('=');
+    if (eqIdx === -1) {
+      map.set(decodeURIComponent(segment), '');
+    } else {
+      const key = decodeURIComponent(segment.slice(0, eqIdx));
+      const val = decodeURIComponent(segment.slice(eqIdx + 1));
+      map.set(key, val);
+    }
+  }
+  return map;
+}
+
+function validateMaxInitData(rawInitData: string, botToken: string): MaxValidationResult {
   if (!botToken) return { ok: false, reason: 'no_token' };
+
+  const tag = `[maxAuth] len=${rawInitData.length}`;
+
   try {
-    const params = new URLSearchParams(initData);
+    const params = parseWebAppData(rawInitData);
+    const foundKeys = [...params.keys()];
     const hash = params.get('hash');
-    if (!hash) return { ok: false, reason: 'invalid' };
+
+    console.info(`${tag} keys=[${foundKeys.join(',')}] hasHash=${!!hash}`);
+
+    if (!hash) {
+      console.warn(`${tag} FAIL step 3: no 'hash' field in WebAppData`);
+      return { ok: false, reason: 'invalid' };
+    }
+
     params.delete('hash');
 
+    // Step 5: sorted data_check_string (decoded values)
     const dataCheckString = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
 
-    // Key derivation — same as Telegram; update the 'WebAppData' constant if MAX differs
+    // Steps 6–7: HMAC-SHA256("WebAppData", BOT_TOKEN) → HMAC-SHA256(secretKey, dcs)
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expectedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (hash !== expectedHash) return { ok: false, reason: 'invalid' };
 
+    if (hash !== expectedHash) {
+      console.warn(
+        `${tag} FAIL step 8: HMAC mismatch`,
+        `| expected prefix: ${expectedHash.slice(0, 8)}`,
+        `| received prefix: ${hash.slice(0, 8)}`,
+        `| dcs_len: ${dataCheckString.length}`,
+        `| token_present: ${!!botToken}`,
+      );
+      return { ok: false, reason: 'invalid' };
+    }
+
+    console.info(`${tag} HMAC OK`);
+
+    // Step: auth_date freshness (optional — warn but don't fail if absent)
     const authDateStr = params.get('auth_date');
     if (authDateStr) {
       const authDate = parseInt(authDateStr, 10);
       if (!isNaN(authDate)) {
         const nowSeconds = Math.floor(Date.now() / 1000);
         if (nowSeconds - authDate > MAX_AUTH_AGE_SECONDS) {
+          console.warn(`${tag} FAIL: auth_date expired age=${nowSeconds - authDate}s`);
           return { ok: false, reason: 'expired' };
         }
       }
+    } else {
+      console.warn(`${tag} no auth_date field — skipping freshness check`);
     }
 
+    // Step: user extraction — MAX may send 'user' (JSON) or 'user_id' (direct int)
     const userStr = params.get('user');
-    if (!userStr) return { ok: false, reason: 'invalid' };
-    return { ok: true, user: JSON.parse(userStr) as MaxUser };
-  } catch {
+    if (userStr) {
+      let user: MaxUser;
+      try {
+        user = JSON.parse(userStr) as MaxUser;
+      } catch {
+        console.warn(`${tag} FAIL: 'user' field is not valid JSON len=${userStr.length}`);
+        return { ok: false, reason: 'invalid' };
+      }
+      console.info(`${tag} user fields: [${Object.keys(user).join(',')}]`);
+      return { ok: true, user };
+    }
+
+    // Fallback: user_id may appear as a top-level numeric param (not inside user JSON)
+    const directUserId = params.get('user_id');
+    if (directUserId) {
+      const uid = parseInt(directUserId, 10);
+      if (!isNaN(uid)) {
+        console.info(`${tag} user from top-level user_id=${uid}`);
+        return { ok: true, user: { user_id: uid } };
+      }
+    }
+
+    console.warn(`${tag} FAIL: no 'user' or 'user_id' field. foundKeys=[${foundKeys.join(',')}]`);
+    return { ok: false, reason: 'invalid' };
+
+  } catch (err) {
+    console.error(`${tag} FAIL: exception during validation:`, err);
     return { ok: false, reason: 'invalid' };
   }
 }
@@ -110,6 +178,7 @@ export async function maxAuthMiddleware(req: AuthRequest, res: Response, next: N
   }
 
   const result = validateMaxInitData(initData, botToken);
+
   if (!result.ok) {
     if (result.reason === 'expired') {
       res.status(401).json({ error: 'Expired auth_date' });
@@ -125,22 +194,21 @@ export async function maxAuthMiddleware(req: AuthRequest, res: Response, next: N
   // Normalize: MAX may send user_id (native) or id (Telegram-compat)
   const rawUserId = result.user.user_id ?? result.user.id;
   if (!rawUserId) {
+    console.warn('[maxAuth] FAIL: no numeric user id after validation');
     res.status(401).json({ error: 'Invalid MAX initData' });
     return;
   }
   const maxUserId = String(rawUserId);
-  // Prefix to avoid numeric collision with Telegram IDs in chatId-keyed tables
   req.chatId = `max_${maxUserId}`;
   req.platform = 'max';
 
-  // Resolve platform-independent userId (non-fatal)
+  // Resolve platform-independent userId (non-fatal — chatId is enough for legacy paths)
   try {
     req.userId = await resolveUserId('max', maxUserId, {
-      // MAX may send name (native) or first_name (Telegram-compat)
       firstName: result.user.name ?? result.user.first_name,
       username: result.user.username,
     });
-  } catch { /* chatId is set — legacy paths still work */ }
+  } catch { /* non-fatal */ }
 
   next();
 }
