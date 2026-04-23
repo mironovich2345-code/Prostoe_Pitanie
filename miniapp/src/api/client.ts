@@ -25,6 +25,21 @@ declare global {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
+// ─── Hash initData cache ──────────────────────────────────────────────────────
+// React Router's HTML5 History API (pushState) clears location.hash on the
+// first navigate() call.  Reading location.hash lazily inside resolveAuthSource()
+// would return '' after the user navigates to /profile/pick/height and back.
+// Capture it once at module load time — before any navigation occurs.
+const _cachedMaxHashInitData: string = (() => {
+  const h = location.hash;
+  if (!h.startsWith('#')) return '';
+  try {
+    return new URLSearchParams(h.slice(1)).get('WebAppData') ?? '';
+  } catch {
+    return '';
+  }
+})();
+
 // ─── Auth source resolution ───────────────────────────────────────────────────
 // Platform and initData MUST be resolved together — selecting them independently
 // causes mismatches (e.g. platform='telegram' but data came from hash → wrong header).
@@ -50,18 +65,12 @@ export function resolveAuthSource(): AuthSource {
     return { platform: 'max', initData: maxData, source: 'max_bridge' };
   }
 
-  // Priority 3: MAX hash fallback.
-  // Fragment format: #WebAppData=<percent-encoded-inner-query>&WebAppPlatform=web&WebAppVersion=...
-  // IMPORTANT: must parse the outer fragment as URL params and extract ONLY the
-  // 'WebAppData' value — NOT a naive slice from '#WebAppData=', which would
-  // include the unencoded outer params (&WebAppPlatform=...) after decoding.
-  const rawHash = location.hash;
-  if (rawHash.startsWith('#')) {
-    const outerParams = new URLSearchParams(rawHash.slice(1));
-    const webAppData = outerParams.get('WebAppData');
-    if (webAppData) {
-      return { platform: 'max', initData: webAppData, source: 'hash' };
-    }
+  // Priority 3: MAX hash — use value captured at module load time.
+  // Do NOT read location.hash here: React Router clears it after the first
+  // navigate() call, so any request fired after navigation would get '' and
+  // send no auth header (→ 401 "Unauthorized").
+  if (_cachedMaxHashInitData) {
+    return { platform: 'max', initData: _cachedMaxHashInitData, source: 'hash' };
   }
 
   // No data from any source — platform guess only, initData empty

@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
 
+// Cache at module load time — React Router clears location.hash on first navigate().
+// snapshot() and hasBridge() are called after navigation, so they must use the cached value.
+const _initialHashHasWebAppData: boolean = (() => {
+  const h = location.hash;
+  if (!h.startsWith('#')) return false;
+  try { return new URLSearchParams(h.slice(1)).has('WebAppData'); } catch { return false; }
+})();
+
 export type TelegramReadyState = 'waiting' | 'ready' | 'no_bridge';
 
 export interface TgDiag {
@@ -24,9 +32,8 @@ function snapshot(): TgDiag {
   const maxWa = window.WebApp;
   const tgInitDataLen = wa?.initData?.length ?? 0;
   const maxInitDataLen = maxWa?.initData?.length ?? 0;
-  const hash = location.hash;
-  // Check for WebAppData as a proper URL param in the outer fragment, not a naive prefix match
-  const hashWebAppData = hash.startsWith('#') && new URLSearchParams(hash.slice(1)).has('WebAppData');
+  // Use the module-level cache — location.hash is cleared by React Router after first navigate()
+  const hashWebAppData = _initialHashHasWebAppData;
 
   // Mirror resolveAuthSource() priority — must stay in sync with client.ts
   let selectedSource: TgDiag['selectedSource'] = 'none';
@@ -58,9 +65,7 @@ function snapshot(): TgDiag {
 }
 
 function hasBridge(): boolean {
-  const h = location.hash;
-  const hashHasWebAppData = h.startsWith('#') && new URLSearchParams(h.slice(1)).has('WebAppData');
-  return !!(window.Telegram?.WebApp || window.WebApp || hashHasWebAppData);
+  return !!(window.Telegram?.WebApp || window.WebApp || _initialHashHasWebAppData);
 }
 
 const POLL_MS = 50;

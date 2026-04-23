@@ -70,6 +70,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // PATCH /api/profile/data — update physical profile fields, recalculate norms
 router.patch('/data', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const userId = req.userId;
+  console.info(`[profile/data] PATCH platform=${req.platform ?? 'telegram'} chatId=${chatId} hasUserId=${!!userId}`);
   const { heightCm, currentWeightKg, desiredWeightKg, sex, birthDate, activityLevel, city, timezone, preferredName, goalType } = req.body as {
     heightCm?: number;
     currentWeightKg?: number;
@@ -120,9 +122,13 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const chatIdNum = parseInt(chatId, 10);
-    await upsertProfile(chatIdNum, data, req.userId);
-    await tryAutoCalcNorms(chatIdNum);
+    // upsertProfile / tryAutoCalcNorms accept chatId:number and call String(chatId) internally.
+    // For MAX users chatId = 'max_N' — parseInt gives NaN → String(NaN) = 'NaN' (wrong row).
+    // Passing the string directly works because String('max_N') = 'max_N' (correct).
+    // The `as unknown as number` cast satisfies TypeScript without touching helper signatures.
+    const chatIdKey = chatId as unknown as number;
+    await upsertProfile(chatIdKey, data, userId);
+    await tryAutoCalcNorms(chatIdKey);
 
     const updated = await prisma.userProfile.findUnique({ where: { chatId } });
     res.json({
