@@ -3,15 +3,20 @@
  *
  * ─── Algorithm (per MAX docs) ─────────────────────────────────────────────────
  *   1. Receive WebAppData query string via x-max-init-data header.
+ *      The header contains ONLY the inner WebAppData value (outer fragment params
+ *      like WebAppPlatform/WebAppVersion are stripped by the frontend; the backend
+ *      also strips them defensively in case of older client versions).
  *   2. Split by '&' into key=value pairs; decodeURIComponent each key and value
  *      individually (manual split, NOT URLSearchParams — avoids + → space
  *      corruption that would break HMAC verification).
- *   3. Extract 'hash', remove it from the set.
- *   4. Sort remaining pairs by key (locale-insensitive ASCII sort).
- *   5. Build data_check_string: "key=value\nkey2=value2" (decoded values).
- *   6. secret_key  = HMAC-SHA256("WebAppData", MAX_BOT_TOKEN)
- *   7. expected    = hex( HMAC-SHA256(secret_key, data_check_string) )
- *   8. Compare expected with extracted hash.
+ *   3. Strip known outer-fragment params (WebAppPlatform, WebAppVersion, etc.)
+ *      and log them separately — they must NOT participate in the HMAC.
+ *   4. Extract 'hash', remove it from the set.
+ *   5. Sort remaining inner pairs by key.
+ *   6. Build data_check_string: "key=value\nkey2=value2" (decoded values).
+ *   7. secret_key  = HMAC-SHA256("WebAppData", MAX_BOT_TOKEN)
+ *   8. expected    = hex( HMAC-SHA256(secret_key, data_check_string) )
+ *   9. Compare expected with extracted hash.
  *
  * ─── chatId for MAX users ─────────────────────────────────────────────────────
  * MAX user IDs are numeric. Prefix `max_` avoids collision with Telegram IDs.
@@ -47,6 +52,17 @@ type MaxValidationResult =
   | { ok: false; reason: 'invalid' | 'expired' | 'no_token' };
 
 /**
+ * MAX URL-fragment outer params — present in the hash fragment alongside WebAppData
+ * but NOT part of the signed WebAppData payload. Must be stripped before HMAC.
+ * These are Pascal-cased, start with uppercase, and are defined by MAX platform.
+ */
+const MAX_OUTER_FRAGMENT_PARAMS = new Set([
+  'WebAppData',       // the container itself (present if front-end sent the raw hash)
+  'WebAppPlatform',   // e.g. "web", "ios", "android"
+  'WebAppVersion',    // e.g. "1.0"
+]);
+
+/**
  * Parse a WebAppData query string into a Map, decoding each key and value
  * individually with decodeURIComponent (not URLSearchParams, to avoid the
  * application/x-www-form-urlencoded '+' → space substitution that would
@@ -75,10 +91,25 @@ function validateMaxInitData(rawInitData: string, botToken: string): MaxValidati
 
   try {
     const params = parseWebAppData(rawInitData);
-    const foundKeys = [...params.keys()];
+
+    // ── Separate outer fragment params from inner WebAppData params ─────────
+    // Defensive: strip outer params even if the frontend already did so.
+    // Outer params (WebAppPlatform, WebAppVersion, …) must NOT enter the HMAC.
+    const outerKeys: string[] = [];
+    for (const key of [...params.keys()]) {
+      if (MAX_OUTER_FRAGMENT_PARAMS.has(key)) {
+        outerKeys.push(key);
+        params.delete(key);
+      }
+    }
+    if (outerKeys.length > 0) {
+      console.info(`${tag} outerKeys=[${outerKeys.join(',')}] (stripped, not part of HMAC)`);
+    }
+
+    const innerKeys = [...params.keys()];
     const hash = params.get('hash');
 
-    console.info(`${tag} keys=[${foundKeys.join(',')}] hasHash=${!!hash}`);
+    console.info(`${tag} innerKeys=[${innerKeys.join(',')}] hasHash=${!!hash}`);
 
     if (!hash) {
       console.warn(`${tag} FAIL step 3: no 'hash' field in WebAppData`);
@@ -149,7 +180,7 @@ function validateMaxInitData(rawInitData: string, botToken: string): MaxValidati
       }
     }
 
-    console.warn(`${tag} FAIL: no 'user' or 'user_id' field. foundKeys=[${foundKeys.join(',')}]`);
+    console.warn(`${tag} FAIL: no 'user' or 'user_id' field. innerKeys=[${innerKeys.join(',')}]`);
     return { ok: false, reason: 'invalid' };
 
   } catch (err) {

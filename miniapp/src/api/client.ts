@@ -50,12 +50,17 @@ export function resolveAuthSource(): AuthSource {
     return { platform: 'max', initData: maxData, source: 'max_bridge' };
   }
 
-  // Priority 3: MAX hash fallback — #WebAppData=<url-encoded-query-string>
-  const hash = location.hash;
-  if (hash.startsWith('#WebAppData=')) {
-    const decoded = decodeURIComponent(hash.slice(12));
-    if (decoded) {
-      return { platform: 'max', initData: decoded, source: 'hash' };
+  // Priority 3: MAX hash fallback.
+  // Fragment format: #WebAppData=<percent-encoded-inner-query>&WebAppPlatform=web&WebAppVersion=...
+  // IMPORTANT: must parse the outer fragment as URL params and extract ONLY the
+  // 'WebAppData' value — NOT a naive slice from '#WebAppData=', which would
+  // include the unencoded outer params (&WebAppPlatform=...) after decoding.
+  const rawHash = location.hash;
+  if (rawHash.startsWith('#')) {
+    const outerParams = new URLSearchParams(rawHash.slice(1));
+    const webAppData = outerParams.get('WebAppData');
+    if (webAppData) {
+      return { platform: 'max', initData: webAppData, source: 'hash' };
     }
   }
 

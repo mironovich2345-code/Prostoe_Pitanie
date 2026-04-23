@@ -25,7 +25,8 @@ function snapshot(): TgDiag {
   const tgInitDataLen = wa?.initData?.length ?? 0;
   const maxInitDataLen = maxWa?.initData?.length ?? 0;
   const hash = location.hash;
-  const hashWebAppData = hash.startsWith('#WebAppData=');
+  // Check for WebAppData as a proper URL param in the outer fragment, not a naive prefix match
+  const hashWebAppData = hash.startsWith('#') && new URLSearchParams(hash.slice(1)).has('WebAppData');
 
   // Mirror resolveAuthSource() priority — must stay in sync with client.ts
   let selectedSource: TgDiag['selectedSource'] = 'none';
@@ -57,7 +58,9 @@ function snapshot(): TgDiag {
 }
 
 function hasBridge(): boolean {
-  return !!(window.Telegram?.WebApp || window.WebApp || location.hash.startsWith('#WebAppData='));
+  const h = location.hash;
+  const hashHasWebAppData = h.startsWith('#') && new URLSearchParams(h.slice(1)).has('WebAppData');
+  return !!(window.Telegram?.WebApp || window.WebApp || hashHasWebAppData);
 }
 
 const POLL_MS = 50;
