@@ -336,13 +336,16 @@ async function startOnboarding(ctx: { message: { chat: { id: number } }; reply: 
 }
 
 const token = process.env.BOT_TOKEN;
+const telegramEnabled = process.env.ENABLE_TELEGRAM_BOT !== 'false';
 
-if (!token) {
+if (!token && telegramEnabled) {
   console.error('ERROR: BOT_TOKEN не задан в .env');
   process.exit(1);
 }
 
-const bot = new Telegraf(token);
+// When telegramEnabled=false and no token, use a placeholder token so Telegraf
+// constructs without throwing. bot.launch() is never called in that case.
+const bot = new Telegraf(token ?? 'disabled');
 
 // Middleware: чистый чат — удалять предыдущее сообщение бота перед каждым новым ответом
 bot.use(async (ctx, next) => {
@@ -1505,16 +1508,22 @@ bot.on('message', async (ctx) => {
 
 createApiServer();
 
-bot.launch()
-  .then(() => {
-    const username = bot.botInfo?.username;
-    if (username && !process.env.BOT_USERNAME) process.env.BOT_USERNAME = username;
-    console.log(`Бот @${username ?? process.env.BOT_USERNAME} запущен (polling)`);
-  })
-  .catch((err: Error) => {
-    console.error('Ошибка запуска бота:', err.message);
-    process.exit(1);
-  });
+if (telegramEnabled) {
+  bot.launch()
+    .then(() => {
+      const username = bot.botInfo?.username;
+      if (username && !process.env.BOT_USERNAME) process.env.BOT_USERNAME = username;
+      console.log(`Бот @${username ?? process.env.BOT_USERNAME} запущен (polling)`);
+    })
+    .catch((err: Error) => {
+      // Log but do NOT call process.exit — API server must keep running even if
+      // Telegram polling fails (e.g. 409 Conflict from a second instance).
+      console.error('[telegram] Ошибка запуска бота:', err.message);
+      console.error('[telegram] API продолжает работать. Telegram polling недоступен.');
+    });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  process.once('SIGINT', () => bot.stop('SIGINT'));
+  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+} else {
+  console.log('[telegram] ENABLE_TELEGRAM_BOT=false — Telegram polling отключён, API работает.');
+}
