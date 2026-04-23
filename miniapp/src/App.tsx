@@ -104,7 +104,11 @@ function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: str
     `tg: ${diag.hasTelegram ? 'yes' : 'NO'}`,
     `webapp: ${diag.hasWebApp ? 'yes' : 'NO'}`,
     `version: ${diag.version ?? '—'}`,
-    `initData: ${diag.initDataLen > 0 ? `${diag.initDataLen} chars` : 'EMPTY'}`,
+    `tgInitData: ${diag.telegramInitDataLen}`,
+    `maxInitData: ${diag.maxInitDataLen}`,
+    `hashData: ${diag.hashWebAppData ? 'present' : 'absent'}`,
+    `source: ${diag.selectedSource}`,
+    `header: ${diag.authHeader}`,
     `user: ${diag.hasUser ? 'yes' : 'no'}`,
     `bootstrap: ${bsStatus}`,
     ...(bsError ? [`error: ${bsError}`] : []),
@@ -164,10 +168,11 @@ export default function App() {
     const errMsg = (error as Error | null)?.message ?? 'no data';
     const isExpired = errMsg === 'Expired auth_date';
     const isAuthErr = errMsg === 'Unauthorized' || errMsg === 'Invalid initData' || errMsg === 'Invalid MAX initData' || isExpired;
+    const noData = tgDiag.selectedSource === 'none';
     const subtitle = isExpired
       ? 'Сессия устарела — закрой и открой снова'
-      : isAuthErr && tgDiag.initDataLen === 0
-        ? 'Не удалось получить данные авторизации'
+      : isAuthErr && noData
+        ? 'Платформа не передала данные авторизации'
         : isAuthErr
           ? 'Ошибка авторизации'
           : 'Проверь соединение и попробуй снова';

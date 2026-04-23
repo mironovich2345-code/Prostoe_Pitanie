@@ -25,18 +25,51 @@ declare global {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
-function detectPlatform(): 'telegram' | 'max' {
-  if (window.WebApp && !window.Telegram?.WebApp) return 'max';
-  return 'telegram';
+// ─── Auth source resolution ───────────────────────────────────────────────────
+// Platform and initData MUST be resolved together — selecting them independently
+// causes mismatches (e.g. platform='telegram' but data came from hash → wrong header).
+
+export type AuthSourceKind = 'telegram_bridge' | 'max_bridge' | 'hash' | 'none';
+
+export interface AuthSource {
+  platform: 'telegram' | 'max';
+  initData: string;
+  source: AuthSourceKind;
+}
+
+export function resolveAuthSource(): AuthSource {
+  // Priority 1: Telegram bridge with real initData — definitively Telegram
+  const tgData = window.Telegram?.WebApp?.initData ?? '';
+  if (tgData) {
+    return { platform: 'telegram', initData: tgData, source: 'telegram_bridge' };
+  }
+
+  // Priority 2: MAX native bridge with real initData
+  const maxData = window.WebApp?.initData ?? '';
+  if (maxData) {
+    return { platform: 'max', initData: maxData, source: 'max_bridge' };
+  }
+
+  // Priority 3: MAX hash fallback — #WebAppData=<url-encoded-query-string>
+  const hash = location.hash;
+  if (hash.startsWith('#WebAppData=')) {
+    const decoded = decodeURIComponent(hash.slice(12));
+    if (decoded) {
+      return { platform: 'max', initData: decoded, source: 'hash' };
+    }
+  }
+
+  // No data from any source — platform guess only, initData empty
+  const platform = (window.WebApp && !window.Telegram?.WebApp) ? 'max' : 'telegram';
+  return { platform, initData: '', source: 'none' };
 }
 
 export function getPlatformInitData(): string {
-  if (window.Telegram?.WebApp?.initData) return window.Telegram.WebApp.initData;
-  if (window.WebApp?.initData) return window.WebApp.initData;
-  // MAX fallback: initData may arrive via location hash as #WebAppData=<encoded>
-  const hash = location.hash;
-  if (hash.startsWith('#WebAppData=')) return decodeURIComponent(hash.slice(12));
-  return '';
+  return resolveAuthSource().initData;
+}
+
+export function detectPlatform(): 'telegram' | 'max' {
+  return resolveAuthSource().platform;
 }
 
 /** @deprecated use getPlatformInitData() */
@@ -45,8 +78,16 @@ export function getTelegramInitData(): string {
 }
 
 function authHeaders(): Record<string, string> {
-  const platform = detectPlatform();
-  return { [platform === 'max' ? 'x-max-init-data' : 'x-telegram-init-data']: getPlatformInitData() };
+  const { platform, initData, source } = resolveAuthSource();
+  if (!initData) {
+    // Never send an empty auth header — backend returns a clean 401 instead of
+    // "Invalid initData" which is confusing when data simply wasn't provided.
+    console.warn('[auth] No initData from any source (tg_bridge, max_bridge, hash). No auth header sent.');
+    return {};
+  }
+  const headerName = platform === 'max' ? 'x-max-init-data' : 'x-telegram-init-data';
+  console.info(`[auth] source=${source} platform=${platform} header=${headerName} len=${initData.length}`);
+  return { [headerName]: initData };
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

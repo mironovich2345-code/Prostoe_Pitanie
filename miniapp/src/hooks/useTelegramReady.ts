@@ -6,39 +6,74 @@ export interface TgDiag {
   hasTelegram: boolean;
   hasWebApp: boolean;
   version: string | null;
+  /** Length of the best available initData (backwards compat for existing consumers) */
   initDataLen: number;
   hasUnsafe: boolean;
   hasUser: boolean;
+  // ── Per-source diagnostics ──────────────────────────────────────────────────
+  telegramInitDataLen: number;
+  maxInitDataLen: number;
+  /** True when location.hash starts with #WebAppData= */
+  hashWebAppData: boolean;
+  selectedSource: 'telegram_bridge' | 'max_bridge' | 'hash' | 'none';
+  authHeader: 'x-telegram-init-data' | 'x-max-init-data' | 'none';
 }
 
 function snapshot(): TgDiag {
   const wa = window.Telegram?.WebApp;
   const maxWa = window.WebApp;
+  const tgInitDataLen = wa?.initData?.length ?? 0;
+  const maxInitDataLen = maxWa?.initData?.length ?? 0;
+  const hash = location.hash;
+  const hashWebAppData = hash.startsWith('#WebAppData=');
+
+  // Mirror resolveAuthSource() priority — must stay in sync with client.ts
+  let selectedSource: TgDiag['selectedSource'] = 'none';
+  let authHeader: TgDiag['authHeader'] = 'none';
+  if (tgInitDataLen > 0) {
+    selectedSource = 'telegram_bridge';
+    authHeader = 'x-telegram-init-data';
+  } else if (maxInitDataLen > 0) {
+    selectedSource = 'max_bridge';
+    authHeader = 'x-max-init-data';
+  } else if (hashWebAppData) {
+    selectedSource = 'hash';
+    authHeader = 'x-max-init-data';
+  }
+
   return {
     hasTelegram: !!window.Telegram,
     hasWebApp: !!(wa || maxWa),
     version: wa?.version ?? null,
-    initDataLen: wa?.initData?.length ?? maxWa?.initData?.length ?? 0,
+    initDataLen: tgInitDataLen || maxInitDataLen,
     hasUnsafe: !!wa?.initDataUnsafe,
     hasUser: !!wa?.initDataUnsafe?.user,
+    telegramInitDataLen: tgInitDataLen,
+    maxInitDataLen,
+    hashWebAppData,
+    selectedSource,
+    authHeader,
   };
+}
+
+function hasBridge(): boolean {
+  return !!(window.Telegram?.WebApp || window.WebApp || location.hash.startsWith('#WebAppData='));
 }
 
 const POLL_MS = 50;
 const TIMEOUT_MS = 1500;
 
 /**
- * Polls for window.Telegram.WebApp to be present (NOT for initData — initData
- * may arrive slightly later on iOS and is validated server-side).
+ * Polls for any recognised mini-app bridge (Telegram or MAX) to be available.
  *
  * States:
  *   'waiting'   — still polling, show loading
- *   'ready'     — WebApp object present, safe to fire bootstrap
- *   'no_bridge' — no WebApp after TIMEOUT_MS, real non-Telegram context
+ *   'ready'     — bridge present or hash data found, safe to fire bootstrap
+ *   'no_bridge' — nothing found after TIMEOUT_MS, real browser context
  */
 export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } {
   const [state, setState] = useState<TelegramReadyState>(() =>
-    (window.Telegram?.WebApp || window.WebApp) ? 'ready' : 'waiting',
+    hasBridge() ? 'ready' : 'waiting',
   );
   const [diag, setDiag] = useState<TgDiag>(snapshot);
 
@@ -47,16 +82,16 @@ export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } 
 
     const start = Date.now();
     const id = setInterval(() => {
-      if (window.Telegram?.WebApp || window.WebApp) {
+      if (hasBridge()) {
         clearInterval(id);
         const d = snapshot();
         setDiag(d);
-        const platform = window.WebApp && !window.Telegram?.WebApp ? 'MAX' : 'Telegram';
         console.info(
-          `[TG] ${platform} WebApp found.`,
-          '| version:', d.version,
-          '| initData:', d.initDataLen > 0 ? `${d.initDataLen} chars` : 'EMPTY',
-          '| user:', d.hasUser,
+          `[bridge] found — source=${d.selectedSource} platform=${d.authHeader === 'x-max-init-data' ? 'MAX' : 'Telegram'}`,
+          `| version: ${d.version ?? '—'}`,
+          `| tgInitData: ${d.telegramInitDataLen}`,
+          `| maxInitData: ${d.maxInitDataLen}`,
+          `| hashData: ${d.hashWebAppData ? 'present' : 'absent'}`,
         );
         setState('ready');
         return;
@@ -66,9 +101,10 @@ export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } 
         const d = snapshot();
         setDiag(d);
         console.warn(
-          '[TG] No WebApp after', TIMEOUT_MS, 'ms.',
+          '[bridge] No bridge after', TIMEOUT_MS, 'ms.',
           '| hasTelegram:', d.hasTelegram,
           '| hasWebApp:', d.hasWebApp,
+          '| hashData:', d.hashWebAppData,
         );
         setState('no_bridge');
       }
