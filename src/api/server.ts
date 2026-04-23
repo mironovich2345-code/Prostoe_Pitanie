@@ -21,6 +21,7 @@ import expertReferralRouter from './routes/expertReferral';
 import accountLinkRouter from './routes/accountLink';
 import paymentsRouter from './routes/payments';
 import webhooksRouter, { handleYooKassaWebhook } from './routes/webhooks';
+import maxWebhookRouter from './routes/maxWebhook';
 
 export function createApiServer() {
   const app = express();
@@ -40,6 +41,10 @@ export function createApiServer() {
   // Both point to the same handler.
   app.use('/api/webhooks', webhooksRouter);
   app.post('/api/payments/yookassa/webhook', handleYooKassaWebhook as express.RequestHandler);
+
+  // MAX bot webhook — registered BEFORE platformAuthMiddleware (MAX server-to-server, not user auth)
+  // Secured by optional MAX_WEBHOOK_SECRET header check inside the handler.
+  app.use('/api/max/webhook', maxWebhookRouter);
 
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
