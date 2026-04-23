@@ -13,11 +13,12 @@ export interface TgDiag {
 
 function snapshot(): TgDiag {
   const wa = window.Telegram?.WebApp;
+  const maxWa = window.WebApp;
   return {
     hasTelegram: !!window.Telegram,
-    hasWebApp: !!wa,
+    hasWebApp: !!(wa || maxWa),
     version: wa?.version ?? null,
-    initDataLen: wa?.initData?.length ?? 0,
+    initDataLen: wa?.initData?.length ?? maxWa?.initData?.length ?? 0,
     hasUnsafe: !!wa?.initDataUnsafe,
     hasUser: !!wa?.initDataUnsafe?.user,
   };
@@ -37,7 +38,7 @@ const TIMEOUT_MS = 1500;
  */
 export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } {
   const [state, setState] = useState<TelegramReadyState>(() =>
-    window.Telegram?.WebApp ? 'ready' : 'waiting',
+    (window.Telegram?.WebApp || window.WebApp) ? 'ready' : 'waiting',
   );
   const [diag, setDiag] = useState<TgDiag>(snapshot);
 
@@ -46,12 +47,13 @@ export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } 
 
     const start = Date.now();
     const id = setInterval(() => {
-      if (window.Telegram?.WebApp) {
+      if (window.Telegram?.WebApp || window.WebApp) {
         clearInterval(id);
         const d = snapshot();
         setDiag(d);
+        const platform = window.WebApp && !window.Telegram?.WebApp ? 'MAX' : 'Telegram';
         console.info(
-          '[TG] WebApp found.',
+          `[TG] ${platform} WebApp found.`,
           '| version:', d.version,
           '| initData:', d.initDataLen > 0 ? `${d.initDataLen} chars` : 'EMPTY',
           '| user:', d.hasUser,

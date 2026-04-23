@@ -32,8 +32,14 @@ import { resolveUserId } from '../utils/resolveUser';
 const MAX_AUTH_AGE_SECONDS = 3600;
 
 interface MaxUser {
-  id: number;
+  /** Telegram-compat field name (may not be present in all MAX versions) */
+  id?: number;
+  /** MAX native field name */
+  user_id?: number;
+  /** Telegram-compat display name field */
   first_name?: string;
+  /** MAX native display name field */
+  name?: string;
   last_name?: string;
   username?: string;
 }
@@ -116,7 +122,13 @@ export async function maxAuthMiddleware(req: AuthRequest, res: Response, next: N
     return;
   }
 
-  const maxUserId = String(result.user.id);
+  // Normalize: MAX may send user_id (native) or id (Telegram-compat)
+  const rawUserId = result.user.user_id ?? result.user.id;
+  if (!rawUserId) {
+    res.status(401).json({ error: 'Invalid MAX initData' });
+    return;
+  }
+  const maxUserId = String(rawUserId);
   // Prefix to avoid numeric collision with Telegram IDs in chatId-keyed tables
   req.chatId = `max_${maxUserId}`;
   req.platform = 'max';
@@ -124,7 +136,8 @@ export async function maxAuthMiddleware(req: AuthRequest, res: Response, next: N
   // Resolve platform-independent userId (non-fatal)
   try {
     req.userId = await resolveUserId('max', maxUserId, {
-      firstName: result.user.first_name,
+      // MAX may send name (native) or first_name (Telegram-compat)
+      firstName: result.user.name ?? result.user.first_name,
       username: result.user.username,
     });
   } catch { /* chatId is set — legacy paths still work */ }

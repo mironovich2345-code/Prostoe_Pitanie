@@ -14,13 +14,39 @@ declare global {
         themeParams: Record<string, string>;
       };
     };
+    /** MAX messenger mini-app bridge (TamTam-compatible) */
+    WebApp?: {
+      initData: string;
+      ready?(): void;
+      expand?(): void;
+    };
   }
 }
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
+function detectPlatform(): 'telegram' | 'max' {
+  if (window.WebApp && !window.Telegram?.WebApp) return 'max';
+  return 'telegram';
+}
+
+export function getPlatformInitData(): string {
+  if (window.Telegram?.WebApp?.initData) return window.Telegram.WebApp.initData;
+  if (window.WebApp?.initData) return window.WebApp.initData;
+  // MAX fallback: initData may arrive via location hash as #WebAppData=<encoded>
+  const hash = location.hash;
+  if (hash.startsWith('#WebAppData=')) return decodeURIComponent(hash.slice(12));
+  return '';
+}
+
+/** @deprecated use getPlatformInitData() */
 export function getTelegramInitData(): string {
-  return window.Telegram?.WebApp?.initData ?? '';
+  return getPlatformInitData();
+}
+
+function authHeaders(): Record<string, string> {
+  const platform = detectPlatform();
+  return { [platform === 'max' ? 'x-max-init-data' : 'x-telegram-init-data']: getPlatformInitData() };
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -28,7 +54,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'x-telegram-init-data': getTelegramInitData(),
+      ...authHeaders(),
       ...(options?.headers ?? {}),
     },
   });
@@ -79,7 +105,7 @@ export const api = {
   trainerDocumentFile: async (id: number): Promise<string> => {
     // Fetches the document with auth headers and returns a blob URL for inline display
     const res = await fetch(`${BASE_URL}/api/trainer/documents/${id}/file`, {
-      headers: { 'x-telegram-init-data': getTelegramInitData() },
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Document fetch failed');
     const blob = await res.blob();
@@ -106,7 +132,7 @@ export const api = {
     request<{ trainer: import('../types').PublicTrainerProfile }>(`/api/client/trainers/${encodeURIComponent(trainerId)}`),
   trainerPublicDocumentFile: async (trainerId: string, docId: number): Promise<string> => {
     const res = await fetch(`${BASE_URL}/api/client/trainers/${encodeURIComponent(trainerId)}/documents/${docId}/file`, {
-      headers: { 'x-telegram-init-data': getTelegramInitData() },
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Document fetch failed');
     const blob = await res.blob();
@@ -143,7 +169,7 @@ export const api = {
     // so <img> and <audio> elements can use it without auth headers.
     if (result.url.startsWith('/api/')) {
       const streamRes = await fetch(`${BASE_URL}${result.url}`, {
-        headers: { 'x-telegram-init-data': getTelegramInitData() },
+        headers: authHeaders(),
       });
       if (!streamRes.ok) throw new Error('Media stream failed');
       const blob = await streamRes.blob();

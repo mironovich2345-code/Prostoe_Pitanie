@@ -124,6 +124,8 @@ export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
     window.Telegram?.WebApp?.expand();
+    window.WebApp?.ready?.();
+    window.WebApp?.expand?.();
     // Pin all Telegram chrome to the app's exact dark background.
     // Use hex directly — 'bg_color' resolves to the user's Telegram theme color (may be purple).
     (window.Telegram?.WebApp as any)?.setHeaderColor?.('#0A0A0A');
@@ -152,7 +154,7 @@ export default function App() {
     return (
       <div className="loading">
         <div>Не удалось загрузить приложение</div>
-        <div style={{ fontSize: 13, marginTop: 8 }}>Открой через Telegram</div>
+        <div style={{ fontSize: 13, marginTop: 8 }}>Открой в мессенджере</div>
         <TgDebugBlock diag={tgDiag} bsStatus="idle" />
       </div>
     );
@@ -161,13 +163,13 @@ export default function App() {
   if (error || !bootstrap) {
     const errMsg = (error as Error | null)?.message ?? 'no data';
     const isExpired = errMsg === 'Expired auth_date';
-    const isAuthErr = errMsg === 'Unauthorized' || errMsg === 'Invalid initData' || isExpired;
+    const isAuthErr = errMsg === 'Unauthorized' || errMsg === 'Invalid initData' || errMsg === 'Invalid MAX initData' || isExpired;
     const subtitle = isExpired
       ? 'Сессия устарела — закрой и открой снова'
       : isAuthErr && tgDiag.initDataLen === 0
-        ? 'Telegram не передал данные авторизации'
+        ? 'Не удалось получить данные авторизации'
         : isAuthErr
-          ? 'Ошибка авторизации Telegram'
+          ? 'Ошибка авторизации'
           : 'Проверь соединение и попробуй снова';
     console.error('[TG] bootstrap_failed:', errMsg, '| diag:', tgDiag);
     return (
