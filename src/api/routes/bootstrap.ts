@@ -7,15 +7,63 @@ const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
+  const platform = req.platform ?? 'telegram';
+  const userId = req.userId;
+
+  console.info(`[bootstrap] platform=${platform} chatId_prefix=${chatId.slice(0, 10)} hasUserId=${!!userId}`);
+
   try {
-    // Lazily sync Telegram username and userId (fire-and-forget, non-fatal)
+    // ── Lazy profile sync (fire-and-forget, non-fatal) ────────────────────────
+    //
+    // BUG that this fixes:
+    //   Old code always upserted WHERE chatId. When userId is already attached to
+    //   a UserProfile row with a DIFFERENT chatId (e.g. after account linking, or
+    //   a prior Telegram profile backfill), the upsert found nothing by chatId →
+    //   tried CREATE with the same userId → Unique constraint failed on (userId).
+    //
+    // Fix: when userId is known, upsert WHERE userId (the real unique key).
+    //   If a profile exists by userId (any chatId) → UPDATE it (no new row).
+    //   If no profile exists by userId → CREATE at current chatId.
+    //   When userId is unknown → fall back to chatId-keyed upsert (legacy path).
+    //
+    // Guard: never overwrite telegramUsername with null from a MAX request —
+    //   a linked profile already has the Telegram username from the TG identity.
     const tgUsername = req.telegramUser?.username ?? null;
-    const userId = req.userId;
-    prisma.userProfile.upsert({
-      where: { chatId },
-      update: { telegramUsername: tgUsername, ...(userId ? { userId } : {}) },
-      create: { chatId, telegramUsername: tgUsername, ...(userId ? { userId } : {}) },
-    }).catch((e) => console.warn('[bootstrap] fire-and-forget upsert failed:', (e as Error).message));
+    const syncUpdate: Record<string, unknown> = {};
+    // Only set telegramUsername when the request actually carries it (Telegram path)
+    if (platform === 'telegram' && tgUsername !== null) {
+      syncUpdate.telegramUsername = tgUsername;
+    }
+
+    if (userId) {
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: syncUpdate,
+        create: { chatId, telegramUsername: tgUsername, userId },
+      }).catch(async (e) => {
+        const msg = (e as Error).message;
+        console.warn(`[bootstrap] fire-and-forget sync failed: ${msg} | platform=${platform} hasUserId=${!!userId}`);
+        // Safe post-failure diagnostic (no tokens, no full IDs)
+        try {
+          const [byUid, byChat] = await Promise.all([
+            prisma.userProfile.findFirst({ where: { userId }, select: { chatId: true, userId: true } }).catch(() => null),
+            prisma.userProfile.findUnique({ where: { chatId }, select: { chatId: true, userId: true } }).catch(() => null),
+          ]);
+          console.warn(
+            `[bootstrap] conflict diag |`,
+            `byUserId: found=${!!byUid} chatIdPrefix=${byUid?.chatId?.slice(0, 10) ?? 'none'} |`,
+            `byChatId: found=${!!byChat} hasUserId=${!!byChat?.userId}`,
+          );
+        } catch { /* ignore secondary diagnostic errors */ }
+      });
+    } else {
+      // Legacy path: no userId available (e.g. Telegram bot user without resolveUserId)
+      prisma.userProfile.upsert({
+        where: { chatId },
+        update: { telegramUsername: tgUsername },
+        create: { chatId, telegramUsername: tgUsername },
+      }).catch((e) => console.warn('[bootstrap] fire-and-forget upsert failed:', (e as Error).message));
+    }
 
     // Use explicit select on every query to avoid touching new nullable columns
     // (userId, trainerUserId, clientUserId) that may not exist if migrations are pending.
