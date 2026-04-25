@@ -113,16 +113,41 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       };
       if (userId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const byUserId = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+        const byPrimary = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
           where: { OR: [{ chatId }, { userId }] },
           select,
         });
-        if (byUserId) {
+        if (byPrimary) {
           // Backfill userId on TrainerProfile if missing
-          if (!byUserId.userId) {
-            prisma.trainerProfile.update({ where: { chatId: byUserId.chatId }, data: { userId } }).catch(() => {});
+          if (!byPrimary.userId) {
+            prisma.trainerProfile.update({ where: { chatId: byPrimary.chatId }, data: { userId } }).catch(() => {});
           }
-          return byUserId;
+          return byPrimary;
+        }
+
+        // Cross-platform safety net: trainer profile was created on the OTHER platform and
+        // its userId is still null (not yet backfilled after account linking).
+        // Scan all UserIdentity records for this userId to find alternate chatIds.
+        // This runs at most once per link event — on the first miss the update() below backfills
+        // userId so every subsequent call hits the primary OR path above.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const identities = await (prisma.userIdentity.findMany as (args: any) => Promise<any>)({
+            where: { userId },
+            select: { platform: true, platformId: true },
+          });
+          for (const id of identities) {
+            const altChatId = id.platform === 'telegram' ? id.platformId : `max_${id.platformId}`;
+            if (altChatId === chatId) continue; // already tried in primary query
+            const found = await prisma.trainerProfile.findUnique({ where: { chatId: altChatId }, select });
+            if (found) {
+              // Backfill so the next bootstrap call hits the primary path
+              prisma.trainerProfile.update({ where: { chatId: altChatId }, data: { userId } }).catch(() => {});
+              return found;
+            }
+          }
+        } catch (e) {
+          console.warn('[bootstrap] cross-platform trainerProfile scan failed:', (e as Error).message);
         }
       }
       return prisma.trainerProfile.findUnique({ where: { chatId }, select });

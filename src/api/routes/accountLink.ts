@@ -55,6 +55,7 @@ async function migrateProfileAfterLinking(
   initiatorChatId: string,
   canonicalUserId: string,
 ): Promise<void> {
+  // ── UserProfile migration ──────────────────────────────────────────────────
   // Find initiator's profile: try by userId, fallback to chatId
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const initiatorProfile: ProfileRow = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)(
@@ -94,6 +95,37 @@ async function migrateProfileAfterLinking(
     console.log(
       `[account-link] profile promoted: chatId=${initiatorProfile.chatId.slice(0, 10)} → userId=canonical`,
     );
+  }
+
+  // ── TrainerProfile userId backfill ─────────────────────────────────────────
+  // After linking, the bootstrap's fetchTrainerProfile() looks for trainer profile
+  // using OR: [{ chatId }, { userId }]. If the trainer profile was created on the
+  // canonical platform and has userId=null, neither clause hits → isVerifiedTrainer=false.
+  //
+  // Eagerly backfill trainer profile userId for EVERY UserIdentity associated with
+  // canonicalUserId so the very first MAX bootstrap after linking sees the right role.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allIdentities = await (prisma.userIdentity.findMany as (args: any) => Promise<any>)({
+    where: { userId: canonicalUserId },
+    select: { platform: true, platformId: true },
+  });
+  for (const id of allIdentities) {
+    const identityChatId = id.platform === 'telegram' ? id.platformId : `max_${id.platformId}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tp = await (prisma.trainerProfile.findFirst as (args: any) => Promise<any>)({
+      where: { OR: [{ chatId: identityChatId }, { userId: canonicalUserId }] },
+      select: { chatId: true, userId: true },
+    });
+    if (tp && !tp.userId) {
+      await prisma.trainerProfile.update({
+        where: { chatId: tp.chatId },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: { userId: canonicalUserId } as any,
+      });
+      console.log(`[account-link] trainerProfile backfilled: chatId=${tp.chatId.slice(0, 10)} → userId=canonical`);
+      break; // one trainer profile per user
+    }
+    if (tp?.userId) break; // already has userId, nothing to do
   }
 }
 

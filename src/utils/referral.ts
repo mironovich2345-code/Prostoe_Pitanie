@@ -46,7 +46,10 @@ export function buildReferralLink(code: string): string {
 export function buildReferralLinkForPlatform(code: string, platform?: string): string {
   if (platform === 'max') {
     const maxUsername = process.env.MAX_BOT_USERNAME ?? '';
-    if (!maxUsername) return `ref_${code}`;
+    if (!maxUsername) {
+      console.warn('[referral] MAX_BOT_USERNAME is not set — returning raw payload instead of clickable link. Set MAX_BOT_USERNAME to the MAX bot username to enable deep links.');
+      return `ref_${code}`;
+    }
     return `https://max.ru/${maxUsername}?start=ref_${code}`;
   }
   return buildReferralLink(code);
@@ -157,7 +160,10 @@ export function buildTrainerOfferLinkForPlatform(
   if (platform === 'max') {
     const maxUsername = process.env.MAX_BOT_USERNAME ?? '';
     const payload = `trf_${referralCode}_${offerId}`;
-    if (!maxUsername) return payload;
+    if (!maxUsername) {
+      console.warn('[referral] MAX_BOT_USERNAME is not set — returning raw trainer offer payload instead of clickable link.');
+      return payload;
+    }
     return `https://max.ru/${maxUsername}?start=${payload}`;
   }
   return buildTrainerOfferLink(referralCode, offerId);
