@@ -322,6 +322,13 @@ export default function CoachProfileScreen({ bootstrap, onSwitchToClient }: Prop
 
   return (
     <div className="screen">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 20 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+          <span style={{ color: 'var(--text)' }}>EATL</span>
+          <span style={{ color: 'var(--accent)' }}>YY</span>
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Expert</span>
+      </div>
       {/* Hero card — same pattern as client profile */}
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',

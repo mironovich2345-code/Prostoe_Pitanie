@@ -52,8 +52,12 @@ export default function CompanyPayoutsScreen() {
   return (
     <div className="screen">
 
-      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 20 }}>
-        Вывод средств
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 20 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+          <span style={{ color: 'var(--text)' }}>EATL</span>
+          <span style={{ color: 'var(--accent)' }}>YY</span>
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Company</span>
       </div>
 
       {/* Balance summary tiles */}

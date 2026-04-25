@@ -51,7 +51,13 @@ export default function CoachPayoutsScreen() {
 
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>Начисления</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 16 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+          <span style={{ color: 'var(--text)' }}>EATL</span>
+          <span style={{ color: 'var(--accent)' }}>YY</span>
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Expert</span>
+      </div>
 
       {/* Balance tiles */}
       <div className="card">

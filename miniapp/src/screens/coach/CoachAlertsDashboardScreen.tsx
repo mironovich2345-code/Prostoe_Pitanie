@@ -22,7 +22,13 @@ export default function CoachAlertsDashboardScreen() {
 
   return (
     <div className="screen">
-      <h1 style={{ marginBottom: 16 }}>Дашборд</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 16 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+          <span style={{ color: 'var(--text)' }}>EATL</span>
+          <span style={{ color: 'var(--accent)' }}>YY</span>
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Expert</span>
+      </div>
       <div style={{
         background: 'var(--surface)', borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12,

@@ -12,8 +12,12 @@ export default function CompanyDocumentsScreen() {
 
   return (
     <div className="screen">
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Документы</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 24 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+          <span style={{ color: 'var(--text)' }}>EATL</span>
+          <span style={{ color: 'var(--accent)' }}>YY</span>
+        </span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Company</span>
       </div>
 
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>

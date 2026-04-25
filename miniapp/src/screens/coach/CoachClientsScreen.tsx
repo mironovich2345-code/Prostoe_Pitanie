@@ -237,10 +237,11 @@ export default function CoachClientsScreen() {
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3, color: 'var(--text)' }}>
-              EATLYY
+            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+              <span style={{ color: 'var(--text)' }}>EATL</span>
+              <span style={{ color: 'var(--accent)' }}>YY</span>
             </span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
               Expert
             </span>
           </div>

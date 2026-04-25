@@ -33,8 +33,12 @@ export default function CompanyOffersScreen() {
   return (
     <div className="screen">
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 6 }}>
-          Реферальные офферы
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 6 }}>
+          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>
+            <span style={{ color: 'var(--text)' }}>EATL</span>
+            <span style={{ color: 'var(--accent)' }}>YY</span>
+          </span>
+          <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Company</span>
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
           3 реферальные ссылки — по одной на каждый оффер. Отправляйте подходящую каждому клиенту.
