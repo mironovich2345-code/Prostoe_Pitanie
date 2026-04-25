@@ -26,9 +26,13 @@ import maxWebhookRouter from './routes/maxWebhook';
 export function createApiServer() {
   const app = express();
 
+  // Auth is via x-telegram-init-data / x-max-init-data headers, not cookies.
+  // Using credentials:true with origin:'*' is invalid CORS spec and causes WKWebView
+  // (iOS Telegram) to reject the preflight response even for non-credentialed requests.
+  // credentials:false is correct here and unblocks iOS Telegram mini app bootstrap.
   app.use(cors({
     origin: process.env.MINIAPP_ORIGIN ?? '*',
-    credentials: true,
+    credentials: false,
   }));
   app.use(express.json({ limit: '8mb' })); // raised from 3mb to support expert document uploads (≤5 MB decoded → ≤7 MB base64)
 

@@ -25,6 +25,13 @@ declare global {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
+// Log once at module init — helps confirm which API URL is baked into the build
+// and whether the mini app considers requests same-origin or cross-origin.
+console.info(
+  '[api] init BASE_URL:', BASE_URL || '(empty → relative/same-origin)',
+  '| crossOrigin:', BASE_URL ? BASE_URL !== window.location.origin : false,
+);
+
 // ─── Hash initData cache ──────────────────────────────────────────────────────
 // React Router's HTML5 History API (pushState) clears location.hash on the
 // first navigate() call.  Reading location.hash lazily inside resolveAuthSource()
@@ -105,18 +112,36 @@ function authHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? 'Request failed');
+  const url = `${BASE_URL}${path}`;
+  const method = (options?.method ?? 'GET').toUpperCase();
+  console.info(`[api] → ${method} ${path}`);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...(options?.headers ?? {}),
+      },
+    });
+  } catch (netErr) {
+    // fetch() threw — this is a network-level failure (no response received):
+    // CORS preflight rejected, DNS failure, SSL error, or connection refused.
+    const msg = netErr instanceof Error ? netErr.message : String(netErr);
+    console.error(`[api] NETWORK ERROR ${method} ${path}: "${msg}" | url="${url}" | base="${BASE_URL}"`);
+    throw netErr; // re-throw original so caller sees native message ("Load failed" etc.)
   }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    const msg = (body as { error?: string }).error ?? 'Request failed';
+    console.error(`[api] HTTP ${res.status} ${method} ${path}: "${msg}"`);
+    throw new Error(msg);
+  }
+
+  console.info(`[api] ← ${method} ${path} ${res.status}`);
   return res.json() as Promise<T>;
 }
 

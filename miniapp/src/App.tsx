@@ -100,6 +100,13 @@ function TelegramNavSync({ mode }: { mode: AppMode }) {
 }
 
 function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: string; bsError?: string }) {
+  const apiUrl = import.meta.env.VITE_API_URL || '(relative)';
+  const isNetworkError = bsError === 'Load failed'
+    || bsError === 'Failed to fetch'
+    || (bsError?.includes('NetworkError') ?? false);
+  const errorKind = bsError
+    ? (isNetworkError ? 'network' : 'server')
+    : undefined;
   const lines = [
     `tg: ${diag.hasTelegram ? 'yes' : 'NO'}`,
     `webapp: ${diag.hasWebApp ? 'yes' : 'NO'}`,
@@ -110,8 +117,9 @@ function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: str
     `source: ${diag.selectedSource}`,
     `header: ${diag.authHeader}`,
     `user: ${diag.hasUser ? 'yes' : 'no'}`,
+    `apiUrl: ${apiUrl}`,
     `bootstrap: ${bsStatus}`,
-    ...(bsError ? [`error: ${bsError}`] : []),
+    ...(bsError ? [`error: ${bsError}`, `kind: ${errorKind}`] : []),
   ];
   return (
     <pre style={{ marginTop: 16, padding: '8px 12px', background: 'rgba(0,0,0,0.18)', borderRadius: 6, fontSize: 11, textAlign: 'left', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: 280 }}>
@@ -168,6 +176,7 @@ export default function App() {
     const errMsg = (error as Error | null)?.message ?? 'no data';
     const isExpired = errMsg === 'Expired auth_date';
     const isAuthErr = errMsg === 'Unauthorized' || errMsg === 'Invalid initData' || errMsg === 'Invalid MAX initData' || isExpired;
+    const isNetworkErr = errMsg === 'Load failed' || errMsg === 'Failed to fetch' || errMsg.includes('NetworkError');
     const noData = tgDiag.selectedSource === 'none';
     const subtitle = isExpired
       ? 'Сессия устарела — закрой и открой снова'
@@ -175,7 +184,9 @@ export default function App() {
         ? 'Платформа не передала данные авторизации'
         : isAuthErr
           ? 'Ошибка авторизации'
-          : 'Проверь соединение и попробуй снова';
+          : isNetworkErr
+            ? 'Нет соединения с сервером — проверь интернет'
+            : 'Проверь соединение и попробуй снова';
     console.error('[TG] bootstrap_failed:', errMsg, '| diag:', tgDiag);
     return (
       <div className="loading">

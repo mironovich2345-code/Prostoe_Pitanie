@@ -12,6 +12,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
   console.info(`[bootstrap] platform=${platform} chatId_prefix=${chatId.slice(0, 10)} hasUserId=${!!userId}`);
 
+  // Hoisted so catch block can log which step failed
+  let step = 'init';
+
   try {
     // ── Lazy profile sync (fire-and-forget, non-fatal) ────────────────────────
     //
@@ -69,7 +72,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     // (userId, trainerUserId, clientUserId) that may not exist if migrations are pending.
     // userId-first: after account linking, MAX users resolve to canonical userId and
     // must see the canonical profile — not a newly created MAX-chatId profile.
-    let step = 'parallel queries';
+    step = 'parallel queries';
+    console.info(`[bootstrap] step=${step} starting`);
 
     const profileSelect = {
       chatId: true,
@@ -196,9 +200,18 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       fetchClientLink(),
     ]);
 
+    console.info(
+      `[bootstrap] parallel done |`,
+      `profile=${profile ? 'found' : 'null'}`,
+      `trainer=${trainerProfile ? 'found' : 'null'}`,
+      `sub=${subscription ? 'found' : 'null'}`,
+      `clientLink=${clientLink ? 'found' : 'null'}`,
+    );
+
     let connectedTrainerProfile: { fullName: string | null; avatarData: string | null } | null = null;
     if (clientLink) {
       step = 'connectedTrainerProfile';
+      console.info('[bootstrap] step=connectedTrainerProfile starting');
       // Use trainerUserId if available (cross-platform trainer lookup)
       const trainerSelect = { fullName: true, avatarData: true };
       if (clientLink.trainerUserId) {
@@ -278,6 +291,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   } catch (err) {
     const e = err as Error;
     console.error('[bootstrap] 500 error:', {
+      step,
+      platform,
       message: e.message,
       stack: e.stack?.split('\n').slice(0, 5).join(' | '),
     });
