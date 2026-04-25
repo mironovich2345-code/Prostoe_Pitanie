@@ -57,7 +57,7 @@ import AccountLinkScreen from './screens/client/AccountLinkScreen';
 import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
 import PartnershipScreen from './screens/coach/PartnershipScreen';
 import CoachRequisitesScreen from './screens/coach/CoachRequisitesScreen';
-import { api } from './api/client';
+import { api, API_MODE } from './api/client';
 import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
 
@@ -100,7 +100,7 @@ function TelegramNavSync({ mode }: { mode: AppMode }) {
 }
 
 function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: string; bsError?: string }) {
-  const apiUrl = import.meta.env.VITE_API_URL || '(relative)';
+  const apiUrl = import.meta.env.VITE_API_URL || '(not set)';
   const isNetworkError = bsError === 'Load failed'
     || bsError === 'Failed to fetch'
     || (bsError?.includes('NetworkError') ?? false);
@@ -118,6 +118,7 @@ function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: str
     `header: ${diag.authHeader}`,
     `user: ${diag.hasUser ? 'yes' : 'no'}`,
     `apiUrl: ${apiUrl}`,
+    `apiMode: ${API_MODE}`,
     `bootstrap: ${bsStatus}`,
     ...(bsError ? [`error: ${bsError}`, `kind: ${errorKind}`] : []),
   ];

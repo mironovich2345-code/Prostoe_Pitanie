@@ -23,13 +23,17 @@ declare global {
   }
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+const _rawApiUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+// Prefer relative paths when the configured URL is empty or matches the current
+// origin — absolute same-origin URLs fail in iOS WKWebView (both TG and MAX).
+const BASE_URL: string = (_rawApiUrl && _rawApiUrl !== window.location.origin) ? _rawApiUrl : '';
+export const API_MODE: 'relative' | 'absolute' = BASE_URL ? 'absolute' : 'relative';
 
-// Log once at module init — helps confirm which API URL is baked into the build
-// and whether the mini app considers requests same-origin or cross-origin.
 console.info(
-  '[api] init BASE_URL:', BASE_URL || '(empty → relative/same-origin)',
-  '| crossOrigin:', BASE_URL ? BASE_URL !== window.location.origin : false,
+  '[api] init _rawApiUrl:', _rawApiUrl || '(not set)',
+  '| BASE_URL:', BASE_URL || '(empty → relative)',
+  '| mode:', API_MODE,
+  '| origin:', window.location.origin,
 );
 
 // ─── Hash initData cache ──────────────────────────────────────────────────────
