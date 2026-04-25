@@ -25,6 +25,78 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 
+// ─── Profile migration helpers ────────────────────────────────────────────────
+
+const _profileMigrateSelect = {
+  id: true, chatId: true, userId: true,
+  heightCm: true, currentWeightKg: true, desiredWeightKg: true,
+  dailyCaloriesKcal: true, goalType: true, preferredName: true,
+  sex: true, birthDate: true, activityLevel: true, city: true,
+} as const;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ProfileRow = any;
+
+function _profileScore(p: ProfileRow): number {
+  if (!p) return 0;
+  return [p.heightCm, p.currentWeightKg, p.desiredWeightKg, p.goalType,
+          p.preferredName, p.sex, p.birthDate, p.activityLevel, p.city]
+    .filter(v => v != null).length;
+}
+
+/**
+ * After linking, if the initiator's profile has more data than the canonical's,
+ * promote the initiator's profile row to be the canonical profile by reassigning
+ * its userId to canonicalUserId. This prevents an empty canonical profile from
+ * winning over a rich initiator profile.
+ */
+async function migrateProfileAfterLinking(
+  initiatorUserId: string,
+  initiatorChatId: string,
+  canonicalUserId: string,
+): Promise<void> {
+  // Find initiator's profile: try by userId, fallback to chatId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const initiatorProfile: ProfileRow = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)(
+    { where: { userId: initiatorUserId }, select: _profileMigrateSelect },
+  ) ?? await prisma.userProfile.findUnique(
+    { where: { chatId: initiatorChatId }, select: _profileMigrateSelect },
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const canonicalProfile: ProfileRow = await (prisma.userProfile.findFirst as (args: any) => Promise<any>)(
+    { where: { userId: canonicalUserId }, select: _profileMigrateSelect },
+  );
+
+  const iScore = _profileScore(initiatorProfile);
+  const cScore = _profileScore(canonicalProfile);
+
+  console.log(
+    `[account-link] profile migration: initiatorScore=${iScore} canonicalScore=${cScore}`,
+    `initiatorChatIdPrefix=${initiatorChatId.slice(0, 10)}`,
+  );
+
+  if (initiatorProfile && iScore > cScore) {
+    // Initiator's profile is richer — promote it by pointing it at canonicalUserId.
+    // Step 1: free the @unique slot on canonicalUserId (set canonical's profile userId = null).
+    if (canonicalProfile) {
+      await prisma.userProfile.update({
+        where: { chatId: canonicalProfile.chatId },
+        data: { userId: null },
+      });
+    }
+    // Step 2: assign canonicalUserId to the initiator's profile row.
+    await prisma.userProfile.update({
+      where: { chatId: initiatorProfile.chatId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { userId: canonicalUserId } as any,
+    });
+    console.log(
+      `[account-link] profile promoted: chatId=${initiatorProfile.chatId.slice(0, 10)} → userId=canonical`,
+    );
+  }
+}
+
 const router = Router();
 
 const LINK_TTL_MINUTES = 15;
@@ -88,7 +160,7 @@ router.post('/request', async (req: AuthRequest, res: Response) => {
   }
 
   // Determine which platform identity is making the request
-  const platform = 'telegram'; // placeholder; replace with req.platform when MAX auth is added
+  const platform = req.platform ?? 'telegram';
   const platformId = req.chatId!;
 
   try {
@@ -254,6 +326,17 @@ router.post('/confirm', async (req: AuthRequest, res: Response) => {
     console.log(
       `[account-link/confirm] linked: initiator=${linkReq.initiatorUserId} platform=${linkReq.initiatorPlatform} platformId=${linkReq.initiatorPlatformId} → canonicalUserId=${canonicalUserId}`,
     );
+
+    // Fire-and-forget profile migration — non-fatal, logged on failure.
+    // If the initiator's profile is richer, promote it to the canonical userId
+    // so that the next bootstrap call returns the correct (non-empty) profile.
+    migrateProfileAfterLinking(
+      linkReq.initiatorUserId,
+      linkReq.initiatorPlatformId,
+      canonicalUserId,
+    ).catch((e) => {
+      console.warn(`[account-link/confirm] profile migration failed: ${(e as Error).message}`);
+    });
 
     res.json({
       ok: true,

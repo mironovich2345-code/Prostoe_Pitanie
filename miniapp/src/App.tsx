@@ -198,7 +198,9 @@ export default function App() {
 
   const adminIds = (import.meta.env.VITE_ADMIN_USER_IDS ?? '')
     .split(',').map((s: string) => s.trim()).filter(Boolean);
-  const isAdmin = adminIds.includes(String(bootstrap.telegramUser?.id ?? ''));
+  // Support both Telegram numeric IDs and MAX chatIds (max_XXXX) in the admin list
+  const isAdmin = adminIds.includes(String(bootstrap.telegramUser?.id ?? ''))
+    || adminIds.includes(bootstrap.chatId);
 
   if (mode === 'coach' || mode === 'company') {
     if (trainerStatus === 'pending') return <TrainerPendingScreen onBack={() => setMode('client')} />;

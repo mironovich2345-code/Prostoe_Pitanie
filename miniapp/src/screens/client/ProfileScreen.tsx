@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { api, detectPlatform } from '../../api/client';
 import type { BootstrapData, TrainerVerificationStatus } from '../../types';
 import { Chip, ListCard, ListItem } from '../../ui';
 
@@ -502,7 +502,12 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
         <ListItem label="Связать аккаунт" onClick={() => navigate('/account-link')} />
         <ListItem
           label={<span style={{ color: 'var(--accent)', fontWeight: 600 }}>Поддержка</span>}
-          onClick={() => window.open('https://t.me/EATLYY_help', '_blank')}
+          onClick={() => {
+            const supportUrl = detectPlatform() === 'max'
+              ? (import.meta.env.VITE_SUPPORT_URL_MAX || 'https://t.me/EATLYY_help')
+              : 'https://t.me/EATLYY_help';
+            window.open(supportUrl, '_blank');
+          }}
         />
       </ListCard>
 

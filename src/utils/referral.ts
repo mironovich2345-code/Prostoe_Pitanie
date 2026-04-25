@@ -35,11 +35,21 @@ export async function ensureReferralCode(chatId: string): Promise<string> {
   throw new Error('Failed to generate unique referral code');
 }
 
-/** Build a shareable client referral link. */
+/** Build a shareable client referral link (Telegram). */
 export function buildReferralLink(code: string): string {
   const botUsername = process.env.BOT_USERNAME ?? '';
   if (!botUsername) return `ref_${code}`;
   return `https://t.me/${botUsername}?start=ref_${code}`;
+}
+
+/** Build a platform-aware client referral link. */
+export function buildReferralLinkForPlatform(code: string, platform?: string): string {
+  if (platform === 'max') {
+    const maxUsername = process.env.MAX_BOT_USERNAME ?? '';
+    if (!maxUsername) return `ref_${code}`;
+    return `https://max.ru/${maxUsername}?start=ref_${code}`;
+  }
+  return buildReferralLink(code);
 }
 
 /**
@@ -130,12 +140,27 @@ function parseOfferPayload(
 
 // ─── Trainer offer links ─────────────────────────────────────────────────────
 
-/** Build a trainer offer deep link: trf_{code}_{offerId} */
+/** Build a trainer offer deep link: trf_{code}_{offerId} (Telegram). */
 export function buildTrainerOfferLink(referralCode: string, offerId: TrainerOfferId): string {
   const botUsername = process.env.BOT_USERNAME ?? '';
   const payload = `trf_${referralCode}_${offerId}`;
   if (!botUsername) return payload;
   return `https://t.me/${botUsername}?start=${payload}`;
+}
+
+/** Build a platform-aware trainer offer deep link. */
+export function buildTrainerOfferLinkForPlatform(
+  referralCode: string,
+  offerId: TrainerOfferId,
+  platform?: string,
+): string {
+  if (platform === 'max') {
+    const maxUsername = process.env.MAX_BOT_USERNAME ?? '';
+    const payload = `trf_${referralCode}_${offerId}`;
+    if (!maxUsername) return payload;
+    return `https://max.ru/${maxUsername}?start=${payload}`;
+  }
+  return buildTrainerOfferLink(referralCode, offerId);
 }
 
 // ─── Company offer links ──────────────────────────────────────────────────────

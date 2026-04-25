@@ -3,9 +3,9 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import {
   ensureReferralCode,
-  buildReferralLink,
+  buildReferralLinkForPlatform,
   applyReferral,
-  buildTrainerOfferLink,
+  buildTrainerOfferLinkForPlatform,
   applyTrainerReferral,
   applyCompanyReferral,
   normalizeOfferType,
@@ -20,7 +20,7 @@ router.get('/me', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
   try {
     const code = await ensureReferralCode(chatId);
-    const link = buildReferralLink(code);
+    const link = buildReferralLinkForPlatform(code, req.platform);
     const invitedCount = await prisma.userProfile.count({ where: { referredBy: chatId } });
     res.json({ code, link, invitedCount });
   } catch (err) {
@@ -142,7 +142,7 @@ router.get('/trainer-offers', async (req: AuthRequest, res: Response) => {
         title: meta.title,
         desc: meta.desc,
         emoji: meta.emoji,
-        link: buildTrainerOfferLink(code, offerId),
+        link: buildTrainerOfferLinkForPlatform(code, offerId, req.platform),
         invitedCount: users.length,
         users,
         earnedRub: computeEarned(meta.key, clientIds),
