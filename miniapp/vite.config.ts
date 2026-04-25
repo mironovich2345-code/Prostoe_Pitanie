@@ -8,6 +8,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunk — cached independently of app code.
+          // Stays unchanged across most deploys → browser reuses the cached copy.
+          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+        },
+      },
+    },
   },
   server: {
     proxy: {

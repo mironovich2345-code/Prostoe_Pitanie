@@ -95,7 +95,7 @@ export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } 
         const d = snapshot();
         setDiag(d);
         console.info(
-          `[bridge] found — source=${d.selectedSource} platform=${d.authHeader === 'x-max-init-data' ? 'MAX' : 'Telegram'}`,
+          `[bridge] found — T3 ${performance.now().toFixed(0)}ms | source=${d.selectedSource} platform=${d.authHeader === 'x-max-init-data' ? 'MAX' : 'Telegram'}`,
           `| version: ${d.version ?? '—'}`,
           `| tgInitData: ${d.telegramInitDataLen}`,
           `| maxInitData: ${d.maxInitDataLen}`,
@@ -109,7 +109,7 @@ export function useTelegramReady(): { state: TelegramReadyState; diag: TgDiag } 
         const d = snapshot();
         setDiag(d);
         console.warn(
-          '[bridge] No bridge after', TIMEOUT_MS, 'ms.',
+          `[bridge] No bridge after ${TIMEOUT_MS}ms — T3 ${performance.now().toFixed(0)}ms`,
           '| hasTelegram:', d.hasTelegram,
           '| hasWebApp:', d.hasWebApp,
           '| hashData:', d.hashWebAppData,

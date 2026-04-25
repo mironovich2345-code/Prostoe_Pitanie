@@ -90,7 +90,18 @@ export function createApiServer() {
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');
-  app.use(express.static(miniappDist));
+  app.use(express.static(miniappDist, {
+    setHeaders(res, filePath) {
+      // Vite writes all hashed chunks to assets/ — content-addressed, safe to cache forever.
+      // index.html and other non-hashed files must always revalidate.
+      const normalized = filePath.replace(/\\/g, '/');
+      if (normalized.includes('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
 
   // SPA fallback — serve index.html for all non-API routes
   app.use((req, res) => {

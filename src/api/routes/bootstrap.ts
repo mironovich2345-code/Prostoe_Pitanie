@@ -6,6 +6,7 @@ import { normalizeOfferType } from '../../utils/referral';
 const router = Router();
 
 router.get('/', async (req: AuthRequest, res: Response) => {
+  const t0 = Date.now();
   const chatId = req.chatId!;
   const platform = req.platform ?? 'telegram';
   const userId = req.userId;
@@ -228,6 +229,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    console.info(`[bootstrap] done ${Date.now() - t0}ms`);
     res.json({
       chatId,
       telegramUser: req.telegramUser,
@@ -292,6 +294,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const e = err as Error;
     console.error('[bootstrap] 500 error:', {
       step,
+      totalMs: Date.now() - t0,
       platform,
       message: e.message,
       stack: e.stack?.split('\n').slice(0, 5).join(' | '),

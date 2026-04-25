@@ -129,10 +129,20 @@ function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: str
   );
 }
 
+let _t2Logged = false;
+
 export default function App() {
   const { state: tgState, diag: tgDiag } = useTelegramReady();
   const { data: bootstrap, isLoading, error } = useBootstrap(tgState === 'ready');
   const [mode, setMode] = useState<AppMode>('client');
+
+  // T2: first App() render
+  if (!_t2Logged) { _t2Logged = true; console.info(`[perf] T2 App render ${performance.now().toFixed(0)}ms`); }
+
+  // T6: bootstrap data applied — first usable screen is now rendering
+  useEffect(() => {
+    if (bootstrap) console.info(`[perf] T6 bootstrap applied ${performance.now().toFixed(0)}ms`);
+  }, [bootstrap]);
 
   useEffect(() => {
     window.Telegram?.WebApp?.ready();

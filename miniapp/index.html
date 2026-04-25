@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Простое Питание</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- T0: captured before any JS runs — measures html-parse-start latency -->
+    <script>window._perf = { html: performance.now() };</script>
+    <!-- defer = downloads in parallel with HTML parsing, runs before module scripts -->
+    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
     <div id="root"></div>
