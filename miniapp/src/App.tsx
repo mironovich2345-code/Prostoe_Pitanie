@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useBootstrap } from './hooks/useBootstrap';
 import { useTelegramReady } from './hooks/useTelegramReady';
@@ -14,28 +14,28 @@ import MyTrainerScreen from './screens/client/MyTrainerScreen';
 import NotificationSettingsScreen from './screens/client/NotificationSettingsScreen';
 import ReminderEditScreen from './screens/client/ReminderEditScreen';
 import WeightReminderEditScreen from './screens/client/WeightReminderEditScreen';
-import CoachClientsScreen from './screens/coach/CoachClientsScreen';
-import CoachClientCardScreen from './screens/coach/CoachClientCardScreen';
-import CoachClientStatsScreen from './screens/coach/CoachClientStatsScreen';
-import CoachAlertsDashboardScreen from './screens/coach/CoachAlertsDashboardScreen';
-import CoachProfileScreen from './screens/coach/CoachProfileScreen';
-import CoachReferralsScreen from './screens/coach/CoachReferralsScreen';
-import CoachPayoutsScreen from './screens/coach/CoachPayoutsScreen';
+const CoachClientsScreen = lazy(() => import('./screens/coach/CoachClientsScreen'));
+const CoachClientCardScreen = lazy(() => import('./screens/coach/CoachClientCardScreen'));
+const CoachClientStatsScreen = lazy(() => import('./screens/coach/CoachClientStatsScreen'));
+const CoachAlertsDashboardScreen = lazy(() => import('./screens/coach/CoachAlertsDashboardScreen'));
+const CoachProfileScreen = lazy(() => import('./screens/coach/CoachProfileScreen'));
+const CoachReferralsScreen = lazy(() => import('./screens/coach/CoachReferralsScreen'));
+const CoachPayoutsScreen = lazy(() => import('./screens/coach/CoachPayoutsScreen'));
 import CompanyLayout from './layouts/CompanyLayout';
-import CompanyOffersScreen from './screens/company/CompanyOffersScreen';
-import CompanyStatsScreen from './screens/company/CompanyStatsScreen';
-import CompanyProfileScreen from './screens/company/CompanyProfileScreen';
-import CompanyPayoutsScreen from './screens/company/CompanyPayoutsScreen';
-import CompanyDocumentsScreen from './screens/company/CompanyDocumentsScreen';
-import CompanyRequisitesScreen from './screens/company/CompanyRequisitesScreen';
-import AdminDashboardScreen from './screens/admin/AdminDashboardScreen';
-import AdminApplicationsScreen from './screens/admin/AdminApplicationsScreen';
-import AdminExpertsScreen from './screens/admin/AdminExpertsScreen';
-import AdminPayoutsScreen from './screens/admin/AdminPayoutsScreen';
-import AdminStatsScreen from './screens/admin/AdminStatsScreen';
-import AdminRewardsScreen from './screens/admin/AdminRewardsScreen';
-import AdminSubscriptionsScreen from './screens/admin/AdminSubscriptionsScreen';
-import AdminUserSearchScreen from './screens/admin/AdminUserSearchScreen';
+const CompanyOffersScreen = lazy(() => import('./screens/company/CompanyOffersScreen'));
+const CompanyStatsScreen = lazy(() => import('./screens/company/CompanyStatsScreen'));
+const CompanyProfileScreen = lazy(() => import('./screens/company/CompanyProfileScreen'));
+const CompanyPayoutsScreen = lazy(() => import('./screens/company/CompanyPayoutsScreen'));
+const CompanyDocumentsScreen = lazy(() => import('./screens/company/CompanyDocumentsScreen'));
+const CompanyRequisitesScreen = lazy(() => import('./screens/company/CompanyRequisitesScreen'));
+const AdminDashboardScreen = lazy(() => import('./screens/admin/AdminDashboardScreen'));
+const AdminApplicationsScreen = lazy(() => import('./screens/admin/AdminApplicationsScreen'));
+const AdminExpertsScreen = lazy(() => import('./screens/admin/AdminExpertsScreen'));
+const AdminPayoutsScreen = lazy(() => import('./screens/admin/AdminPayoutsScreen'));
+const AdminStatsScreen = lazy(() => import('./screens/admin/AdminStatsScreen'));
+const AdminRewardsScreen = lazy(() => import('./screens/admin/AdminRewardsScreen'));
+const AdminSubscriptionsScreen = lazy(() => import('./screens/admin/AdminSubscriptionsScreen'));
+const AdminUserSearchScreen = lazy(() => import('./screens/admin/AdminUserSearchScreen'));
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
@@ -52,11 +52,11 @@ import TrainerListScreen from './screens/client/TrainerListScreen';
 import TrainerDetailScreen from './screens/client/TrainerDetailScreen';
 import DocumentsScreen from './screens/client/DocumentsScreen';
 import OnboardingScreen from './screens/client/OnboardingScreen';
-import TrainerConnectionScreen from './screens/coach/TrainerConnectionScreen';
+const TrainerConnectionScreen = lazy(() => import('./screens/coach/TrainerConnectionScreen'));
 import AccountLinkScreen from './screens/client/AccountLinkScreen';
-import CoachReviewsScreen from './screens/coach/CoachReviewsScreen';
-import PartnershipScreen from './screens/coach/PartnershipScreen';
-import CoachRequisitesScreen from './screens/coach/CoachRequisitesScreen';
+const CoachReviewsScreen = lazy(() => import('./screens/coach/CoachReviewsScreen'));
+const PartnershipScreen = lazy(() => import('./screens/coach/PartnershipScreen'));
+const CoachRequisitesScreen = lazy(() => import('./screens/coach/CoachRequisitesScreen'));
 import { api, API_MODE } from './api/client';
 import type { TgDiag } from './hooks/useTelegramReady';
 import type { AppMode } from './types';
@@ -290,6 +290,7 @@ export default function App() {
           </Route>
         </Routes>
       ) : mode === 'coach' ? (
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route element={<CoachLayout />}>
             <Route path="/" element={<CoachClientsScreen />} />
@@ -307,7 +308,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </Suspense>
       ) : mode === 'admin' ? (
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<AdminDashboardScreen onBack={() => setMode('client')} />} />
           <Route path="/applications" element={<AdminApplicationsScreen />} />
@@ -319,7 +322,9 @@ export default function App() {
           <Route path="/user-search" element={<AdminUserSearchScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       ) : (
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route element={<CompanyLayout />}>
             <Route path="/" element={<CompanyOffersScreen />} />
@@ -332,6 +337,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </Suspense>
       )}
     </BrowserRouter>
   );

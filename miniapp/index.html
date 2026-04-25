@@ -6,8 +6,11 @@
     <title>Простое Питание</title>
     <!-- T0: captured before any JS runs — measures html-parse-start latency -->
     <script>window._perf = { html: performance.now() };</script>
-    <!-- defer = downloads in parallel with HTML parsing, runs before module scripts -->
-    <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- async: downloads in parallel, does NOT block module scripts.
+         useTelegramReady polls window.Telegram.WebApp for up to 1500ms — enough
+         for the CDN-cached SDK to arrive in Telegram.
+         MAX users use window.WebApp / hash-data and never need this script. -->
+    <script async src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
     <div id="root"></div>
