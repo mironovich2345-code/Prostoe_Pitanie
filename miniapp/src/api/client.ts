@@ -471,4 +471,30 @@ export const api = {
     request<{ ok: boolean; canceled: number }>(
       '/api/account-link/request', { method: 'DELETE' },
     ),
+
+  // ─── Admin: client base ───────────────────────────────────────────────────
+  adminClients: (params?: { search?: string; platform?: string; subscriptionStatus?: string; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set('search', params.search);
+    if (params?.platform) qs.set('platform', params.platform);
+    if (params?.subscriptionStatus) qs.set('subscriptionStatus', params.subscriptionStatus);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    const q = qs.toString() ? `?${qs.toString()}` : '';
+    return request<{
+      items: Array<{
+        userId: string; displayName: string; username: string | null; platform: string;
+        connectedAt: string;
+        subscription: { planId: string; status: string; currentPeriodEnd: string | null; autoRenew: boolean } | null;
+        totalSpentRub: number; createdAt: string;
+      }>;
+      total: number;
+      totalRevenueRub: number;
+    }>(`/api/admin/clients${q}`);
+  },
+  adminCancelClientSubscription: (userId: string) =>
+    request<{ ok: boolean; action: string; subscription?: { planId: string; status: string; currentPeriodEnd: string | null; autoRenew: boolean } }>(
+      `/api/admin/clients/${encodeURIComponent(userId)}/cancel-subscription`,
+      { method: 'POST' },
+    ),
 };

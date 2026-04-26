@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { api, detectPlatform } from '../../api/client';
 import type { BootstrapData } from '../../types';
 import StatusBadge from '../../components/StatusBadge';
 
@@ -262,6 +262,25 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
           <ProfileRow icon={<IconPayout />} label="Вывод средств" path="/payouts" navigate={navigate} />
         </div>
       </div>
+
+      {/* Support */}
+      <button
+        onClick={() => {
+          const url = detectPlatform() === 'max'
+            ? (import.meta.env.VITE_SUPPORT_URL_MAX || 'https://t.me/EATLYY_help')
+            : 'https://t.me/EATLYY_help';
+          window.open(url, '_blank');
+        }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', padding: '15px 20px', marginTop: 8,
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)', cursor: 'pointer',
+        }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)' }}>Поддержка</span>
+        <span style={{ fontSize: 18, color: 'var(--accent)' }}>›</span>
+      </button>
     </div>
   );
 }

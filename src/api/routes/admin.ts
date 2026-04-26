@@ -1086,4 +1086,188 @@ router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Resp
   }
 });
 
+// ─── GET /api/admin/clients — all users with subscription and spend info ──────
+
+router.get('/clients', async (req: AuthRequest, res: Response) => {
+  try {
+    const { search, platform, subscriptionStatus, page, pageSize } =
+      req.query as Record<string, string | undefined>;
+
+    const limit  = Math.min(Math.max(parseInt(pageSize ?? '50', 10) || 50, 1), 200);
+    const offset = (Math.max(parseInt(page ?? '1', 10) || 1, 1) - 1) * limit;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: Record<string, any> = {};
+
+    if (search?.trim()) {
+      const s = search.trim();
+      where['OR'] = [
+        { id: s },
+        { identities: { some: { platformId: s } } },
+        { identities: { some: { username:   { contains: s, mode: 'insensitive' } } } },
+        { identities: { some: { firstName:  { contains: s, mode: 'insensitive' } } } },
+        { profile: { preferredName:    { contains: s, mode: 'insensitive' } } },
+        { profile: { telegramUsername: { contains: s, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (platform === 'telegram' || platform === 'max') {
+      where['identities'] = { some: { platform } };
+    }
+
+    if (subscriptionStatus === 'none') {
+      where['subscription'] = null;
+    } else if (subscriptionStatus && subscriptionStatus !== 'all') {
+      where['subscription'] = { status: subscriptionStatus };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const findArgs: any = {
+      where,
+      skip: offset,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        identities: {
+          select: { platform: true, platformId: true, username: true, firstName: true, linkedAt: true },
+          orderBy: { linkedAt: 'asc' },
+        },
+        profile: { select: { preferredName: true, telegramUsername: true } },
+        subscription: {
+          select: { planId: true, status: true, currentPeriodEnd: true, autoRenew: true },
+        },
+        payments: {
+          where:  { status: 'succeeded' },
+          select: { amountRub: true },
+        },
+      },
+    };
+
+    const [total, rawUsers] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.user.count as any)({ where }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.user.findMany as any)(findArgs),
+    ]);
+
+    type IdentRow = { platform: string; platformId: string; username: string | null; firstName: string | null; linkedAt: Date };
+    type UserRow  = {
+      id: string; createdAt: Date;
+      identities:   IdentRow[];
+      profile:      { preferredName: string | null; telegramUsername: string | null } | null;
+      subscription: { planId: string; status: string; currentPeriodEnd: Date | null; autoRenew: boolean } | null;
+      payments:     { amountRub: number }[];
+    };
+
+    const items = (rawUsers as UserRow[]).map(u => {
+      const displayName =
+        u.profile?.preferredName ||
+        u.identities.find(i => i.firstName)?.firstName ||
+        'Без имени';
+
+      const username =
+        u.identities.find(i => i.username)?.username ??
+        u.profile?.telegramUsername ??
+        null;
+
+      const plats = [...new Set(u.identities.map(i => i.platform))];
+      const platformLabel =
+        plats.includes('telegram') && plats.includes('max') ? 'TG + MAX'
+        : plats[0] === 'telegram' ? 'TG'
+        : plats[0] === 'max'      ? 'MAX'
+        : '—';
+
+      const connectedAt = u.identities.reduce<Date | null>(
+        (min, i) => !min || i.linkedAt < min ? i.linkedAt : min, null,
+      ) ?? u.createdAt;
+
+      const totalSpentRub = u.payments.reduce((s, p) => s + (Number(p.amountRub) || 0), 0);
+
+      return {
+        userId:      u.id,
+        displayName,
+        username,
+        platform:    platformLabel,
+        connectedAt: connectedAt.toISOString(),
+        subscription: u.subscription ? {
+          planId:           u.subscription.planId,
+          status:           u.subscription.status,
+          currentPeriodEnd: u.subscription.currentPeriodEnd?.toISOString() ?? null,
+          autoRenew:        u.subscription.autoRenew,
+        } : null,
+        totalSpentRub,
+        createdAt: u.createdAt.toISOString(),
+      };
+    });
+
+    const totalRevenueRub = (rawUsers as UserRow[]).reduce(
+      (sum, u) => sum + u.payments.reduce((s, p) => s + (Number(p.amountRub) || 0), 0),
+      0,
+    );
+
+    res.json({ items, total, totalRevenueRub });
+  } catch (err) {
+    console.error('[admin/clients GET]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/admin/clients/:userId/cancel-subscription ─────────────────────
+
+router.post('/clients/:userId/cancel-subscription', async (req: AuthRequest, res: Response) => {
+  const { userId } = req.params as { userId: string };
+  try {
+    const userSub = await prisma.userSubscription.findUnique({ where: { userId } });
+    if (!userSub) {
+      res.json({ ok: true, action: 'no_subscription' });
+      return;
+    }
+    if (userSub.status === 'canceled') {
+      res.json({
+        ok: true, action: 'already_canceled',
+        subscription: {
+          planId:           userSub.planId,
+          status:           userSub.status,
+          currentPeriodEnd: userSub.currentPeriodEnd?.toISOString() ?? null,
+          autoRenew:        userSub.autoRenew,
+        },
+      });
+      return;
+    }
+
+    const updated = await prisma.userSubscription.update({
+      where: { userId },
+      data:  { status: 'canceled', autoRenew: false },
+    });
+
+    // Mirror to legacy Subscription table if chatId is known
+    const profile = await prisma.userProfile.findUnique({
+      where:  { userId },
+      select: { chatId: true },
+    });
+    if (profile?.chatId) {
+      await prisma.subscription.update({
+        where: { chatId: profile.chatId },
+        data:  { status: 'canceled', autoRenew: false },
+      }).catch(() => {}); // may not exist in legacy table — ignore
+    }
+
+    console.log(`[admin/clients] subscription canceled userId=${userId}`);
+    res.json({
+      ok: true, action: 'canceled',
+      subscription: {
+        planId:           updated.planId,
+        status:           updated.status,
+        currentPeriodEnd: updated.currentPeriodEnd?.toISOString() ?? null,
+        autoRenew:        updated.autoRenew,
+      },
+    });
+  } catch (err) {
+    console.error('[admin/clients cancel-subscription]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

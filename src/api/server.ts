@@ -30,10 +30,23 @@ export function createApiServer() {
   // Using credentials:true with origin:'*' is invalid CORS spec and causes WKWebView
   // (iOS Telegram) to reject the preflight response even for non-credentialed requests.
   // credentials:false is correct here and unblocks iOS Telegram mini app bootstrap.
-  app.use(cors({
-    origin: process.env.MINIAPP_ORIGIN ?? '*',
-    credentials: false,
-  }));
+  //
+  // MINIAPP_ORIGIN can be a single origin or a comma-separated list:
+  //   MINIAPP_ORIGIN=https://eatlyy.ru
+  //   MINIAPP_ORIGIN=https://eatlyy.ru,https://api.eatlyy.ru
+  const rawMiniappOrigin = process.env.MINIAPP_ORIGIN;
+  const allowedOrigins = rawMiniappOrigin
+    ? rawMiniappOrigin.split(',').map(s => s.trim()).filter(Boolean)
+    : null;
+  const corsOrigin: cors.CorsOptions['origin'] = allowedOrigins
+    ? allowedOrigins.length === 1
+      ? allowedOrigins[0]
+      : (origin, callback) => {
+          if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+          else callback(new Error('Not allowed by CORS'));
+        }
+    : '*';
+  app.use(cors({ origin: corsOrigin, credentials: false }));
   app.use(express.json({ limit: '8mb' })); // raised from 3mb to support expert document uploads (≤5 MB decoded → ≤7 MB base64)
 
   // Health check (no auth)

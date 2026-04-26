@@ -29,6 +29,7 @@ const CompanyPayoutsScreen = lazy(() => import('./screens/company/CompanyPayouts
 const CompanyDocumentsScreen = lazy(() => import('./screens/company/CompanyDocumentsScreen'));
 const CompanyRequisitesScreen = lazy(() => import('./screens/company/CompanyRequisitesScreen'));
 const AdminDashboardScreen = lazy(() => import('./screens/admin/AdminDashboardScreen'));
+const AdminClientsBaseScreen = lazy(() => import('./screens/admin/AdminClientsBaseScreen'));
 const AdminApplicationsScreen = lazy(() => import('./screens/admin/AdminApplicationsScreen'));
 const AdminExpertsScreen = lazy(() => import('./screens/admin/AdminExpertsScreen'));
 const AdminPayoutsScreen = lazy(() => import('./screens/admin/AdminPayoutsScreen'));
@@ -313,6 +314,7 @@ export default function App() {
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<AdminDashboardScreen onBack={() => setMode('client')} />} />
+          <Route path="/clients" element={<AdminClientsBaseScreen />} />
           <Route path="/applications" element={<AdminApplicationsScreen />} />
           <Route path="/experts" element={<AdminExpertsScreen />} />
           <Route path="/payouts" element={<AdminPayoutsScreen />} />

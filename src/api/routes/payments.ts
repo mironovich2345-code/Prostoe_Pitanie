@@ -50,7 +50,11 @@ function resolvePlan(planId: string, offer?: string): PlanConfig | null {
 const paymentDb = (prisma as unknown as { payment: any }).payment as {
   create(args: { data: object }): Promise<{ id: string }>;
   update(args: { where: { id: string }; data: object }): Promise<{ id: string }>;
+  findFirst(args: { where: object }): Promise<{ id: string } | null>;
 };
+
+// Offers that are valid only for first-time purchasers
+const INTRO_OFFERS = ['pro_3day', 'month_1rub'];
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +75,16 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
   if (!plan) {
     res.status(400).json({ error: `Unknown planId: ${planId}` });
     return;
+  }
+
+  // Guard: intro offers are valid for first-time purchasers only.
+  // Check on the server regardless of what the client sends.
+  if (offer && INTRO_OFFERS.includes(offer)) {
+    const previous = await paymentDb.findFirst({ where: { userId, status: 'succeeded' } });
+    if (previous) {
+      res.status(409).json({ error: 'INTRO_ALREADY_USED' });
+      return;
+    }
   }
 
   const returnUrl =
