@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useBootstrap } from './hooks/useBootstrap';
 import { useTelegramReady } from './hooks/useTelegramReady';
@@ -30,6 +30,7 @@ const CompanyDocumentsScreen = lazy(() => import('./screens/company/CompanyDocum
 const CompanyRequisitesScreen = lazy(() => import('./screens/company/CompanyRequisitesScreen'));
 const AdminDashboardScreen = lazy(() => import('./screens/admin/AdminDashboardScreen'));
 const AdminClientsBaseScreen = lazy(() => import('./screens/admin/AdminClientsBaseScreen'));
+const AdminAnalyticsScreen = lazy(() => import('./screens/admin/AdminAnalyticsScreen'));
 const AdminApplicationsScreen = lazy(() => import('./screens/admin/AdminApplicationsScreen'));
 const AdminExpertsScreen = lazy(() => import('./screens/admin/AdminExpertsScreen'));
 const AdminPayoutsScreen = lazy(() => import('./screens/admin/AdminPayoutsScreen'));
@@ -141,8 +142,14 @@ export default function App() {
   if (!_t2Logged) { _t2Logged = true; console.info(`[perf] T2 App render ${performance.now().toFixed(0)}ms`); }
 
   // T6: bootstrap data applied — first usable screen is now rendering
+  const appOpenedTracked = useRef(false);
   useEffect(() => {
-    if (bootstrap) console.info(`[perf] T6 bootstrap applied ${performance.now().toFixed(0)}ms`);
+    if (!bootstrap) return;
+    console.info(`[perf] T6 bootstrap applied ${performance.now().toFixed(0)}ms`);
+    if (!appOpenedTracked.current) {
+      appOpenedTracked.current = true;
+      api.trackEvent('app_opened');
+    }
   }, [bootstrap]);
 
   useEffect(() => {
@@ -315,6 +322,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<AdminDashboardScreen onBack={() => setMode('client')} />} />
           <Route path="/clients" element={<AdminClientsBaseScreen />} />
+          <Route path="/analytics" element={<AdminAnalyticsScreen />} />
           <Route path="/applications" element={<AdminApplicationsScreen />} />
           <Route path="/experts" element={<AdminExpertsScreen />} />
           <Route path="/payouts" element={<AdminPayoutsScreen />} />

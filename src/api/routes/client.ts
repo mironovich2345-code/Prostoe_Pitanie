@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import prisma from '../../db';
 import { triggerQualificationRefresh } from '../../services/expertAcquisitionService';
+import { trackUserEvent } from '../../services/userEventService';
 import { getObjectBuffer } from '../../storage/r2';
 
 const router = Router();
@@ -212,6 +213,7 @@ router.post('/trainer/connect-direct', async (req: AuthRequest, res: Response) =
     });
     // If this trainer was recruited via expert-acquisition referral, refresh their qualification count
     triggerQualificationRefresh(tp.chatId);
+    trackUserEvent({ userId: req.userId, eventName: 'expert_connected' });
 
     res.json({
       ok: true,

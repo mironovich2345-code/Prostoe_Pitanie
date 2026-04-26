@@ -401,6 +401,22 @@ model ExpertAcquisition {
   @@index([referrerUserId])
 }
 
+// ─── User behaviour events ───────────────────────────────────────────────────
+
+model UserEvent {
+  id        Int      @id @default(autoincrement())
+  userId    String   // platform-independent userId (required — events without userId are dropped)
+  platform  String   @default("unknown") // 'telegram' | 'max' | 'unknown'
+  eventName String   // see ALLOWED_EVENTS whitelist in events route
+  metadata  Json?    // optional safe context, no secrets/base64
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventName, createdAt])
+  @@index([createdAt])
+  @@index([platform, createdAt])
+}
+
 // ─── AI cost telemetry (internal, not user-facing) ───────────────────────────
 
 model AiCostLog {

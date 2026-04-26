@@ -1086,11 +1086,11 @@ router.post('/payments/reconcile', adminOnly, async (req: AuthRequest, res: Resp
   }
 });
 
-// ─── GET /api/admin/clients — all users with subscription and spend info ──────
+// ─── GET /api/admin/clients — all users with subscription, spend, and behaviour ─
 
 router.get('/clients', async (req: AuthRequest, res: Response) => {
   try {
-    const { search, platform, subscriptionStatus, page, pageSize } =
+    const { search, platform, subscriptionStatus, page, pageSize, from, to } =
       req.query as Record<string, string | undefined>;
 
     const limit  = Math.min(Math.max(parseInt(pageSize ?? '50', 10) || 50, 1), 200);
@@ -1161,6 +1161,138 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
       payments:     { amountRub: number }[];
     };
 
+    const userIds = (rawUsers as UserRow[]).map(u => u.id);
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // ── Behavioural batch queries (all parallel) ───────────────────────────
+    const hasPeriod = !!(from && to);
+    const periodFrom = hasPeriod ? mskStart(from!) : null;
+    const periodTo   = hasPeriod ? mskEnd(to!)     : null;
+
+    const evDb = getUserEventDb();
+
+    const [
+      allMealGroups,
+      last7MealGroups,
+      periodMealGroups,
+      lastMealRows,
+      lastEventGroups,
+      allAiGroups,
+      statsEventRows,
+      subOpenedRows,
+      subClickedRows,
+    ] = await Promise.all([
+      // All-time meal count per user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.mealEntry.groupBy as any)({
+        by: ['userId'],
+        where: { userId: { in: userIds } },
+        _count: { id: true },
+      }) as Promise<Array<{ userId: string; _count: { id: number } }>>,
+
+      // Last 7 days meal count per user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.mealEntry.groupBy as any)({
+        by: ['userId'],
+        where: { userId: { in: userIds }, createdAt: { gte: sevenDaysAgo } },
+        _count: { id: true },
+      }) as Promise<Array<{ userId: string; _count: { id: number } }>>,
+
+      // Period meal count per user (if period specified)
+      hasPeriod
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma.mealEntry.groupBy as any)({
+            by: ['userId'],
+            where: { userId: { in: userIds }, createdAt: { gte: periodFrom, lte: periodTo } },
+            _count: { id: true },
+          }) as Promise<Array<{ userId: string; _count: { id: number } }>>
+        : Promise.resolve([] as Array<{ userId: string; _count: { id: number } }>),
+
+      // Last meal per user
+      prisma.mealEntry.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['userId'] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      }),
+
+      // Last UserEvent per user
+      evDb.findMany({
+        where: { userId: { in: userIds } } as unknown,
+        orderBy: { createdAt: 'desc' } as unknown,
+      }).then((rows: UserEventRow[]) => {
+        // Deduplicate to last event per userId
+        const seen = new Map<string, Date>();
+        for (const r of rows) {
+          if (!seen.has(r.userId)) seen.set(r.userId, r.createdAt);
+        }
+        return seen;
+      }),
+
+      // Total AI cost per user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma as any).aiCostLog.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds } },
+        _sum: { costUsd: true },
+      }) as Promise<Array<{ userId: string; _sum: { costUsd: number | null } }>>,
+
+      // Stats events in period (or ever)
+      evDb.findMany({
+        where: {
+          userId: { in: userIds },
+          eventName: { in: ['stats_day_opened', 'stats_week_opened', 'weight_opened'] },
+          ...(hasPeriod ? { createdAt: { gte: periodFrom, lte: periodTo } } : {}),
+        } as unknown,
+        select: { userId: true } as unknown,
+      }).then((rows: UserEventRow[]) => new Set(rows.map(r => r.userId))),
+
+      // Subscription opened in period (or ever)
+      evDb.findMany({
+        where: {
+          userId: { in: userIds },
+          eventName: 'subscription_opened',
+          ...(hasPeriod ? { createdAt: { gte: periodFrom, lte: periodTo } } : {}),
+        } as unknown,
+        select: { userId: true } as unknown,
+      }).then((rows: UserEventRow[]) => new Set(rows.map(r => r.userId))),
+
+      // Subscription clicked in period (or ever)
+      evDb.findMany({
+        where: {
+          userId: { in: userIds },
+          eventName: 'subscription_connect_clicked',
+          ...(hasPeriod ? { createdAt: { gte: periodFrom, lte: periodTo } } : {}),
+        } as unknown,
+        select: { userId: true } as unknown,
+      }).then((rows: UserEventRow[]) => new Set(rows.map(r => r.userId))),
+    ]);
+
+    // Build lookup Maps
+    const mealsAllMap  = new Map(allMealGroups.map(r => [r.userId, r._count.id]));
+    const meals7Map    = new Map(last7MealGroups.map(r => [r.userId, r._count.id]));
+    const mealsPeriodMap = new Map(periodMealGroups.map(r => [r.userId, r._count.id]));
+    const lastMealMap  = new Map(lastMealRows.map(r => [r.userId as string, r.createdAt]));
+    const aiCostMap    = new Map(allAiGroups.map(r => [r.userId, r._sum.costUsd ?? 0]));
+
+    function deriveStatus(userId: string, mealsTotal: number): string {
+      const lastActivity = (() => {
+        const lastMeal  = lastMealMap.get(userId);
+        const lastEvent = lastEventGroups.get(userId);
+        if (!lastMeal && !lastEvent) return null;
+        if (!lastMeal) return lastEvent!;
+        if (!lastEvent) return lastMeal;
+        return lastMeal > lastEvent ? lastMeal : lastEvent;
+      })();
+      if (mealsTotal === 0) return 'new';
+      if (!lastActivity)   return 'activated';
+      const hoursAgo = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60);
+      if (hoursAgo < 48)  return 'active';
+      if (hoursAgo < 168) return 'sleeping';
+      return 'lost';
+    }
+
     const items = (rawUsers as UserRow[]).map(u => {
       const displayName =
         u.profile?.preferredName ||
@@ -1185,6 +1317,19 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
 
       const totalSpentRub = u.payments.reduce((s, p) => s + (Number(p.amountRub) || 0), 0);
 
+      const mealsTotal = mealsAllMap.get(u.id) ?? 0;
+      const lastMeal   = lastMealMap.get(u.id) ?? null;
+      const lastEvent  = lastEventGroups.get(u.id) ?? null;
+      const lastActivityAt = (() => {
+        if (!lastMeal && !lastEvent) return null;
+        if (!lastMeal) return lastEvent;
+        if (!lastEvent) return lastMeal;
+        return lastMeal > lastEvent ? lastMeal : lastEvent;
+      })();
+      const daysSinceLastActivity = lastActivityAt
+        ? Math.floor((now.getTime() - lastActivityAt.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
       return {
         userId:      u.id,
         displayName,
@@ -1199,6 +1344,18 @@ router.get('/clients', async (req: AuthRequest, res: Response) => {
         } : null,
         totalSpentRub,
         createdAt: u.createdAt.toISOString(),
+        // Behavioural fields
+        lastActivityAt:             lastActivityAt?.toISOString() ?? null,
+        daysSinceLastActivity,
+        mealsTotal,
+        mealsInPeriod:              hasPeriod ? (mealsPeriodMap.get(u.id) ?? 0) : null,
+        mealsLast7Days:             meals7Map.get(u.id) ?? 0,
+        lastMealAt:                 lastMeal?.toISOString() ?? null,
+        openedStatsInPeriod:        statsEventRows.has(u.id),
+        openedSubscriptionInPeriod: subOpenedRows.has(u.id),
+        clickedSubscriptionInPeriod: subClickedRows.has(u.id),
+        aiCostUsd:                  Math.round((aiCostMap.get(u.id) ?? 0) * 1e6) / 1e6,
+        clientStatus:               deriveStatus(u.id, mealsTotal),
       };
     });
 
@@ -1266,6 +1423,302 @@ router.post('/clients/:userId/cancel-subscription', async (req: AuthRequest, res
     });
   } catch (err) {
     console.error('[admin/clients cancel-subscription]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── UserEvent DB cast ────────────────────────────────────────────────────────
+
+type UserEventRow = { id: number; userId: string; eventName: string; platform: string; createdAt: Date };
+
+type UserEventDb = {
+  findMany(args: unknown): Promise<UserEventRow[]>;
+  count(args?: unknown): Promise<number>;
+};
+
+function getUserEventDb(): UserEventDb {
+  return (prisma as unknown as { userEvent: UserEventDb }).userEvent;
+}
+
+// ─── Analytics helpers ────────────────────────────────────────────────────────
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+// Moscow tz offset (UTC+3, no DST since 2014)
+function mskStart(dateStr: string): Date { return new Date(`${dateStr}T00:00:00+03:00`); }
+function mskEnd(dateStr: string): Date   { return new Date(`${dateStr}T23:59:59.999+03:00`); }
+
+function toMskDay(d: Date): string {
+  const msk = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+  return msk.toISOString().split('T')[0];
+}
+
+function getMondayOfWeek(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  const dow = d.getUTCDay(); // 0=Sun
+  d.setUTCDate(d.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+  return d.toISOString().split('T')[0];
+}
+
+function resolvePeriod(
+  mode: string,
+  date: string | undefined,
+  from: string | undefined,
+  to: string | undefined,
+): { fromStr: string; toStr: string } {
+  const today = toMskDay(new Date());
+  const base = date || today;
+  if (mode === 'custom') return { fromStr: from || base, toStr: to || base };
+  if (mode === 'week') {
+    const mon = getMondayOfWeek(base);
+    return { fromStr: mon, toStr: addDays(mon, 6) };
+  }
+  if (mode === 'month') {
+    const [y, m] = base.split('-');
+    const last = new Date(parseInt(y), parseInt(m), 0).getDate();
+    return { fromStr: `${y}-${m}-01`, toStr: `${y}-${m}-${String(last).padStart(2, '0')}` };
+  }
+  return { fromStr: base, toStr: base };
+}
+
+function fmtDay(s: string) {
+  const [y, m, d] = s.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function periodLabel(mode: string, fromStr: string, toStr: string): string {
+  const MONTHS = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  if (mode === 'day')   return fmtDay(fromStr);
+  if (mode === 'week')  return `${fmtDay(fromStr)} – ${fmtDay(toStr)}`;
+  if (mode === 'month') {
+    const [y, m] = fromStr.split('-');
+    return `${MONTHS[parseInt(m) - 1]} ${y}`;
+  }
+  return `${fmtDay(fromStr)} – ${fmtDay(toStr)}`;
+}
+
+// ─── GET /api/admin/analytics ─────────────────────────────────────────────────
+
+router.get('/analytics', async (req: AuthRequest, res: Response) => {
+  const { mode = 'day', date, from, to } = req.query as Record<string, string | undefined>;
+
+  const { fromStr, toStr } = resolvePeriod(mode, date, from, to);
+  const periodFrom = mskStart(fromStr);
+  const periodTo   = mskEnd(toStr);
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  try {
+    const evDb = getUserEventDb();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aiDb = getAiCostLogDbFull() as any;
+
+    // ── Load all data for the period into memory ──────────────────────────────
+
+    const [
+      allUsers,
+      newUsers,
+      periodMeals,
+      periodEvents,
+      periodPayments,
+      periodAiCost,
+      activeSubsProRaw,
+    ] = await Promise.all([
+      // All users total (at end of period)
+      prisma.user.count({ where: { createdAt: { lte: periodTo } } }),
+
+      // New users in period
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.user.findMany as any)({
+        where: { createdAt: { gte: periodFrom, lte: periodTo } },
+        select: { id: true, createdAt: true },
+      }) as Promise<Array<{ id: string; createdAt: Date }>>,
+
+      // Meals in period
+      prisma.mealEntry.findMany({
+        where: { createdAt: { gte: periodFrom, lte: periodTo }, userId: { not: null } },
+        select: { userId: true, createdAt: true, sourceType: true },
+      }),
+
+      // UserEvents in period
+      evDb.findMany({
+        where: { createdAt: { gte: periodFrom, lte: periodTo } } as unknown,
+        orderBy: { createdAt: 'asc' } as unknown,
+      }),
+
+      // Payments in period
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.payment.findMany as any)({
+        where: { status: 'succeeded', createdAt: { gte: periodFrom, lte: periodTo } },
+        select: { amountRub: true, createdAt: true },
+      }) as Promise<Array<{ amountRub: number; createdAt: Date }>>,
+
+      // AI costs in period
+      aiDb.findMany({
+        where: { createdAt: { gte: periodFrom, lte: periodTo } },
+        select: { costUsd: true, createdAt: true, userId: true },
+      }) as Promise<Array<{ costUsd: number; createdAt: Date; userId: string | null }>>,
+
+      // Active pro/intro subscriptions (manual or live)
+      prisma.userSubscription.count({
+        where: { status: 'active', planId: { in: ['pro', 'intro'] } },
+      }),
+    ]);
+
+    // ── Activated clients (profile.goalType set + has any meal) ──────────────
+    const [usersWithGoal, usersWithAnyMealRaw] = await Promise.all([
+      prisma.user.findMany({
+        where: { profile: { goalType: { not: null } } },
+        select: { id: true },
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (prisma.mealEntry.findMany as any)({
+        where: { userId: { not: null } },
+        select: { userId: true },
+        distinct: ['userId'],
+      }) as Promise<Array<{ userId: string }>>,
+    ]);
+    const mealUserSet = new Set(usersWithAnyMealRaw.map((m: { userId: string }) => m.userId));
+    const activatedClients = usersWithGoal.filter(u => mealUserSet.has(u.id)).length;
+
+    // ── Active clients in period ──────────────────────────────────────────────
+    const activeUserIdsInPeriod = new Set<string>([
+      ...periodMeals.map(m => m.userId as string),
+      ...periodEvents.map(e => e.userId),
+    ]);
+
+    // ── Meal counts ───────────────────────────────────────────────────────────
+    const mealsText  = periodMeals.filter(m => m.sourceType !== 'photo').length;
+    const mealsPhoto = periodMeals.filter(m => m.sourceType === 'photo').length;
+
+    // ── Event-based metrics ───────────────────────────────────────────────────
+    const STATS_EVENTS = new Set(['stats_day_opened', 'stats_week_opened', 'weight_opened']);
+    const statsOpenedSet         = new Set<string>();
+    const subOpenedSet           = new Set<string>();
+    const subClickedSet          = new Set<string>();
+    const supportClickedSet      = new Set<string>();
+    for (const ev of periodEvents) {
+      if (STATS_EVENTS.has(ev.eventName))               statsOpenedSet.add(ev.userId);
+      if (ev.eventName === 'subscription_opened')        subOpenedSet.add(ev.userId);
+      if (ev.eventName === 'subscription_connect_clicked') subClickedSet.add(ev.userId);
+      if (ev.eventName === 'support_clicked')            supportClickedSet.add(ev.userId);
+    }
+
+    // ── D1 Retention ─────────────────────────────────────────────────────────
+    // Eligible = new users whose D+1 day has fully elapsed (createdAt + 2 days ≤ now)
+    const eligible = (newUsers as Array<{ id: string; createdAt: Date }>).filter(u =>
+      u.createdAt.getTime() + 2 * 24 * 60 * 60 * 1000 <= now.getTime(),
+    );
+    let d1RetainedCount = 0;
+    if (eligible.length > 0) {
+      const eligibleIds = eligible.map(u => u.id);
+      const d1From = new Date(periodFrom.getTime() + 24 * 60 * 60 * 1000);
+      const d1To   = new Date(periodTo.getTime()   + 2 * 24 * 60 * 60 * 1000);
+      const [d1Meals, d1Events] = await Promise.all([
+        prisma.mealEntry.findMany({
+          where: { userId: { in: eligibleIds }, createdAt: { gte: d1From, lte: d1To } },
+          select: { userId: true, createdAt: true },
+        }),
+        evDb.findMany({
+          where: { userId: { in: eligibleIds } as unknown, createdAt: { gte: d1From, lte: d1To } as unknown } as unknown,
+        }),
+      ]);
+
+      // Build per-user D+1 date
+      const userD1Day = new Map(eligible.map(u => [u.id, toMskDay(new Date(u.createdAt.getTime() + 24 * 60 * 60 * 1000))]));
+      const retained = new Set<string>();
+      for (const m of d1Meals) {
+        if (!m.userId) continue;
+        if (userD1Day.get(m.userId) === toMskDay(m.createdAt)) retained.add(m.userId);
+      }
+      for (const e of d1Events) {
+        if (userD1Day.get(e.userId) === toMskDay(e.createdAt)) retained.add(e.userId);
+      }
+      d1RetainedCount = retained.size;
+    }
+    const d1RetentionPercent = eligible.length > 0
+      ? Math.round(d1RetainedCount / eligible.length * 100) : null;
+
+    // ── Revenue & AI cost ─────────────────────────────────────────────────────
+    const totalRevenueRub = periodPayments.reduce((s, p) => s + (p.amountRub || 0), 0);
+    const totalAiCostUsd  = periodAiCost.reduce((s, p) => s + (p.costUsd || 0), 0);
+    const aiCostPerActiveUsd = activeUserIdsInPeriod.size > 0
+      ? totalAiCostUsd / activeUserIdsInPeriod.size : 0;
+
+    // ── Daily chart ───────────────────────────────────────────────────────────
+    const dayCount = Math.max(1, Math.round((periodTo.getTime() - periodFrom.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+    const chartDays = Array.from({ length: dayCount }, (_, i) => addDays(fromStr, i));
+
+    // Group data by Moscow date
+    const newByDay = new Map<string, number>();
+    for (const u of newUsers as Array<{ id: string; createdAt: Date }>) {
+      const d = toMskDay(u.createdAt);
+      newByDay.set(d, (newByDay.get(d) ?? 0) + 1);
+    }
+    const activeByDay = new Map<string, Set<string>>();
+    for (const m of periodMeals) {
+      const d = toMskDay(m.createdAt);
+      if (!activeByDay.has(d)) activeByDay.set(d, new Set());
+      activeByDay.get(d)!.add(m.userId as string);
+    }
+    for (const e of periodEvents) {
+      const d = toMskDay(e.createdAt);
+      if (!activeByDay.has(d)) activeByDay.set(d, new Set());
+      activeByDay.get(d)!.add(e.userId);
+    }
+    const mealsByDay = new Map<string, number>();
+    for (const m of periodMeals) {
+      const d = toMskDay(m.createdAt);
+      mealsByDay.set(d, (mealsByDay.get(d) ?? 0) + 1);
+    }
+    const aiByDay = new Map<string, number>();
+    for (const a of periodAiCost) {
+      const d = toMskDay(a.createdAt);
+      aiByDay.set(d, (aiByDay.get(d) ?? 0) + (a.costUsd || 0));
+    }
+
+    const chart = chartDays.map(d => ({
+      date:          fmtDay(d),
+      newClients:    newByDay.get(d) ?? 0,
+      activeClients: activeByDay.get(d)?.size ?? 0,
+      mealsTotal:    mealsByDay.get(d) ?? 0,
+      aiCostUsd:     Math.round((aiByDay.get(d) ?? 0) * 1e6) / 1e6,
+    }));
+
+    res.json({
+      period: {
+        mode,
+        from: fromStr,
+        to:   toStr,
+        label: periodLabel(mode, fromStr, toStr),
+      },
+      summary: {
+        totalClients:             allUsers,
+        newClients:               (newUsers as unknown[]).length,
+        activeClients:            activeUserIdsInPeriod.size,
+        activatedClients,
+        clientsWithMeals:         new Set(periodMeals.map(m => m.userId)).size,
+        mealsTotal:               periodMeals.length,
+        mealsText,
+        mealsPhoto,
+        statsOpenedUsers:         statsOpenedSet.size,
+        subscriptionOpenedUsers:  subOpenedSet.size,
+        subscriptionClickedUsers: subClickedSet.size,
+        supportClickedUsers:      supportClickedSet.size,
+        d1RetentionPercent,
+        manualProActive:          activeSubsProRaw,
+        totalRevenueRub:          Math.round(totalRevenueRub * 100) / 100,
+        aiCostUsd:                Math.round(totalAiCostUsd * 1e6) / 1e6,
+        aiCostPerActiveUsd:       Math.round(aiCostPerActiveUsd * 1e6) / 1e6,
+      },
+      chart,
+    });
+  } catch (err) {
+    console.error('[admin/analytics]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

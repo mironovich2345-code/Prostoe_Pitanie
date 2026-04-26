@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthRequest } from '../middleware/telegramAuth';
 import { requirePremiumAccess } from '../middleware/requirePremiumAccess';
 import prisma from '../../db';
+import { trackUserEvent } from '../../services/userEventService';
 import { analyzeFood, analyzeFoodPhoto, analyzeFoodPhotoWithContext, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
@@ -113,6 +114,7 @@ router.delete('/meals/:id', async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.mealEntry.delete({ where: { id } });
+    trackUserEvent({ userId: req.userId, eventName: 'meal_deleted' });
     res.json({ ok: true });
   } catch (err) {
     console.error('[nutrition/meals/:id DELETE]', err);
@@ -242,6 +244,7 @@ router.post('/analyze', async (req: AuthRequest, res: Response) => {
     const result = await analyzeFood(text.trim(), { userId: req.userId, chatId: req.chatId, scenario: 'food_text' });
     res.json(result);
   } catch (err) {
+    trackUserEvent({ userId: req.userId, eventName: 'ai_analysis_failed', metadata: { scenario: 'food_text' } });
     console.error('[nutrition/analyze]', err);
     res.status(500).json({ error: 'Analysis failed' });
   }
@@ -261,6 +264,7 @@ router.post('/analyze-photo', requirePremiumAccess, async (req: AuthRequest, res
     if (err instanceof NotFoodError) {
       res.status(422).json({ error: 'NOT_FOOD' }); return;
     }
+    trackUserEvent({ userId: req.userId, eventName: 'ai_analysis_failed', metadata: { scenario: 'food_photo' } });
     console.error('[nutrition/analyze-photo]', err);
     res.status(500).json({ error: 'Analysis failed' });
   }
@@ -361,6 +365,11 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         carbsG: carbsG ?? null,
         fiberG: fiberG ?? null,
       } as any,
+    });
+    trackUserEvent({
+      userId: req.userId,
+      eventName: sourceType === 'photo' ? 'meal_added_photo' : 'meal_added_text',
+      metadata: { sourceType: sourceType ?? 'text' },
     });
     res.json({ ok: true, meal: omitPhotoData(meal) });
   } catch (err) {

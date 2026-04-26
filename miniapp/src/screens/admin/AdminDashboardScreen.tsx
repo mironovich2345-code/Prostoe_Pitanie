@@ -5,6 +5,7 @@ interface Props {
 }
 
 const SECTIONS = [
+  { to: '/analytics',     emoji: '📈', label: 'Статистика клиентов',   desc: 'Поведение, метрики, динамика по периоду' },
   { to: '/clients',       emoji: '👥', label: 'База клиентов',         desc: 'Все пользователи, подписки, расходы' },
   { to: '/applications',  emoji: '📋', label: 'Заявки на верификацию', desc: 'Подтвердить или отклонить' },
   { to: '/experts',       emoji: '🎓', label: 'Верифицированные',      desc: 'Эксперты и компании, отзыв прав' },

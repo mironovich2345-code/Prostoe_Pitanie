@@ -473,13 +473,15 @@ export const api = {
     ),
 
   // ─── Admin: client base ───────────────────────────────────────────────────
-  adminClients: (params?: { search?: string; platform?: string; subscriptionStatus?: string; page?: number; pageSize?: number }) => {
+  adminClients: (params?: { search?: string; platform?: string; subscriptionStatus?: string; page?: number; pageSize?: number; from?: string; to?: string }) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set('search', params.search);
     if (params?.platform) qs.set('platform', params.platform);
     if (params?.subscriptionStatus) qs.set('subscriptionStatus', params.subscriptionStatus);
     if (params?.page) qs.set('page', String(params.page));
     if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params?.from) qs.set('from', params.from);
+    if (params?.to) qs.set('to', params.to);
     const q = qs.toString() ? `?${qs.toString()}` : '';
     return request<{
       items: Array<{
@@ -487,6 +489,10 @@ export const api = {
         connectedAt: string;
         subscription: { planId: string; status: string; currentPeriodEnd: string | null; autoRenew: boolean } | null;
         totalSpentRub: number; createdAt: string;
+        lastActivityAt: string | null; daysSinceLastActivity: number | null;
+        mealsTotal: number; mealsInPeriod: number | null; mealsLast7Days: number; lastMealAt: string | null;
+        openedStatsInPeriod: boolean; openedSubscriptionInPeriod: boolean; clickedSubscriptionInPeriod: boolean;
+        aiCostUsd: number; clientStatus: string;
       }>;
       total: number;
       totalRevenueRub: number;
@@ -497,4 +503,32 @@ export const api = {
       `/api/admin/clients/${encodeURIComponent(userId)}/cancel-subscription`,
       { method: 'POST' },
     ),
+
+  // ─── Events tracking ─────────────────────────────────────────────────────
+  trackEvent: (eventName: string, metadata?: Record<string, unknown>) =>
+    request<{ ok: boolean }>(
+      '/api/events/track',
+      { method: 'POST', body: JSON.stringify({ eventName, platform: detectPlatform(), metadata }) },
+    ).catch(() => null as null), // fire-and-forget — silently absorb errors
+
+  // ─── Admin: analytics ────────────────────────────────────────────────────
+  adminAnalytics: (params?: { mode?: string; date?: string; from?: string; to?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.mode) qs.set('mode', params.mode);
+    if (params?.date) qs.set('date', params.date);
+    if (params?.from) qs.set('from', params.from);
+    if (params?.to)   qs.set('to',   params.to);
+    const q = qs.toString() ? `?${qs.toString()}` : '';
+    return request<{
+      period: { mode: string; from: string; to: string; label: string };
+      summary: {
+        totalClients: number; newClients: number; activeClients: number; activatedClients: number;
+        clientsWithMeals: number; mealsTotal: number; mealsText: number; mealsPhoto: number;
+        statsOpenedUsers: number; subscriptionOpenedUsers: number; subscriptionClickedUsers: number; supportClickedUsers: number;
+        d1RetentionPercent: number | null; manualProActive: number;
+        totalRevenueRub: number; aiCostUsd: number; aiCostPerActiveUsd: number;
+      };
+      chart: Array<{ date: string; newClients: number; activeClients: number; mealsTotal: number; aiCostUsd: number }>;
+    }>(`/api/admin/analytics${q}`);
+  },
 };

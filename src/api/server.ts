@@ -22,6 +22,7 @@ import accountLinkRouter from './routes/accountLink';
 import paymentsRouter from './routes/payments';
 import webhooksRouter, { handleYooKassaWebhook } from './routes/webhooks';
 import maxWebhookRouter from './routes/maxWebhook';
+import eventsRouter from './routes/events';
 
 export function createApiServer() {
   const app = express();
@@ -100,6 +101,7 @@ export function createApiServer() {
   app.use('/api/expert-referral', expertReferralRouter);
   app.use('/api/account-link', accountLinkRouter);
   app.use('/api/payments', paymentsRouter);
+  app.use('/api/events', eventsRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');

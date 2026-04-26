@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../ui';
 import StatusBadge from '../../components/StatusBadge';
 import { api } from '../../api/client';
+import { useTrackEvent } from '../../hooks/useTrackEvent';
 import type { BootstrapData, SubscriptionStatus, TrainerOfferType } from '../../types';
 
 interface Props { bootstrap: BootstrapData; }
@@ -458,6 +459,7 @@ function ErrorToast({ message, onDone }: { message: string; onDone: () => void }
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function SubscriptionScreen({ bootstrap }: Props) {
+  useTrackEvent('subscription_opened');
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -549,6 +551,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
 
   function handleSubscribe(planId: PlanDef['id']) {
     setErrorMsg(null);
+    api.trackEvent('subscription_connect_clicked', { planId });
     const offer = planId === 'pro' && proIntroOffer ? proIntroOffer : undefined;
     paymentMutation.mutate({ planId, offer });
   }

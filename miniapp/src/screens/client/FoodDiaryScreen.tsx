@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { useTrackEvent } from '../../hooks/useTrackEvent';
 import { Card } from '../../ui';
 import type { MealEntry } from '../../types';
 
@@ -27,6 +28,7 @@ function nextDay(d: string) {
 }
 
 export default function FoodDiaryScreen() {
+  useTrackEvent('diary_opened');
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
   const [date, setDate] = useState(today);

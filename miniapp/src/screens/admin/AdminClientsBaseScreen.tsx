@@ -210,13 +210,48 @@ export default function AdminClientsBaseScreen() {
               </div>
 
               {/* Meta row */}
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: item.subscription ? 10 : 0 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
                   {item.platform} · {formatDate(item.connectedAt)}
                 </span>
+                {/* clientStatus badge */}
+                {item.clientStatus && (() => {
+                  const STATUS_STYLE: Record<string, string> = {
+                    new: 'var(--text-3)', activated: '#60a5fa', active: '#4ade80',
+                    sleeping: '#fb923c', lost: '#f87171',
+                  };
+                  const STATUS_LABEL: Record<string, string> = {
+                    new: 'новый', activated: 'активирован', active: 'активен',
+                    sleeping: 'спит', lost: 'потерян',
+                  };
+                  return (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_STYLE[item.clientStatus] ?? 'var(--text-3)' }}>
+                      {STATUS_LABEL[item.clientStatus] ?? item.clientStatus}
+                    </span>
+                  );
+                })()}
                 {item.totalSpentRub > 0 && (
                   <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
-                    Потратил: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{item.totalSpentRub} ₽</span>
+                    ₽: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{item.totalSpentRub}</span>
+                  </span>
+                )}
+              </div>
+              {/* Behavioural row */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: item.subscription ? 8 : 0 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                  Ед. всего: <span style={{ color: 'var(--text)' }}>{item.mealsTotal ?? 0}</span>
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                  За 7д: <span style={{ color: 'var(--text)' }}>{item.mealsLast7Days ?? 0}</span>
+                </span>
+                {item.lastActivityAt && (
+                  <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                    Посл. активность: {item.daysSinceLastActivity === 0 ? 'сегодня' : item.daysSinceLastActivity === 1 ? 'вчера' : `${item.daysSinceLastActivity}д назад`}
+                  </span>
+                )}
+                {item.aiCostUsd > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                    AI: <span style={{ color: 'var(--text)' }}>${item.aiCostUsd.toFixed(4)}</span>
                   </span>
                 )}
               </div>

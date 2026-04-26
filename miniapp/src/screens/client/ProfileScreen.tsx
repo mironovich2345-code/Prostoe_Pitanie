@@ -503,6 +503,7 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
         <ListItem
           label={<span style={{ color: 'var(--accent)', fontWeight: 600 }}>Поддержка</span>}
           onClick={() => {
+            api.trackEvent('support_clicked');
             const supportUrl = detectPlatform() === 'max'
               ? (import.meta.env.VITE_SUPPORT_URL_MAX || 'https://t.me/EATLYY_help')
               : 'https://t.me/EATLYY_help';

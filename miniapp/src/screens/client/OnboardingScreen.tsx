@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { useTrackEvent } from '../../hooks/useTrackEvent';
 
 // ── Activity levels ──────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ const ACTIVITY_OPTIONS = [
 // ── Screen ───────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
+  useTrackEvent('onboarding_started');
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -82,6 +84,7 @@ export default function OnboardingScreen() {
       if (goalType) body.goalType = goalType;
 
       await api.patchProfileData(body);
+      api.trackEvent('onboarding_completed');
       await qc.invalidateQueries({ queryKey: ['bootstrap'] });
       await qc.invalidateQueries({ queryKey: ['profile-full'] });
       navigate('/', { replace: true });

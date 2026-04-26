@@ -266,6 +266,7 @@ export default function CompanyProfileScreen({ bootstrap, onSwitchToClient }: Pr
       {/* Support */}
       <button
         onClick={() => {
+          api.trackEvent('support_clicked');
           const url = detectPlatform() === 'max'
             ? (import.meta.env.VITE_SUPPORT_URL_MAX || 'https://t.me/EATLYY_help')
             : 'https://t.me/EATLYY_help';

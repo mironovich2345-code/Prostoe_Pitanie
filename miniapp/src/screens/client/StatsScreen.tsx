@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import PaywallCard from '../../components/PaywallCard';
+import { useTrackEvent } from '../../hooks/useTrackEvent';
 import WeekCalendar, { TODAY, isoToLocalDate } from '../../components/WeekCalendar';
 import type { DotSet } from '../../components/WeekCalendar';
 import type { BootstrapData, MealEntry, SubscriptionInfo } from '../../types';
@@ -1163,6 +1164,7 @@ function WeightView() {
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
 export default function StatsScreen() {
+  useTrackEvent('stats_day_opened');
   const location = useLocation();
   const initialTab = (location.state as { tab?: Tab } | null)?.tab ?? 'day';
   const [tab, setTab] = useState<Tab>(initialTab);
