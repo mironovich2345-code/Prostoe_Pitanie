@@ -14,13 +14,14 @@ function ClientsIcon() {
   );
 }
 
-function AlertsIcon() {
+function ReferralsIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-      <path d="M11 3a6 6 0 0 0-6 6v2.5L3.5 14h15L17 11.5V9a6 6 0 0 0-6-6z"
-            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M9 17a2 2 0 0 0 4 0"
-            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="11" cy="4" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="4" cy="17" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="18" cy="17" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <line x1="11" y1="6" x2="5.2" y2="15.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="11" y1="6" x2="16.8" y2="15.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   );
 }
@@ -38,7 +39,7 @@ function ProfileIcon() {
 // ─── Nav config ─────────────────────────────────────────────────────────────
 const NAV = [
   { to: '/',        icon: <ClientsIcon />, label: 'Клиенты', end: true  },
-  { to: '/alerts',  icon: <AlertsIcon />,  label: 'Дашборд', end: false },
+  { to: '/alerts',  icon: <ReferralsIcon />,  label: 'Рефералы', end: false },
   { to: '/profile', icon: <ProfileIcon />, label: 'Профиль', end: false },
 ];
 

@@ -7,6 +7,31 @@ function formatJoinedAt(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+function getOfferIcon(offerKey: string) {
+  if (offerKey === 'first_payment') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    );
+  }
+  if (offerKey === 'lifetime_20') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 12c-2-2.5-4-4-6-4a4 4 0 0 0 0 8c2 0 4-1.5 6-4z"/>
+        <path d="M12 12c2 2.5 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.5-6 4z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="19" y1="5" x2="5" y2="19"/>
+      <circle cx="6.5" cy="6.5" r="2.5"/>
+      <circle cx="17.5" cy="17.5" r="2.5"/>
+    </svg>
+  );
+}
+
 export default function CoachReferralsScreen() {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -98,11 +123,12 @@ export default function CoachReferralsScreen() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                   <div style={{
                     width: 46, height: 46, borderRadius: 13, flexShrink: 0,
-                    background: 'var(--accent-soft)',
+                    background: 'rgba(215,255,63,0.07)',
+                    border: '1px solid rgba(215,255,63,0.15)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22,
+                    color: 'var(--accent)',
                   }}>
-                    {offer.emoji}
+                    {getOfferIcon(offer.offerKey)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>

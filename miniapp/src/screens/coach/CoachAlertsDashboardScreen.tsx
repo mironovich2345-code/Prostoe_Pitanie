@@ -20,6 +20,31 @@ function fmtShort(iso: string) {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+function getOfferIcon(offerKey: string) {
+  if (offerKey === 'first_payment') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    );
+  }
+  if (offerKey === 'lifetime_20') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 12c-2-2.5-4-4-6-4a4 4 0 0 0 0 8c2 0 4-1.5 6-4z"/>
+        <path d="M12 12c2 2.5 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.5-6 4z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="19" y1="5" x2="5" y2="19"/>
+      <circle cx="6.5" cy="6.5" r="2.5"/>
+      <circle cx="17.5" cy="17.5" r="2.5"/>
+    </svg>
+  );
+}
+
 export default function CoachAlertsDashboardScreen() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -97,38 +122,59 @@ export default function CoachAlertsDashboardScreen() {
         background: 'var(--surface)',
         borderRadius: 'var(--r-xl)',
         border: '1px solid var(--border)',
-        padding: '20px 16px 18px',
+        overflow: 'hidden',
         marginBottom: 12,
       }}>
-        {/* 3 metric tiles */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {[
-            { value: fmtRub(s.total),     label: 'Начислено', color: 'var(--text)' },
-            { value: fmtRub(s.available), label: 'Доступно',  color: 'var(--accent)' },
-            { value: fmtRub(s.paidOut),   label: 'Выплачено', color: 'var(--text-3)' },
-          ].map(m => (
-            <div key={m.label} style={{
-              flex: 1, textAlign: 'center',
-              background: 'var(--surface-2)', borderRadius: 12,
-              border: '1px solid var(--border)',
-              padding: '12px 4px',
+
+        {/* Hero zone */}
+        <div style={{ padding: '22px 20px 20px' }}>
+          {/* Available — hero metric */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: 1.2, color: 'var(--text-3)', marginBottom: 8,
             }}>
-              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5, color: m.color, lineHeight: 1.15 }}>
-                {m.value}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 5, fontWeight: 500 }}>
-                {m.label}
-              </div>
+              Доступно к выводу
             </div>
-          ))}
+            <div style={{
+              fontSize: 44, fontWeight: 800, letterSpacing: -2, lineHeight: 1,
+              color: s.available > 0 ? 'var(--accent)' : 'var(--text-3)',
+            }}>
+              {s.available.toLocaleString('ru')}
+              <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginLeft: 6 }}>₽</span>
+            </div>
+          </div>
+
+          {/* Secondary metrics */}
+          <div style={{ display: 'flex', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            {[
+              { label: 'Начислено', value: fmtRub(s.total),   color: 'var(--text)' },
+              { label: 'Выплачено', value: fmtRub(s.paidOut), color: 'var(--text-2)' },
+            ].map((m, i) => (
+              <div key={m.label} style={{
+                flex: 1,
+                paddingLeft: i === 1 ? 16 : 0,
+                marginLeft: i === 1 ? 16 : 0,
+                borderLeft: i === 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, marginBottom: 4, letterSpacing: 0.1 }}>
+                  {m.label}
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: m.color, lineHeight: 1 }}>
+                  {m.value}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Active request banner */}
         {activeRequest && statusInfo && (
           <div style={{
+            borderTop: '1px solid var(--border)',
+            padding: '12px 20px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)',
-            padding: '10px 14px', marginBottom: 12,
+            background: 'rgba(255,255,255,0.03)',
           }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
@@ -147,33 +193,26 @@ export default function CoachAlertsDashboardScreen() {
           </div>
         )}
 
-        {errMessage && (
-          <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8, textAlign: 'center' }}>
-            {errMessage}
-          </div>
-        )}
+        {/* CTA zone */}
+        <div style={{ padding: '14px 16px 16px', borderTop: '1px solid var(--border)' }}>
+          {errMessage && (
+            <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 10, textAlign: 'center', lineHeight: 1.4 }}>
+              {errMessage}
+            </div>
+          )}
 
-        {/* Payout CTA */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => navigate('/requisites')}
-            style={{
-              padding: '11px 14px', fontSize: 13, fontWeight: 600, flexShrink: 0,
-              borderRadius: 12, border: '1px solid var(--border)',
-              background: 'var(--surface-2)', color: 'var(--text-3)', cursor: 'pointer',
-            }}
-          >
-            Реквизиты
-          </button>
           <button
             onClick={() => canRequest && createMutation.mutate()}
             disabled={createMutation.isPending || !!activeRequest || s.available === 0}
             style={{
-              flex: 1, padding: '11px 0', fontSize: 14, fontWeight: 700,
-              borderRadius: 12, border: 'none',
-              background: canRequest ? 'var(--accent)' : 'var(--surface-2)',
-              color: canRequest ? '#000' : 'var(--text-3)',
+              display: 'block', width: '100%',
+              padding: '15px 0', fontSize: 16, fontWeight: 700,
+              borderRadius: 14, border: 'none',
+              background: canRequest ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+              color: canRequest ? '#000' : 'rgba(255,255,255,0.25)',
               cursor: canRequest ? 'pointer' : 'default',
+              letterSpacing: canRequest ? -0.3 : 0,
+              marginBottom: 8,
             }}
           >
             {createMutation.isPending
@@ -186,10 +225,26 @@ export default function CoachAlertsDashboardScreen() {
                     ? 'Нет доступных средств'
                     : `Вывод (мин. ${MIN_PAYOUT.toLocaleString('ru')} ₽)`}
           </button>
+
+          <button
+            onClick={() => navigate('/requisites')}
+            style={{
+              display: 'block', width: '100%',
+              padding: '9px 0', fontSize: 13, fontWeight: 500,
+              background: 'none', border: 'none',
+              color: 'var(--text-3)', cursor: 'pointer',
+            }}
+          >
+            Реквизиты →
+          </button>
         </div>
 
         {createMutation.isSuccess && (
-          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--accent)', marginTop: 10, fontWeight: 600 }}>
+          <div style={{
+            borderTop: '1px solid var(--border)',
+            padding: '12px 20px', textAlign: 'center',
+            fontSize: 13, color: 'var(--accent)', fontWeight: 600,
+          }}>
             Заявка отправлена ✓
           </div>
         )}
@@ -256,10 +311,12 @@ export default function CoachAlertsDashboardScreen() {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
                       <div style={{
                         width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                        background: 'var(--accent-soft)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                        background: 'rgba(215,255,63,0.07)',
+                        border: '1px solid rgba(215,255,63,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'var(--accent)',
                       }}>
-                        {offer.emoji}
+                        {getOfferIcon(offer.offerKey)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
