@@ -48,7 +48,7 @@ export function createApiServer() {
         }
     : '*';
   app.use(cors({ origin: corsOrigin, credentials: false }));
-  app.use(express.json({ limit: '8mb' })); // raised from 3mb to support expert document uploads (≤5 MB decoded → ≤7 MB base64)
+  app.use(express.json({ limit: '12mb' })); // raised to 12mb: supports expert doc uploads (≤5 MB) and 4-photo meals (4 × 2 MB decoded ≈ 10.7 MB base64)
 
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));

@@ -3,7 +3,7 @@ import { AuthRequest } from '../middleware/telegramAuth';
 import { requirePremiumAccess } from '../middleware/requirePremiumAccess';
 import prisma from '../../db';
 import { trackUserEvent } from '../../services/userEventService';
-import { analyzeFood, analyzeFoodPhoto, analyzeFoodPhotoWithContext, NotFoodError } from '../../ai/analyzeFood';
+import { analyzeFood, analyzeFoodPhoto, analyzeFoodPhotos, analyzeFoodPhotoWithContext, NotFoodError } from '../../ai/analyzeFood';
 import { generateNutritionInsight, generateWeeklyInsight, InsightInput, WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 import { uploadObject, getObjectBuffer, deleteObject, mimeToExt, extToMime, StorageNotConfiguredError } from '../../storage/r2';
@@ -250,15 +250,32 @@ router.post('/analyze', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/nutrition/analyze-photo — analyze meal photo (base64 data URL) via AI [premium]
+// POST /api/nutrition/analyze-photo — analyze meal photo(s) via AI [premium]
+// Accepts legacy single-photo { imageData } OR multi-photo { photos: string[] } (max 4)
 router.post('/analyze-photo', requirePremiumAccess, async (req: AuthRequest, res: Response) => {
-  const { imageData } = req.body as { imageData?: string };
-  if (!imageData) { res.status(400).json({ error: 'Missing imageData' }); return; }
-  if (!validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
-    res.status(400).json({ error: 'Invalid imageData' }); return;
+  const { imageData, photos } = req.body as { imageData?: string; photos?: unknown };
+
+  // Resolve photo list from either format
+  let photoList: string[];
+  if (Array.isArray(photos) && photos.length > 0) {
+    if (photos.length > 4) { res.status(400).json({ error: 'Можно передать не более 4 фото' }); return; }
+    photoList = photos as string[];
+  } else if (typeof imageData === 'string' && imageData) {
+    photoList = [imageData];
+  } else {
+    res.status(400).json({ error: 'Missing imageData or photos' }); return;
   }
+
+  for (const p of photoList) {
+    if (!validateImageDataUrl(p, PHOTO_MAX_BYTES)) {
+      res.status(400).json({ error: 'Invalid imageData' }); return;
+    }
+  }
+
   try {
-    const result = await analyzeFoodPhoto(imageData, { userId: req.userId, chatId: req.chatId, scenario: 'food_photo' });
+    const result = photoList.length > 1
+      ? await analyzeFoodPhotos(photoList, { userId: req.userId, chatId: req.chatId, scenario: 'food_photo' })
+      : await analyzeFoodPhoto(photoList[0], { userId: req.userId, chatId: req.chatId, scenario: 'food_photo' });
     res.json(result);
   } catch (err) {
     if (err instanceof NotFoodError) {
@@ -297,7 +314,7 @@ router.post('/analyze-photo/refine', requirePremiumAccess, async (req: AuthReque
 // POST /api/nutrition/add — save a meal entry created via mini app
 router.post('/add', async (req: AuthRequest, res: Response) => {
   const chatId = req.chatId!;
-  const { text, mealType, sourceType, caloriesKcal, proteinG, fatG, carbsG, fiberG, imageData } = req.body as {
+  const { text, mealType, sourceType, caloriesKcal, proteinG, fatG, carbsG, fiberG, imageData, mealDate, photoCount } = req.body as {
     text?: string;
     mealType?: string;
     sourceType?: string;
@@ -306,11 +323,21 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
     fatG?: number | null;
     carbsG?: number | null;
     fiberG?: number | null;
-    imageData?: string; // base64 data URL for photo entries from mini app
+    imageData?: string;
+    mealDate?: 'today' | 'yesterday'; // optional: override createdAt to yesterday noon
+    photoCount?: number;              // number of photos when sourceType='photo' (1–4)
   };
   if (!text?.trim()) { res.status(400).json({ error: 'Missing text' }); return; }
   if (sourceType === 'photo' && imageData && !validateImageDataUrl(imageData, PHOTO_MAX_BYTES)) {
     res.status(400).json({ error: 'Invalid imageData' }); return;
+  }
+
+  // Compute createdAt override when user logs food for yesterday
+  let createdAtOverride: Date | undefined;
+  if (mealDate === 'yesterday') {
+    createdAtOverride = new Date();
+    createdAtOverride.setDate(createdAtOverride.getDate() - 1);
+    createdAtOverride.setHours(12, 0, 0, 0);
   }
 
   // ── Resolve photo storage ─────────────────────────────────────────────────
@@ -364,12 +391,18 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
         fatG: fatG ?? null,
         carbsG: carbsG ?? null,
         fiberG: fiberG ?? null,
+        ...(createdAtOverride ? { createdAt: createdAtOverride } : {}),
       } as any,
     });
     trackUserEvent({
       userId: req.userId,
       eventName: sourceType === 'photo' ? 'meal_added_photo' : 'meal_added_text',
-      metadata: { sourceType: sourceType ?? 'text' },
+      metadata: {
+        sourceType: sourceType ?? 'text',
+        mealDate: mealDate ?? 'today',
+        mealType: mealType ?? 'unknown',
+        ...(sourceType === 'photo' && photoCount != null ? { photoCount } : {}),
+      },
     });
     res.json({ ok: true, meal: omitPhotoData(meal) });
   } catch (err) {

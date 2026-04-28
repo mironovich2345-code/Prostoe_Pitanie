@@ -24,6 +24,23 @@ const MEAL_TYPES = [
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+/** Returns a meal type based on the current clock time in the given timezone (default Europe/Moscow). */
+function getDefaultMealType(timezone?: string | null): string {
+  const tz = timezone || 'Europe/Moscow';
+  let hour: number;
+  try {
+    const fmt = new Intl.DateTimeFormat('en', { timeZone: tz, hour: 'numeric', hour12: false });
+    hour = parseInt(fmt.format(new Date()), 10);
+    if (!isFinite(hour)) throw new Error('bad hour');
+  } catch {
+    hour = new Date().getHours();
+  }
+  if (hour >= 5 && hour < 11) return 'breakfast';
+  if (hour >= 11 && hour < 16) return 'lunch';
+  if (hour >= 16 && hour < 23) return 'dinner';
+  return 'snack';
+}
+
 async function resizeToDataUrl(file: File, maxSide = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -368,7 +385,9 @@ interface SavedMealsStepProps {
 function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
   const qc = useQueryClient();
   const [addingId, setAddingId] = useState<number | null>(null);
-  const [selectedMealType, setSelectedMealType] = useState('breakfast');
+  const [selectedMealType, setSelectedMealType] = useState(() =>
+    getDefaultMealType((qc.getQueryData<BootstrapData>(['bootstrap']) as BootstrapData | undefined)?.profile?.timezone)
+  );
   const [portionInput, setPortionInput] = useState('');        // portion grams for the add flow
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);  // inline rename
@@ -412,7 +431,7 @@ function SavedMealsStep({ onBack, onDone }: SavedMealsStepProps) {
 
   function startAdd(meal: (typeof meals)[number]) {
     setAddingId(meal.id);
-    setSelectedMealType(meal.mealType ?? 'breakfast');
+    setSelectedMealType(meal.mealType ?? getDefaultMealType((qc.getQueryData<BootstrapData>(['bootstrap']) as BootstrapData | undefined)?.profile?.timezone));
     // Pre-fill portion with total weight if known, otherwise empty
     setPortionInput(meal.totalWeightG != null ? String(Math.round(meal.totalWeightG)) : '');
     setDeletingId(null);
@@ -673,12 +692,15 @@ export default function AddMealScreen() {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const _bsProfile = (qc.getQueryData<BootstrapData>(['bootstrap']) as BootstrapData | undefined)?.profile;
+
   const [step, setStep] = useState<Step>('select');
   const [sourceType, setSourceType] = useState<'text' | 'photo'>('text');
   const [textInput, setTextInput] = useState('');
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [result, setResult] = useState<FoodAnalysis | null>(null);
-  const [mealType, setMealType] = useState('breakfast');
+  const [mealType, setMealType] = useState(() => getDefaultMealType(_bsProfile?.timezone));
+  const [mealDate, setMealDate] = useState<'today' | 'yesterday'>('today');
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -688,7 +710,7 @@ export default function AddMealScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: '', grams: '' }]);
   const [builderResult, setBuilderResult] = useState<FoodAnalysis | null>(null);
   const [builderTitle, setBuilderTitle] = useState('');
-  const [builderMealType, setBuilderMealType] = useState('breakfast');
+  const [builderMealType, setBuilderMealType] = useState(() => getDefaultMealType(_bsProfile?.timezone));
   const [builderAnalyzing, setBuilderAnalyzing] = useState(false);
   const [builderSaving, setBuilderSaving] = useState(false);
   const [builderAdding, setBuilderAdding] = useState(false);
@@ -741,12 +763,18 @@ export default function AddMealScreen() {
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFiles = Array.from(e.target.files ?? []);
+    if (rawFiles.length === 0) return;
     setError('');
+    const capped = rawFiles.length > 4;
+    const files = rawFiles.slice(0, 4);
+    if (capped) setError('Можно добавить до 4 фото. Выбраны первые 4.');
     try {
-      const dataUrl = await resizeToDataUrl(file);
-      setPhotoPreview(dataUrl);
+      const dataUrls = await Promise.all(files.map(f => resizeToDataUrl(f)));
+      setPhotoPreviews(prev => {
+        const combined = [...prev, ...dataUrls].slice(0, 4);
+        return combined;
+      });
     } catch {
       setError('Не удалось загрузить фото. Попробуйте другое.');
     }
@@ -754,11 +782,13 @@ export default function AddMealScreen() {
   }
 
   async function handlePhotoAnalyze() {
-    if (!photoPreview) return;
+    if (photoPreviews.length === 0) return;
     setError('');
     setAnalyzing(true);
     try {
-      const r = await api.nutritionAnalyzePhoto(photoPreview);
+      const r = photoPreviews.length === 1
+        ? await api.nutritionAnalyzePhoto(photoPreviews[0])
+        : await api.nutritionAnalyzePhotos(photoPreviews);
       setResult(r);
       setDisplayName(r.name || '');
       setPortionInput('');
@@ -773,6 +803,8 @@ export default function AddMealScreen() {
         setError('Для анализа фото нужна подписка Optimal или Pro. Перейди в раздел Подписка.');
       } else if (msg === 'NOT_FOOD') {
         setError('На фото не обнаружена еда. Попробуйте другое фото.');
+      } else if (msg === 'request entity too large' || msg.includes('too large') || msg.includes('413')) {
+        setError('Фото слишком большие. Попробуй выбрать меньше фото или сделать снимок с меньшим разрешением.');
       } else {
         setError('Ошибка анализа. Попробуйте ещё раз.');
       }
@@ -793,12 +825,14 @@ export default function AddMealScreen() {
         text,
         mealType,
         sourceType,
+        mealDate,
         caloriesKcal: result.caloriesKcal,
         proteinG: result.proteinG,
         fatG: result.fatG,
         carbsG: result.carbsG,
         fiberG: result.fiberG,
-        imageData: sourceType === 'photo' && photoPreview ? photoPreview : undefined,
+        imageData: sourceType === 'photo' && photoPreviews.length > 0 ? photoPreviews[0] : undefined,
+        ...(sourceType === 'photo' && photoPreviews.length > 0 ? { photoCount: photoPreviews.length } : {}),
       });
       qc.invalidateQueries({ queryKey: ['diary'] });
       qc.invalidateQueries({ queryKey: ['nutrition-stats'] });
@@ -839,12 +873,14 @@ export default function AddMealScreen() {
   }
 
   function resetAndSelect() {
+    const tz = (qc.getQueryData<BootstrapData>(['bootstrap']) as BootstrapData | undefined)?.profile?.timezone;
     setStep('select');
     setTextInput('');
-    setPhotoPreview(null);
+    setPhotoPreviews([]);
     setResult(null);
     setError('');
-    setMealType('breakfast');
+    setMealType(getDefaultMealType(tz));
+    setMealDate('today');
     setShowEditSheet(false);
     // Reset rename
     setDisplayName('');
@@ -867,7 +903,7 @@ export default function AddMealScreen() {
     setIngredients([{ name: '', grams: '' }]);
     setBuilderResult(null);
     setBuilderTitle('');
-    setBuilderMealType('breakfast');
+    setBuilderMealType(getDefaultMealType(tz));
     setBuilderError('');
     setBuilderSavedOk(false);
   }
@@ -878,11 +914,11 @@ export default function AddMealScreen() {
   }
 
   async function handleRefine() {
-    if (!photoPreview || !otherInput.trim()) return;
+    if (photoPreviews.length === 0 || !otherInput.trim()) return;
     setRefining(true);
     setRefineError('');
     try {
-      const r = await api.nutritionRefinePhoto(photoPreview, otherInput.trim());
+      const r = await api.nutritionRefinePhoto(photoPreviews[0], otherInput.trim());
       setResult(r);
       setDisplayName(r.name || '');
       setClarifyOtherOpen(false);
@@ -1241,6 +1277,7 @@ export default function AddMealScreen() {
         <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Приём сохранён!</div>
         <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
           {MEAL_TYPES.find(t => t.key === mealType)?.label ?? 'Приём'} добавлен в дневник
+          {mealDate === 'yesterday' && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>(за вчера)</span>}
         </div>
         {!isDonePremium && (
           <div style={{
@@ -1374,13 +1411,22 @@ export default function AddMealScreen() {
           background: 'var(--surface)', borderRadius: 'var(--r-xl)',
           padding: 20, border: '1px solid var(--border)', marginBottom: 16,
         }}>
-          {sourceType === 'photo' && photoPreview && (
-            <img
-              src={photoPreview}
-              alt="Фото блюда"
-              style={{ width: '100%', borderRadius: 12, marginBottom: 14,
-                       maxHeight: 200, objectFit: 'cover', display: 'block' }}
-            />
+          {sourceType === 'photo' && photoPreviews.length > 0 && (
+            photoPreviews.length === 1 ? (
+              <img
+                src={photoPreviews[0]}
+                alt="Фото блюда"
+                style={{ width: '100%', borderRadius: 12, marginBottom: 14,
+                         maxHeight: 200, objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
+                {photoPreviews.map((url, i) => (
+                  <img key={i} src={url} alt={`Фото ${i + 1}`}
+                    style={{ width: '100%', borderRadius: 10, height: 110, objectFit: 'cover', display: 'block' }} />
+                ))}
+              </div>
+            )
           )}
           {/* Name — inline editable */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
@@ -1546,6 +1592,33 @@ export default function AddMealScreen() {
           </div>
         )}
 
+        {/* Date selector */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-3)', marginBottom: 8 }}>
+            Когда
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['today', 'yesterday'] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => setMealDate(d)}
+                style={{
+                  flex: 1, padding: '12px 10px', fontSize: 14,
+                  fontWeight: mealDate === d ? 700 : 500,
+                  borderRadius: 12,
+                  border: mealDate === d ? '1.5px solid rgba(215,255,63,0.35)' : '1px solid var(--border)',
+                  background: mealDate === d ? 'var(--accent-soft)' : 'var(--surface)',
+                  color: mealDate === d ? 'var(--accent)' : 'var(--text-2)',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+              >
+                {d === 'today' ? 'Сегодня' : 'Вчера'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Meal type picker */}
         <div style={{
           fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
@@ -1589,7 +1662,7 @@ export default function AddMealScreen() {
             className="btn btn-secondary"
             style={{ fontSize: 14, marginBottom: 8 }}
             disabled={saving}
-            onClick={() => { setResult(null); setPhotoPreview(null); setError(''); setStep('photo'); }}
+            onClick={() => { setResult(null); setPhotoPreviews([]); setError(''); setStep('photo'); }}
           >
             Выбрать другое фото
           </button>
@@ -1787,11 +1860,12 @@ export default function AddMealScreen() {
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          multiple
           onChange={handleFileSelect}
           style={{ display: 'none' }}
         />
 
-        {!photoPreview ? (
+        {photoPreviews.length === 0 ? (
           <div
             onClick={() => fileInputRef.current?.click()}
             style={{
@@ -1811,27 +1885,60 @@ export default function AddMealScreen() {
               Выбрать фото
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
-              Камера или галерея
+              Камера или галерея · до 4 фото
             </div>
           </div>
         ) : (
           <div style={{ marginBottom: 16 }}>
-            <img
-              src={photoPreview}
-              alt="Предпросмотр"
-              style={{
-                width: '100%', borderRadius: 'var(--r-xl)',
-                maxHeight: 280, objectFit: 'cover', display: 'block',
-                marginBottom: 10,
-              }}
-            />
-            <button
-              className="btn btn-secondary"
-              style={{ fontSize: 13 }}
-              onClick={() => { setPhotoPreview(null); setError(''); }}
-            >
-              Изменить фото
-            </button>
+            {/* Photos grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: photoPreviews.length > 1 ? '1fr 1fr' : '1fr',
+              gap: 8, marginBottom: 10,
+            }}>
+              {photoPreviews.map((url, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <img
+                    src={url}
+                    alt={`Фото ${i + 1}`}
+                    style={{
+                      width: '100%', borderRadius: 12,
+                      height: photoPreviews.length === 1 ? 220 : 140,
+                      objectFit: 'cover', display: 'block',
+                    }}
+                  />
+                  <button
+                    onClick={() => setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{
+                      position: 'absolute', top: 6, right: 6,
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.55)', border: 'none',
+                      color: '#fff', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, lineHeight: 1,
+                    }}
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {photoPreviews.length < 4 && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 13, flex: 1 }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  + Ещё фото ({4 - photoPreviews.length} доступно)
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: 13, flex: 1 }}
+                onClick={() => { setPhotoPreviews([]); setError(''); }}
+              >
+                Очистить
+              </button>
+            </div>
           </div>
         )}
 
@@ -1846,11 +1953,11 @@ export default function AddMealScreen() {
         ) : (
           <button
             className="btn"
-            disabled={!photoPreview}
+            disabled={photoPreviews.length === 0}
             onClick={handlePhotoAnalyze}
             style={{ fontSize: 15 }}
           >
-            Проанализировать →
+            {photoPreviews.length > 1 ? `Проанализировать ${photoPreviews.length} фото →` : 'Проанализировать →'}
           </button>
         )}
       </div>

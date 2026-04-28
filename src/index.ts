@@ -159,8 +159,23 @@ interface ProcessingEntry {
 }
 const processingState = new Map<number, ProcessingEntry>();
 
-// ── Чистый чат (храним последние 3 сообщения бота) ──────────────────────
+// ── Чистый чат — keep last 4 messages (user + bot), delete older ones fail-open
 const lastBotMsgs = new Map<number, number[]>();
+
+function trackMsg(chatId: number, msgId: number): void {
+  const msgs = lastBotMsgs.get(chatId) ?? [];
+  if (!msgs.includes(msgId)) msgs.push(msgId);
+  lastBotMsgs.set(chatId, msgs);
+}
+
+async function trimChatWindow(chatId: number, deleteFn: (id: number) => Promise<unknown>): Promise<void> {
+  const msgs = lastBotMsgs.get(chatId) ?? [];
+  while (msgs.length > 4) {
+    const toDelete = msgs.shift()!;
+    try { await deleteFn(toDelete); } catch {}
+  }
+  lastBotMsgs.set(chatId, msgs);
+}
 
 
 function getNowInTimezone(tz: string): { hour: number; minute: number; dowStr: string } {
@@ -347,27 +362,22 @@ if (!token && telegramEnabled) {
 // constructs without throwing. bot.launch() is never called in that case.
 const bot = new Telegraf(token ?? 'disabled');
 
-// Middleware: чистый чат — удалять предыдущее сообщение бота перед каждым новым ответом
+// Middleware: чистый чат — keep last 4 messages (user + bot), delete older ones fail-open
 bot.use(async (ctx, next) => {
   const chatId = ctx.chat?.id;
   if (chatId) {
-    const origReply = (ctx.reply as Function).bind(ctx);
     const userMsgId: number | undefined = (ctx as any).message?.message_id;
+    // Track incoming user message immediately, before handler runs
+    if (userMsgId) {
+      trackMsg(chatId, userMsgId);
+      await trimChatWindow(chatId, id => ctx.telegram.deleteMessage(chatId, id));
+    }
+    const origReply = (ctx.reply as Function).bind(ctx);
     (ctx as any).reply = async (...args: any[]): Promise<any> => {
-      const msgs = lastBotMsgs.get(chatId) ?? [];
-      // Add current user message to window (it stays until aged out)
-      if (userMsgId && !msgs.includes(userMsgId)) {
-        msgs.push(userMsgId);
-      }
-      // Trim old messages to keep window at 5 after adding new bot message
-      while (msgs.length >= 5) {
-        const toDelete = msgs.shift()!;
-        try { await ctx.telegram.deleteMessage(chatId, toDelete); } catch {}
-      }
       const msg = await origReply(...args);
       if (msg?.message_id) {
-        msgs.push(msg.message_id);
-        lastBotMsgs.set(chatId, msgs);
+        trackMsg(chatId, msg.message_id);
+        await trimChatWindow(chatId, id => ctx.telegram.deleteMessage(chatId, id));
       }
       return msg;
     };
@@ -1272,11 +1282,6 @@ async function sendReminders(): Promise<void> {
     if (due.length === 0) continue;
 
     const chatIdNum = Number(chatId);
-    const msgs = lastBotMsgs.get(chatIdNum) ?? [];
-    while (msgs.length >= 5) {
-      const toDelete = msgs.shift()!;
-      try { await bot.telegram.deleteMessage(chatId, toDelete); } catch {}
-    }
 
     for (const reminder of due) {
       try {
@@ -1288,14 +1293,13 @@ async function sendReminders(): Promise<void> {
           ? Markup.inlineKeyboard([[Markup.button.callback('Записать вес', 'reminder_log_weight')]])
           : Markup.inlineKeyboard([[Markup.button.callback('Добавить приём', 'reminder_add_meal')]]);
         const sent = await bot.telegram.sendMessage(chatId, text, keyboard);
-        msgs.push(sent.message_id);
+        trackMsg(chatIdNum, sent.message_id);
+        await trimChatWindow(chatIdNum, id => bot.telegram.deleteMessage(chatId, id));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[reminder] не удалось отправить ${chatId}: ${msg}`);
       }
     }
-
-    lastBotMsgs.set(chatIdNum, msgs);
   }
 }
 

@@ -267,9 +267,11 @@ export const api = {
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze-ingredients', { method: 'POST', body: JSON.stringify({ text }) }),
   nutritionAnalyzePhoto: (imageData: string) =>
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo', { method: 'POST', body: JSON.stringify({ imageData }) }),
+  nutritionAnalyzePhotos: (photos: string[]) =>
+    request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo', { method: 'POST', body: JSON.stringify({ photos }) }),
   nutritionRefinePhoto: (imageData: string, userContext: string) =>
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo/refine', { method: 'POST', body: JSON.stringify({ imageData, userContext }) }),
-  nutritionAdd: (data: { text: string; mealType: string; sourceType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; imageData?: string }) =>
+  nutritionAdd: (data: { text: string; mealType: string; sourceType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; imageData?: string; mealDate?: 'today' | 'yesterday'; photoCount?: number }) =>
     request<{ ok: boolean; meal: import('../types').MealEntry }>('/api/nutrition/add', { method: 'POST', body: JSON.stringify(data) }),
   nutritionInsight: (date: string) =>
     request<import('../types').NutritionInsight>(`/api/nutrition/insight?date=${date}`),

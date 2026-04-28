@@ -314,7 +314,7 @@ export class NotFoodError extends Error {
   constructor() { super('NOT_FOOD'); }
 }
 
-// ─── Photo analysis ────────────────────────────────────────────────────────
+// ─── Photo analysis — single ──────────────────────────────────────────────
 
 export async function analyzeFoodPhoto(fileUrl: string, costCtx?: AiCostContext): Promise<FoodAnalysisResult> {
   const openai = getClient();
@@ -335,6 +335,51 @@ export async function analyzeFoodPhoto(fileUrl: string, costCtx?: AiCostContext)
           {
             type: 'text',
             text: 'Определи состав блюда по ингредиентам, оцени вес каждого, посчитай КБЖУ суммированием.',
+          },
+        ],
+      },
+    ],
+    max_tokens: 800,
+    temperature: 0.1,
+  });
+
+  if (costCtx) logAiCost(costCtx, MODEL, response.usage);
+
+  const raw = response.choices[0]?.message?.content ?? '{}';
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+  if (parsed.isFood === false) throw new NotFoodError();
+
+  return buildResult(parsed, 'Блюдо на фото');
+}
+
+// ─── Photo analysis — multiple (2–4 photos of the same meal) ─────────────
+
+export async function analyzeFoodPhotos(fileUrls: string[], costCtx?: AiCostContext): Promise<FoodAnalysisResult> {
+  if (fileUrls.length === 1) return analyzeFoodPhoto(fileUrls[0], costCtx);
+
+  const openai = getClient();
+  const MODEL = 'gpt-4o';
+  const count = Math.min(fileUrls.length, 4);
+
+  const imageBlocks = fileUrls.slice(0, count).map(url => ({
+    type: 'image_url' as const,
+    image_url: { url, detail: 'high' as const },
+  }));
+
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: PHOTO_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [
+          ...imageBlocks,
+          {
+            type: 'text',
+            text: `Это ${count} фото одного и того же приёма пищи. Они могут быть разными ракурсами или разными частями одной еды. Не считай один и тот же продукт дважды, если это просто другой ракурс. Определи состав по ингредиентам, оцени вес каждого, посчитай КБЖУ суммированием. Верни ОДИН JSON-объект для всего приёма пищи целиком.`,
           },
         ],
       },
