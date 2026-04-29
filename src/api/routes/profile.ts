@@ -109,7 +109,10 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     // the progress bar doesn't shift as new weight entries push old ones off the history window.
     if (desiredWeightKg !== undefined) {
       data.desiredWeightKg = Number(desiredWeightKg);
-      const existing = await prisma.userProfile.findUnique({ where: { chatId } });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = userId
+        ? (await (prisma.userProfile as any).findUnique({ where: { userId } }) ?? await prisma.userProfile.findUnique({ where: { chatId } }))
+        : await prisma.userProfile.findUnique({ where: { chatId } });
       const existingTarget = existing?.desiredWeightKg;
       const targetChanged = existingTarget == null || Math.abs(existingTarget - Number(desiredWeightKg)) > 0.01;
       if (targetChanged) {
@@ -127,10 +130,15 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     // Passing the string directly works because String('max_N') = 'max_N' (correct).
     // The `as unknown as number` cast satisfies TypeScript without touching helper signatures.
     const chatIdKey = chatId as unknown as number;
-    await upsertProfile(chatIdKey, data, userId);
-    await tryAutoCalcNorms(chatIdKey);
+    const upserted = await upsertProfile(chatIdKey, data, userId);
+    // For linked accounts, upserted.chatId is the canonical chatId (may differ from req.chatId).
+    const normsChatId = (upserted as unknown as { chatId: string }).chatId as unknown as number;
+    await tryAutoCalcNorms(normsChatId);
 
-    const updated = await prisma.userProfile.findUnique({ where: { chatId } });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = userId
+      ? await (prisma.userProfile as any).findUnique({ where: { userId } })
+      : await prisma.userProfile.findUnique({ where: { chatId } });
     res.json({
       ok: true,
       profile: updated ? {
@@ -154,7 +162,7 @@ router.patch('/data', async (req: AuthRequest, res: Response) => {
     });
   } catch (err) {
     console.error('[profile/data]', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Не удалось сохранить данные. Попробуйте ещё раз.' });
   }
 });
 
@@ -169,20 +177,18 @@ router.post('/weight', async (req: AuthRequest, res: Response) => {
   }
   try {
     const userId = req.userId;
+    const chatIdKey = chatId as unknown as number;
     const [entry] = await Promise.all([
-      // userId absent from stale Prisma client; remove cast after prisma generate
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prisma.weightEntry.create({ data: { chatId, weightKg: w, ...(userId ? { userId } : {}) } as any }),
-      prisma.userProfile.upsert({
-        where: { chatId },
-        update: { currentWeightKg: w, ...(userId ? { userId } : {}) },
-        create: { chatId, currentWeightKg: w, ...(userId ? { userId } : {}) },
-      }),
+      // upsertProfile handles linked accounts: updates canonical profile by userId when found,
+      // avoiding unique-constraint error when chatId = 'max_N' but userId already has a profile.
+      upsertProfile(chatIdKey, { currentWeightKg: w }, userId),
     ]);
     res.json({ ok: true, weightEntry: entry });
   } catch (err) {
     console.error('[profile/weight]', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Не удалось сохранить данные. Попробуйте ещё раз.' });
   }
 });
 

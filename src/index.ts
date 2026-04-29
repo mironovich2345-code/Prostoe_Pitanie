@@ -416,14 +416,28 @@ bot.start(async (ctx) => {
   }
 
   const profile = await getProfile(chatId);
+  const miniAppUrl = process.env.MINIAPP_URL;
   if (isOnboardingComplete(profile)) {
-    return ctx.reply('👋 Привет! Выбери действие:', mainMenu);
+    // Restore the persistent reply keyboard first, then send an inline Mini App button
+    // so users can both add meals via bot AND open the app without losing the bottom menu.
+    await ctx.reply('👋 Привет! Выбери действие:', mainMenu);
+    if (miniAppUrl) {
+      return ctx.reply('📱 Открыть приложение:', Markup.inlineKeyboard([[Markup.button.webApp('Открыть EATLYY', miniAppUrl)]]));
+    }
+    return;
   }
+  // New user — compute Mini App button dynamically (not from the module-level constant)
+  // so the URL is always fresh from the current process environment.
   return ctx.reply(
     '👋 Привет! Добро пожаловать в EATLY.\n\n' +
     'Чтобы начать — открой приложение и заполни небольшую анкету. Это займёт меньше минуты.\n\n' +
     'После этого бот будет помогать тебе вести дневник питания прямо в чате.',
-    miniAppWelcomeMenu,
+    miniAppUrl
+      ? Markup.inlineKeyboard([
+          [Markup.button.webApp('📱 Заполнить анкету', miniAppUrl)],
+          [Markup.button.callback('🏠 В меню', 'nav_main_menu')],
+        ])
+      : Markup.inlineKeyboard([[Markup.button.callback('🏠 В меню', 'nav_main_menu')]]),
   );
 });
 

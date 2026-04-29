@@ -30,11 +30,24 @@ export async function getProfile(chatId: number) {
 }
 
 export async function upsertProfile(chatId: number, data: UpdateProfileData, userId?: string) {
+  const strChatId = String(chatId);
+
+  if (userId) {
+    // For cross-platform linked accounts (TG + MAX sharing one User), a profile may already exist
+    // under a different chatId.  Update it in-place to avoid a unique-constraint error on userId.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existing = await (prisma.userProfile as any).findUnique({ where: { userId } });
+    if (existing) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (prisma.userProfile as any).update({ where: { userId }, data });
+    }
+  }
+
   const connectUser = userId ? { user: { connect: { id: userId } } } : {};
   return prisma.userProfile.upsert({
-    where: { chatId: String(chatId) },
+    where: { chatId: strChatId },
     update: { ...data, ...(userId ? { userId } : {}) },
-    create: { chatId: String(chatId), ...data, ...connectUser },
+    create: { chatId: strChatId, ...data, ...connectUser },
   });
 }
 

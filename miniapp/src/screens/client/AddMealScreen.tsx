@@ -116,6 +116,16 @@ interface EditSheetProps {
 }
 
 function EditNutritionSheet({ result, onClose, onSave }: EditSheetProps) {
+  // Snapshot original values once on mount for proportional recalculation
+  const origRef = useRef({
+    weightG:     result.weightG     ?? null,
+    caloriesKcal: result.caloriesKcal ?? null,
+    proteinG:    result.proteinG    ?? null,
+    fatG:        result.fatG        ?? null,
+    carbsG:      result.carbsG      ?? null,
+    fiberG:      result.fiberG      ?? null,
+  });
+
   const [weight,   setWeight]   = useState(result.weightG     != null ? String(result.weightG)     : '');
   const [kcal,     setKcal]     = useState(result.caloriesKcal != null ? String(result.caloriesKcal) : '');
   const [protein,  setProtein]  = useState(result.proteinG    != null ? String(result.proteinG)    : '');
@@ -123,6 +133,20 @@ function EditNutritionSheet({ result, onClose, onSave }: EditSheetProps) {
   const [carbs,    setCarbs]    = useState(result.carbsG      != null ? String(result.carbsG)      : '');
   const [fiber,    setFiber]    = useState(result.fiberG      != null ? String(result.fiberG)      : '');
   const [fieldErr, setFieldErr] = useState('');
+
+  function handleWeightChange(raw: string) {
+    setWeight(raw);
+    const orig = origRef.current;
+    if (!orig.weightG || orig.weightG <= 0) return; // no original weight → skip auto-recalc
+    const newW = parsePositiveFloat(raw.replace(',', '.'));
+    if (newW === null || newW <= 0) return;
+    const ratio = newW / orig.weightG;
+    if (orig.caloriesKcal != null) setKcal(String(Math.round(orig.caloriesKcal * ratio)));
+    if (orig.proteinG != null) setProtein(String(Math.round(orig.proteinG * ratio * 10) / 10));
+    if (orig.fatG != null) setFat(String(Math.round(orig.fatG * ratio * 10) / 10));
+    if (orig.carbsG != null) setCarbs(String(Math.round(orig.carbsG * ratio * 10) / 10));
+    if (orig.fiberG != null) setFiber(String(Math.round(orig.fiberG * ratio * 10) / 10));
+  }
 
   function handleSave() {
     const fields: { label: string; raw: string; key: keyof FoodAnalysis }[] = [
@@ -152,7 +176,7 @@ function EditNutritionSheet({ result, onClose, onSave }: EditSheetProps) {
   }
 
   const FIELDS: { label: string; unit: string; val: string; set: (v: string) => void }[] = [
-    { label: 'Вес',        unit: 'г',    val: weight,  set: setWeight  },
+    { label: 'Вес',        unit: 'г',    val: weight,  set: handleWeightChange },
     { label: 'Ккал',       unit: 'ккал', val: kcal,    set: setKcal    },
     { label: 'Белки',      unit: 'г',    val: protein, set: setProtein },
     { label: 'Жиры',       unit: 'г',    val: fat,     set: setFat     },

@@ -100,11 +100,52 @@ export default function ValuePickerScreen() {
   }, [data?.profile, field]);
 
   const [selected, setSelected] = useState<string | null>(null);
+  const [manualInput, setManualInput] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Use initialItem as the effective value (selected overrides once user interacts)
-  const effectiveValue = selected ?? initialItem ?? config?.defaultItem ?? '';
+  const effectiveValue = manualInput !== null ? manualInput : (selected ?? initialItem ?? config?.defaultItem ?? '');
+
+  function handleManualChange(raw: string) {
+    setManualInput(raw);
+    setError(null);
+    // Sync the wheel picker when the typed value is a valid item
+    const normalised = raw.replace(',', '.');
+    if (config?.items.includes(normalised)) {
+      setSelected(normalised);
+    } else {
+      // Try to snap to nearest item (rounded to 1 decimal)
+      const n = parseFloat(normalised);
+      if (isFinite(n)) {
+        const snapped = (Math.round(n * 10) / 10).toFixed(1);
+        if (config?.items.includes(snapped)) setSelected(snapped);
+      }
+    }
+  }
+
+  function validateManualInput(): string | null {
+    if (manualInput === null) return null;
+    const normalised = manualInput.replace(',', '.').trim();
+    if (!normalised) return 'Введите значение';
+    const n = parseFloat(normalised);
+    if (!isFinite(n)) return 'Введите корректное число';
+    // Weight fields: 30–300 kg range; height field is less restrictive (120–230)
+    if (config && (config.title === 'Текущий вес' || config.title === 'Желаемый вес')) {
+      if (n < 30 || n > 300) return 'Допустимый диапазон: 30–300 кг';
+    }
+    return null;
+  }
+
+  // When saving, resolve the final value: manual input takes priority (with normalisation)
+  function resolveValue(): string {
+    if (manualInput !== null) {
+      const normalised = manualInput.replace(',', '.').trim();
+      const n = parseFloat(normalised);
+      if (isFinite(n)) return (Math.round(n * 10) / 10).toFixed(1);
+    }
+    return effectiveValue;
+  }
 
   if (!config) {
     return (
@@ -123,10 +164,12 @@ export default function ValuePickerScreen() {
 
   async function handleSave() {
     if (!config || saving) return;
+    const manualErr = validateManualInput();
+    if (manualErr) { setError(manualErr); return; }
     setSaving(true);
     setError(null);
     try {
-      await config.save(effectiveValue, qc);
+      await config.save(resolveValue(), qc);
       await qc.invalidateQueries({ queryKey: ['bootstrap'] });
       await qc.invalidateQueries({ queryKey: ['profile-full'] });
       const returnState = (location.state as { returnTo?: string; returnTab?: string } | null);
@@ -145,12 +188,22 @@ export default function ValuePickerScreen() {
     <div className="screen" style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title={config.title} onBack={() => navigate(-1)} />
 
-      {/* Current selection display */}
-      <div style={{ textAlign: 'center', padding: '24px 0 8px' }}>
-        <span style={{ fontSize: 52, fontWeight: 700, letterSpacing: -2, color: 'var(--text)', lineHeight: 1 }}>
-          {effectiveValue}
-        </span>
-        <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-3)', marginLeft: 6 }}>
+      {/* Manual input + unit display */}
+      <div style={{ textAlign: 'center', padding: '20px 24px 8px', display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 6 }}>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={manualInput !== null ? manualInput : (selected ?? initialItem ?? config.defaultItem ?? '')}
+          onChange={e => handleManualChange(e.target.value)}
+          onFocus={e => { if (manualInput === null) setManualInput(e.target.value); }}
+          style={{
+            fontSize: 52, fontWeight: 700, letterSpacing: -2, color: 'var(--text)', lineHeight: 1,
+            background: 'none', border: 'none', outline: 'none', width: 160,
+            textAlign: 'center', padding: 0,
+          }}
+          placeholder={config.defaultItem}
+        />
+        <span style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-3)' }}>
           {config.unit}
         </span>
       </div>
@@ -159,8 +212,8 @@ export default function ValuePickerScreen() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '8px 0 24px' }}>
         <WheelPicker
           items={config.items}
-          value={effectiveValue}
-          onChange={setSelected}
+          value={selected ?? initialItem ?? config.defaultItem ?? ''}
+          onChange={v => { setSelected(v); setManualInput(null); }}
         />
       </div>
 
