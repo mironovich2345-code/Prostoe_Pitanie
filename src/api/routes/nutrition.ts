@@ -411,6 +411,90 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/nutrition/add-product — add a product from local catalog to diary
+router.post('/add-product', async (req: AuthRequest, res: Response) => {
+  const chatId = req.chatId!;
+  const { productId, grams, mealType, mealDate } = req.body as {
+    productId?: unknown;
+    grams?: unknown;
+    mealType?: string;
+    mealDate?: 'today' | 'yesterday';
+  };
+
+  if (!productId || typeof productId !== 'string') {
+    res.status(400).json({ error: 'productId is required' });
+    return;
+  }
+
+  const g = Number(grams);
+  if (!isFinite(g) || g <= 0 || g > 5000) {
+    res.status(400).json({ error: 'grams must be a positive number up to 5000' });
+    return;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const product = await (prisma.product as any).findUnique({ where: { id: productId } });
+    if (!product || product.isHidden) {
+      res.status(404).json({ error: 'Product not found' });
+      return;
+    }
+
+    // Calculate nutrition proportionally
+    const caloriesKcal = Math.round(product.caloriesPer100g * g / 100);
+    const proteinG     = Math.round(product.proteinPer100g * g / 100 * 10) / 10;
+    const fatG         = Math.round(product.fatPer100g     * g / 100 * 10) / 10;
+    const carbsG       = Math.round(product.carbsPer100g   * g / 100 * 10) / 10;
+
+    // Human-readable description stored in text (no separate weight column)
+    const label = product.brand ? `${product.name} (${product.brand})` : product.name;
+    const text  = `${label}, ${g} г`;
+
+    // createdAt override for yesterday
+    let createdAtOverride: Date | undefined;
+    if (mealDate === 'yesterday') {
+      createdAtOverride = new Date();
+      createdAtOverride.setDate(createdAtOverride.getDate() - 1);
+      createdAtOverride.setHours(12, 0, 0, 0);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const meal = await prisma.mealEntry.create({
+      data: {
+        chatId,
+        userId:    req.userId ?? null,
+        text,
+        mealType:  mealType ?? 'unknown',
+        sourceType: 'product',
+        caloriesKcal,
+        proteinG,
+        fatG,
+        carbsG,
+        fiberG: null,
+        ...(createdAtOverride ? { createdAt: createdAtOverride } : {}),
+      } as any,
+    });
+
+    trackUserEvent({
+      userId: req.userId,
+      eventName: 'meal_added_product',
+      metadata: {
+        productId,
+        barcode: product.barcode ?? null,
+        grams: g,
+        mealDate: mealDate ?? 'today',
+        mealType: mealType ?? 'unknown',
+        source: 'product_catalog',
+      },
+    });
+
+    res.json({ ok: true, meal: omitPhotoData(meal) });
+  } catch (err) {
+    console.error('[nutrition/add-product]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── Insight cache helpers ────────────────────────────────────────────────────
 
 /** Signature = "count_latestCreatedAtISO" — changes whenever meals are added or removed */

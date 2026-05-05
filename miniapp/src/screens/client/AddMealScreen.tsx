@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData, FoodAnalysis, SavedMeal, SubscriptionInfo } from '../../types';
+import ProductSearchStep from './ProductSearchStep';
 
 function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
   if (!sub) return false;
@@ -11,7 +12,7 @@ function isPremiumTier(sub: SubscriptionInfo | null | undefined): boolean {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-type Step = 'select' | 'text' | 'photo' | 'result' | 'saved' | 'builder' | 'done';
+type Step = 'select' | 'text' | 'photo' | 'result' | 'saved' | 'builder' | 'done' | 'product';
 
 interface Ingredient { name: string; grams: string; }
 
@@ -1286,6 +1287,16 @@ export default function AddMealScreen() {
     );
   }
 
+  // ── PRODUCT ───────────────────────────────────────────────────────────
+  if (step === 'product') {
+    return (
+      <ProductSearchStep
+        onBack={() => setStep('select')}
+        onDone={(mt, md) => { setMealType(mt); setMealDate(md); setStep('done'); }}
+      />
+    );
+  }
+
   // ── DONE ──────────────────────────────────────────────────────────────
   if (step === 'done') {
     const doneBsData = qc.getQueryData<BootstrapData>(['bootstrap']);
@@ -2092,6 +2103,27 @@ export default function AddMealScreen() {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Постоянный приём</div>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Быстро добавить сохранённое блюдо</div>
+        </div>
+        <span style={{ color: 'var(--accent)', fontSize: 20, flexShrink: 0 }}>›</span>
+      </div>
+
+      {/* Product catalog */}
+      <div
+        onClick={() => setStep('product')}
+        className="method-card active"
+        style={{ marginBottom: 8, cursor: 'pointer' }}
+      >
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: 'rgba(144,200,96,0.14)', border: '1px solid rgba(144,200,96,0.22)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, color: '#90C860',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Из базы продуктов</div>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Найти по названию или штрихкоду</div>
         </div>
         <span style={{ color: 'var(--accent)', fontSize: 20, flexShrink: 0 }}>›</span>
       </div>

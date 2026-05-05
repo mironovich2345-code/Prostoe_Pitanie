@@ -27,6 +27,7 @@ const ALLOWED_EVENTS = new Set([
   'support_clicked',
   'coach_client_opened',
   'coach_client_stats_opened',
+  'meal_added_product',
 ]);
 
 router.post('/track', (req: AuthRequest, res: Response): void => {

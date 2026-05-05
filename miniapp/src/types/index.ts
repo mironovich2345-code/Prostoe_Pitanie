@@ -239,6 +239,22 @@ export interface SavedMeal {
   updatedAt: string;
 }
 
+export interface Product {
+  id: string;
+  barcode?: string | null;
+  name: string;
+  brand?: string | null;
+  packageWeightG?: number | null;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  fatPer100g: number;
+  carbsPer100g: number;
+  confidence: string;
+  isHighSugar: boolean;
+  source: string;
+  isVerified: boolean;
+}
+
 export interface TodayNutritionData {
   meals: MealEntry[];
   totals: NutritionTotals;

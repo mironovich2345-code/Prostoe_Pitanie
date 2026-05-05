@@ -10,7 +10,8 @@
     "start": "prisma migrate deploy && node dist/index.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "import:products": "tsx scripts/import-products.ts"
   },
   "keywords": [],
   "author": "",
@@ -31,7 +32,9 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.5",
+    "@types/xlsx": "^0.0.35",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
   }
 }

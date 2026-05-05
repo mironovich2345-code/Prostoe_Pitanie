@@ -436,3 +436,46 @@ model AiCostLog {
   @@index([scenario])
   @@index([createdAt])
 }
+
+// ─── Product catalog ─────────────────────────────────────────────────────────
+
+model Product {
+  id              String   @id @default(cuid())
+  barcode         String?  @unique
+  name            String
+  brand           String?
+  packageWeightG  Float?
+  caloriesPer100g Float
+  proteinPer100g  Float
+  fatPer100g      Float
+  carbsPer100g    Float
+  confidence      String   @default("medium")
+  isHighSugar     Boolean  @default(false)
+  source          String   @default("seed")
+  isVerified      Boolean  @default(true)
+  isHidden        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([name])
+  @@index([brand])
+  @@index([barcode])
+  @@index([source])
+  @@index([isVerified])
+  @@index([isHidden])
+}
+
+model ProductLookupLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  barcode   String?
+  query     String?
+  source    String?
+  found     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([barcode])
+  @@index([query])
+  @@index([createdAt])
+}

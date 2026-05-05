@@ -273,6 +273,20 @@ export const api = {
     request<import('../types').FoodAnalysis>('/api/nutrition/analyze-photo/refine', { method: 'POST', body: JSON.stringify({ imageData, userContext }) }),
   nutritionAdd: (data: { text: string; mealType: string; sourceType: string; caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; fiberG: number | null; imageData?: string; mealDate?: 'today' | 'yesterday'; photoCount?: number }) =>
     request<{ ok: boolean; meal: import('../types').MealEntry }>('/api/nutrition/add', { method: 'POST', body: JSON.stringify(data) }),
+  nutritionAddProduct: (data: { productId: string; grams: number; mealType?: string; mealDate?: 'today' | 'yesterday' }) =>
+    request<{ ok: boolean; meal: import('../types').MealEntry }>('/api/nutrition/add-product', { method: 'POST', body: JSON.stringify(data) }),
+
+  // ─── Product catalog ────────────────────────────────────────────────────
+  productsSearch: (q: string, limit?: number) => {
+    const params = new URLSearchParams({ q });
+    if (limit != null) params.set('limit', String(limit));
+    return request<{ items: import('../types').Product[] }>(`/api/products/search?${params.toString()}`);
+  },
+  productByBarcode: (barcode: string) =>
+    request<{ found: boolean; product: import('../types').Product | null }>(
+      `/api/products/barcode/${encodeURIComponent(barcode)}`,
+    ),
+
   nutritionInsight: (date: string) =>
     request<import('../types').NutritionInsight>(`/api/nutrition/insight?date=${date}`),
   nutritionInsightWeek: (from: string, to: string) =>
