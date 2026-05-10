@@ -35,6 +35,13 @@ console.info(
   '| mode:', API_MODE,
   '| origin:', window.location.origin,
 );
+if (API_MODE === 'absolute') {
+  console.warn(
+    '[api] CROSS-ORIGIN mode active — all requests go to', BASE_URL,
+    '\n  ↳ Backend must have MINIAPP_ORIGIN=', window.location.origin,
+    '\n  ↳ If API is on the same host as the mini app, clear VITE_API_URL in Railway env.',
+  );
+}
 
 // ─── Hash initData cache ──────────────────────────────────────────────────────
 // React Router's HTML5 History API (pushState) clears location.hash on the

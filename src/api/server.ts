@@ -34,8 +34,11 @@ export function createApiServer() {
   // credentials:false is correct here and unblocks iOS Telegram mini app bootstrap.
   //
   // MINIAPP_ORIGIN can be a single origin or a comma-separated list:
-  //   MINIAPP_ORIGIN=https://eatlyy.ru
-  //   MINIAPP_ORIGIN=https://eatlyy.ru,https://api.eatlyy.ru
+  //   MINIAPP_ORIGIN=https://app.eatlyy.ru
+  //   MINIAPP_ORIGIN=https://app.eatlyy.ru,https://eatlyy.ru
+  //
+  // allowedHeaders is explicit so that x-telegram-init-data / x-max-init-data are
+  // always declared in the preflight response, regardless of cors package version.
   const rawMiniappOrigin = process.env.MINIAPP_ORIGIN;
   const allowedOrigins = rawMiniappOrigin
     ? rawMiniappOrigin.split(',').map(s => s.trim()).filter(Boolean)
@@ -48,7 +51,12 @@ export function createApiServer() {
           else callback(new Error('Not allowed by CORS'));
         }
     : '*';
-  app.use(cors({ origin: corsOrigin, credentials: false }));
+  app.use(cors({
+    origin: corsOrigin,
+    credentials: false,
+    allowedHeaders: ['Content-Type', 'x-telegram-init-data', 'x-max-init-data'],
+  }));
+  console.info('[cors] origin=', typeof corsOrigin === 'string' ? corsOrigin : 'function', '| MINIAPP_ORIGIN=', rawMiniappOrigin ?? '(not set → *)' );
   app.use(express.json({ limit: '12mb' })); // raised to 12mb: supports expert doc uploads (≤5 MB) and 4-photo meals (4 × 2 MB decoded ≈ 10.7 MB base64)
 
   // Health check (no auth)
