@@ -458,12 +458,19 @@ function ErrorToast({ message, onDone }: { message: string; onDone: () => void }
 
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function SubscriptionScreen({ bootstrap }: Props) {
   useTrackEvent('subscription_opened');
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  // Email for fiscal receipt — shown as a modal before initiating payment.
+  const [receiptEmail, setReceiptEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<{ planId: PlanDef['id']; offer?: 'pro_3day' | 'month_1rub' } | null>(null);
   // Set to true after opening the YooKassa page so we know to re-fetch bootstrap
   // when the user returns (visibility change after payment redirect).
   const paymentStarted = useRef(false);
@@ -529,9 +536,10 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
   }
 
   const paymentMutation = useMutation({
-    mutationFn: ({ planId, offer }: { planId: 'pro' | 'optimal'; offer?: 'pro_3day' | 'month_1rub' }) =>
-      api.createPayment(planId, offer),
+    mutationFn: ({ planId, offer, email }: { planId: 'pro' | 'optimal'; offer?: 'pro_3day' | 'month_1rub'; email: string }) =>
+      api.createPayment(planId, offer, email),
     onSuccess: (data) => {
+      setShowEmailModal(false);
       // Open YooKassa payment page.
       // Prefer Telegram's openLink (opens in external browser, mini app stays open).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -545,7 +553,14 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
       }
     },
     onError: (err: Error) => {
-      setErrorMsg(err.message || 'Не удалось создать платёж. Попробуйте позже.');
+      if (err.message === 'RECEIPT_EMAIL_REQUIRED') {
+        setErrorMsg('Укажите email для чека');
+        setShowEmailModal(true);
+      } else if (err.message === 'RECEIPT_ERROR') {
+        setErrorMsg('Не удалось сформировать чек. Проверьте email или попробуйте позже.');
+      } else {
+        setErrorMsg(err.message || 'Не удалось создать платёж. Попробуйте позже.');
+      }
     },
   });
 
@@ -553,7 +568,18 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
     setErrorMsg(null);
     api.trackEvent('subscription_connect_clicked', { planId });
     const offer = planId === 'pro' && proIntroOffer ? proIntroOffer : undefined;
-    paymentMutation.mutate({ planId, offer });
+    // Always show the email modal before creating a payment — required for fiscal receipts.
+    setPendingPlan({ planId, offer });
+    setEmailTouched(false);
+    setShowEmailModal(true);
+  }
+
+  function handleEmailConfirm() {
+    if (!pendingPlan) return;
+    setEmailTouched(true);
+    const email = receiptEmail.trim();
+    if (!EMAIL_RE.test(email)) return;
+    paymentMutation.mutate({ planId: pendingPlan.planId, offer: pendingPlan.offer, email });
   }
 
   return (
@@ -607,8 +633,8 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
         </div>
       )}
 
-      {/* Loading indicator while creating payment */}
-      {paymentMutation.isPending && (
+      {/* Loading indicator while creating payment (not shown when email modal is open — it has its own state) */}
+      {paymentMutation.isPending && !showEmailModal && (
         <div style={{
           position: 'fixed', bottom: 88, left: 16, right: 16, zIndex: 300,
           background: 'var(--surface)', border: '1px solid var(--border)',
@@ -618,6 +644,81 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
         }}>
           <div className="spinner" style={{ width: 16, height: 16, flexShrink: 0 }} />
           <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Открываем страницу оплаты…</span>
+        </div>
+      )}
+
+      {/* Email modal — shown before payment to collect receipt email */}
+      {showEmailModal && (
+        <div
+          onClick={() => { if (!paymentMutation.isPending) { setShowEmailModal(false); setErrorMsg(null); } }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 400,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'flex-end',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%',
+              background: 'var(--surface)',
+              borderRadius: '20px 20px 0 0',
+              padding: '24px 20px 32px',
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
+            }}
+          >
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+              Email для чека
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 18 }}>
+              На этот email придёт чек об оплате.
+            </div>
+            <input
+              type="email"
+              autoFocus
+              placeholder="example@mail.ru"
+              value={receiptEmail}
+              onChange={e => setReceiptEmail(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleEmailConfirm(); }}
+              style={{
+                width: '100%',
+                padding: '13px 14px',
+                fontSize: 15,
+                borderRadius: 12,
+                border: emailTouched && !EMAIL_RE.test(receiptEmail.trim())
+                  ? '1.5px solid var(--danger)'
+                  : '1px solid var(--border)',
+                background: 'var(--surface-2)',
+                color: 'var(--text)',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {emailTouched && !EMAIL_RE.test(receiptEmail.trim()) && (
+              <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>
+                Введите корректный email
+              </div>
+            )}
+            <button
+              onClick={handleEmailConfirm}
+              disabled={paymentMutation.isPending}
+              className="btn"
+              style={{ marginTop: 16, fontSize: 15, fontWeight: 600, width: '100%' }}
+            >
+              {paymentMutation.isPending ? 'Открываем оплату…' : 'Оплатить'}
+            </button>
+            <button
+              onClick={() => { setShowEmailModal(false); setErrorMsg(null); }}
+              disabled={paymentMutation.isPending}
+              style={{
+                marginTop: 10, width: '100%', padding: '10px 0', fontSize: 14,
+                background: 'none', border: 'none', color: 'var(--text-3)',
+                cursor: 'pointer',
+              }}
+            >
+              Отмена
+            </button>
+          </div>
         </div>
       )}
 

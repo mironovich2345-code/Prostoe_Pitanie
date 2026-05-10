@@ -26,20 +26,22 @@ interface PlanConfig {
   amountRub: number;
   periodDays: number;
   description: string;
+  /** Description for the YooKassa fiscal receipt item (54-ФЗ). */
+  receiptDescription: string;
 }
 
 function resolvePlan(planId: string, offer?: string): PlanConfig | null {
   if (planId === 'pro') {
     if (offer === 'month_1rub') {
-      return { actualPlanId: 'intro', amountRub: 1, periodDays: 30, description: 'Pro — 1 месяц за 1 ₽' };
+      return { actualPlanId: 'intro', amountRub: 1, periodDays: 30, description: 'Pro — 1 месяц за 1 ₽', receiptDescription: 'Пробный доступ EATLYY Pro на 1 месяц' };
     }
     if (offer === 'pro_3day') {
-      return { actualPlanId: 'intro', amountRub: 1, periodDays: 3, description: 'Pro — 3 дня за 1 ₽' };
+      return { actualPlanId: 'intro', amountRub: 1, periodDays: 3, description: 'Pro — 3 дня за 1 ₽', receiptDescription: 'Пробный доступ EATLYY Pro на 3 дня' };
     }
-    return { actualPlanId: 'pro', amountRub: 499, periodDays: 30, description: 'Pro — 499 ₽/мес' };
+    return { actualPlanId: 'pro', amountRub: 499, periodDays: 30, description: 'Pro — 499 ₽/мес', receiptDescription: 'Подписка EATLYY Pro на 1 месяц' };
   }
   if (planId === 'optimal') {
-    return { actualPlanId: 'optimal', amountRub: 399, periodDays: 30, description: 'Optimal — 399 ₽/мес' };
+    return { actualPlanId: 'optimal', amountRub: 399, periodDays: 30, description: 'Optimal — 399 ₽/мес', receiptDescription: 'Подписка EATLYY Optimal на 1 месяц' };
   }
   return null;
 }
@@ -58,6 +60,9 @@ const INTRO_OFFERS = ['pro_3day', 'month_1rub'];
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
+// Simple RFC-5322-inspired email regex — rejects obvious non-emails without being overly strict.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 router.post('/create', async (req: AuthRequest, res: Response) => {
   const userId = req.userId;
   if (!userId) {
@@ -65,9 +70,17 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
     return;
   }
 
-  const { planId, offer } = req.body as { planId?: string; offer?: string };
+  const { planId, offer, receiptEmail } = req.body as { planId?: string; offer?: string; receiptEmail?: string };
   if (!planId) {
     res.status(400).json({ error: 'planId required' });
+    return;
+  }
+
+  // Validate receiptEmail — required by ЮKassa when fiscal receipts are enabled.
+  // Never trust the frontend alone; validate server-side too.
+  const emailClean = (receiptEmail ?? '').trim();
+  if (!emailClean || !EMAIL_RE.test(emailClean)) {
+    res.status(400).json({ error: 'RECEIPT_EMAIL_REQUIRED' });
     return;
   }
 
@@ -100,6 +113,13 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
   const now = new Date();
   const periodEnd = new Date(now.getTime() + plan.periodDays * 24 * 60 * 60 * 1000);
 
+  // Log without exposing the full email — only presence and domain.
+  const emailDomain = emailClean.split('@')[1] ?? '';
+  console.info(
+    `[payments/create] userId=${userId} planId=${plan.actualPlanId} amount=${plan.amountRub}`,
+    `receiptEmailPresent=true receiptEmailDomain=${emailDomain}`,
+  );
+
   try {
     // 1. Create local Payment record (status: pending)
     const payment = await paymentDb.create({
@@ -120,6 +140,8 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
       yookassaResult = await createYooKassaPayment({
         amountRub: plan.amountRub,
         description: plan.description,
+        receiptDescription: plan.receiptDescription,
+        receiptEmail: emailClean,
         planId: plan.actualPlanId,
         userId,
         returnUrl,
@@ -150,6 +172,11 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
     });
   } catch (err) {
     const e = err as Error;
+    if (e.message === 'YOOKASSA_RECEIPT_ERROR') {
+      console.warn('[payments/create] receipt rejected by YooKassa — check receipt config');
+      res.status(400).json({ error: 'RECEIPT_ERROR' });
+      return;
+    }
     console.error('[payments/create]', e.message);
     res.status(500).json({ error: 'Не удалось создать платёж. Попробуйте позже.' });
   }

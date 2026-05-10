@@ -5,6 +5,9 @@
  *   YOOKASSA_SHOP_ID     — ЮKassa shopId (numeric string)
  *   YOOKASSA_SECRET_KEY  — ЮKassa secret key (sk_live_... or sk_test_...)
  *   PAYMENT_RETURN_URL   — URL to redirect user after payment (e.g. https://t.me/EATLYY_bot)
+ *   YOOKASSA_VAT_CODE    — НДС-код для чека (default: 1 = "без НДС").
+ *                          Значения: 1=без НДС, 2=0%, 3=10%, 4=20%.
+ *                          Должен совпадать с настройками магазина в ЮKassa.
  *
  * Auth model: Basic <shopId>:<secretKey> (base64).
  * Idempotence-Key header prevents duplicate payments on retry.
@@ -19,6 +22,9 @@
  */
 
 const YOOKASSA_API = 'https://api.yookassa.ru/v3';
+
+// vat_code=1 — «без НДС». Если в настройках ЮKassa другой режим НДС — выставить YOOKASSA_VAT_CODE.
+const YOOKASSA_VAT_CODE = Number(process.env.YOOKASSA_VAT_CODE ?? 1);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +49,10 @@ export interface YKPaymentObject {
 export interface CreatePaymentParams {
   amountRub: number;
   description: string;
+  /** Human-readable item description for the fiscal receipt (54-ФЗ). */
+  receiptDescription: string;
+  /** Customer email for the fiscal receipt. Required when the shop has receipt mode enabled. */
+  receiptEmail: string;
   planId: string;
   userId: string;
   returnUrl: string;
@@ -93,17 +103,37 @@ function authHeader(): string {
  * The actual payment_method.id becomes available after the payment succeeds (via webhook).
  */
 export async function createYooKassaPayment(p: CreatePaymentParams): Promise<CreatePaymentResult> {
+  const amountValue = p.amountRub.toFixed(2);
+
   const body: Record<string, unknown> = {
-    amount: { value: p.amountRub.toFixed(2), currency: 'RUB' },
+    amount: { value: amountValue, currency: 'RUB' },
     capture: true,
     confirmation: { type: 'redirect', return_url: p.returnUrl },
     description: p.description,
     metadata: { userId: p.userId, planId: p.planId },
+    receipt: {
+      customer: { email: p.receiptEmail },
+      items: [
+        {
+          description: p.receiptDescription,
+          quantity: '1.00',
+          amount: { value: amountValue, currency: 'RUB' },
+          vat_code: YOOKASSA_VAT_CODE,
+          payment_mode: 'full_prepayment',
+          payment_subject: 'service',
+        },
+      ],
+    },
   };
 
   if (p.savePaymentMethod) {
     body['save_payment_method'] = true;
   }
+
+  console.info(
+    `[yookassa] createPayment planId=${p.planId} amount=${amountValue}`,
+    `receiptEmailPresent=${!!p.receiptEmail} receiptItemsCount=1 vatCode=${YOOKASSA_VAT_CODE}`,
+  );
 
   const res = await fetch(`${YOOKASSA_API}/payments`, {
     method: 'POST',
@@ -117,6 +147,15 @@ export async function createYooKassaPayment(p: CreatePaymentParams): Promise<Cre
 
   if (!res.ok) {
     const text = await res.text();
+    // Detect receipt-specific errors so the caller can return a user-friendly response
+    try {
+      const parsed = JSON.parse(text) as { code?: string; parameter?: string };
+      if (parsed.code === 'invalid_request' && parsed.parameter === 'receipt') {
+        throw new Error('YOOKASSA_RECEIPT_ERROR');
+      }
+    } catch (innerErr) {
+      if ((innerErr as Error).message === 'YOOKASSA_RECEIPT_ERROR') throw innerErr;
+    }
     throw new Error(`YooKassa ${res.status}: ${text}`);
   }
 

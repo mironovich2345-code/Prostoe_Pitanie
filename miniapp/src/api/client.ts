@@ -503,10 +503,10 @@ export const api = {
     }>('/api/expert-referral/my-acquisition'),
 
   // ─── Payments (YooKassa) ──────────────────────────────────────────────────
-  createPayment: (planId: 'pro' | 'optimal', offer?: 'pro_3day' | 'month_1rub') =>
+  createPayment: (planId: 'pro' | 'optimal', offer: 'pro_3day' | 'month_1rub' | undefined, receiptEmail: string) =>
     request<{ confirmationUrl: string; paymentId: string }>(
       '/api/payments/create',
-      { method: 'POST', body: JSON.stringify({ planId, offer }) },
+      { method: 'POST', body: JSON.stringify({ planId, offer, receiptEmail }) },
     ),
   cancelAutoRenew: () =>
     request<{ ok: boolean; autoRenew: boolean }>(
