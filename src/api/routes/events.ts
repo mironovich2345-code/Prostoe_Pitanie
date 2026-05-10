@@ -28,6 +28,12 @@ const ALLOWED_EVENTS = new Set([
   'coach_client_opened',
   'coach_client_stats_opened',
   'meal_added_product',
+  'product_barcode_scan_opened',
+  'product_barcode_detected',
+  'product_barcode_not_detected',
+  'product_barcode_image_uploaded',
+  'product_found_by_barcode',
+  'product_not_found_by_barcode',
 ]);
 
 router.post('/track', (req: AuthRequest, res: Response): void => {

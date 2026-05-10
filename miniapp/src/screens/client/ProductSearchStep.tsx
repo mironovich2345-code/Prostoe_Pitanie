@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { BootstrapData, Product } from '../../types';
+import BarcodeScannerModal from './BarcodeScannerModal';
+import { detectBarcodeFromImageFile } from '../../utils/barcodeScanner';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -69,6 +71,9 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [barcodeSearching, setBarcodeSearching] = useState(false);
   const [barcodeError, setBarcodeError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Selected product + add form
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -127,6 +132,47 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
       setBarcodeError('Ошибка поиска. Попробуйте ещё раз.');
     } finally {
       setBarcodeSearching(false);
+    }
+  }
+
+  async function handleBarcodeFromScan(rawBarcode: string) {
+    const barcode = rawBarcode.replace(/\D/g, '');
+    if (!barcode) { setBarcodeError('Не удалось распознать штрихкод'); return; }
+    setBarcodeInput(barcode);
+    setBarcodeError('');
+    setTab('barcode');
+    setBarcodeSearching(true);
+    try {
+      const res = await api.productByBarcode(barcode);
+      if (res.found && res.product) {
+        selectProduct(res.product);
+      } else {
+        setBarcodeError('Продукт не найден. Попробуйте поиск по названию.');
+      }
+    } catch {
+      setBarcodeError('Ошибка поиска. Попробуйте ещё раз.');
+    } finally {
+      setBarcodeSearching(false);
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBarcodeError('');
+    setImageUploading(true);
+    try {
+      const barcode = await detectBarcodeFromImageFile(file);
+      if (barcode) {
+        await handleBarcodeFromScan(barcode);
+      } else {
+        setBarcodeError('Штрихкод не распознан. Попробуйте другое фото или введите вручную.');
+      }
+    } catch {
+      setBarcodeError('Ошибка при распознавании. Попробуйте ещё раз.');
+    } finally {
+      setImageUploading(false);
     }
   }
 
@@ -346,6 +392,7 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
 
   // ─── SEARCH / BARCODE VIEW ────────────────────────────────────────────────
   return (
+    <>
     <div className="screen">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -523,8 +570,45 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
           >
             {barcodeSearching ? 'Ищем...' : 'Найти'}
           </button>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1, fontSize: 13 }}
+              onClick={() => { setScannerOpen(true); setBarcodeError(''); }}
+            >
+              📷 Камера
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1, fontSize: 13 }}
+              disabled={imageUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {imageUploading ? 'Распознаём...' : '🖼 Фото штрихкода'}
+            </button>
+          </div>
         </>
       )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleImageUpload}
+      />
     </div>
+
+    {scannerOpen && (
+      <BarcodeScannerModal
+        onDetected={async (barcode) => {
+          setScannerOpen(false);
+          await handleBarcodeFromScan(barcode);
+        }}
+        onClose={() => setScannerOpen(false)}
+      />
+    )}
+  </>
   );
 }
