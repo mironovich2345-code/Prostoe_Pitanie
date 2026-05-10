@@ -3,7 +3,6 @@ import { api } from '../../api/client';
 
 interface Props {
   onBack: () => void;
-  onGoManual: () => void;
   initialBarcode?: string;
   initialName?: string;
   source?: 'barcode_not_found' | 'search_not_found' | 'manual';
@@ -39,7 +38,7 @@ function NumInput({ label, value, onChange, required, suffix = 'на 100 г', pl
   );
 }
 
-export default function SubmitProductStep({ onBack, onGoManual, initialBarcode = '', initialName = '', source }: Props) {
+export default function SubmitProductStep({ onBack, initialBarcode = '', initialName = '', source }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -148,13 +147,6 @@ export default function SubmitProductStep({ onBack, onGoManual, initialBarcode =
 
           <button
             className="btn"
-            style={{ width: '100%', fontSize: 14, marginBottom: 12 }}
-            onClick={onGoManual}
-          >
-            Добавить сейчас описанием
-          </button>
-          <button
-            className="btn btn-secondary"
             style={{ width: '100%', fontSize: 14 }}
             onClick={onBack}
           >
@@ -370,13 +362,6 @@ export default function SubmitProductStep({ onBack, onGoManual, initialBarcode =
         {submitting ? 'Отправляем...' : 'Отправить на проверку'}
       </button>
 
-      <button
-        className="btn btn-secondary"
-        style={{ fontSize: 13, width: '100%' }}
-        onClick={onGoManual}
-      >
-        Добавить сейчас описанием
-      </button>
     </div>
   );
 }

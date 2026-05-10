@@ -245,7 +245,6 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
     return (
       <SubmitProductStep
         onBack={() => setSubmitMode(false)}
-        onGoManual={onBack}
         initialBarcode={submitBarcode}
         initialName={submitName}
         source={submitSource}

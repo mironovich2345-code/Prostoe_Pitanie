@@ -27,58 +27,69 @@ function MacroChip({ label, value, color }: { label: string; value: number; colo
   );
 }
 
-// ─── Lazy photo component ────────────────────────────────────────────────────
+// ─── Lazy photo thumbnail ─────────────────────────────────────────────────────
 
 function SubmissionPhoto({ id }: { id: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
   const urlRef = useRef<string | null>(null);
 
-  useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    api.adminProductSubmissionPhoto(id)
+      .then(blobUrl => {
+        if (cancelled) { URL.revokeObjectURL(blobUrl); return; }
+        urlRef.current = blobUrl;
+        setUrl(blobUrl);
+      })
+      .catch(() => { if (!cancelled) setErr(true); });
+    return () => {
+      cancelled = true;
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    };
+  }, [id]);
 
-  async function load() {
-    if (url || loading) return;
-    setLoading(true);
-    try {
-      const blobUrl = await api.adminProductSubmissionPhoto(id);
-      urlRef.current = blobUrl;
-      setUrl(blobUrl);
-      setVisible(true);
-    } catch {
-      setErr(true);
-    } finally {
-      setLoading(false);
-    }
+  const thumbStyle: React.CSSProperties = {
+    width: 80, height: 80, borderRadius: 10, flexShrink: 0,
+    border: '1px solid var(--border)', objectFit: 'cover', cursor: 'pointer', display: 'block',
+  };
+
+  if (err) {
+    return (
+      <div style={{ ...thumbStyle, cursor: 'default', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.3 }}>Фото недоступно</span>
+      </div>
+    );
   }
 
-  if (!visible && !url) {
+  if (!url) {
     return (
-      <button
-        onClick={load}
-        style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', padding: '4px 0' }}
-      >
-        {loading ? 'Загрузка...' : err ? 'Ошибка загрузки фото' : 'Показать фото'}
-      </button>
+      <div style={{ ...thumbStyle, cursor: 'default', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="spinner" style={{ width: 18, height: 18 }} />
+      </div>
     );
   }
 
   return (
     <>
-      {url && (
-        <img
-          src={url}
-          alt="product"
-          style={{ width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 6 }}
-        />
+      <img src={url} alt="product" style={thumbStyle} onClick={() => setLightbox(true)} />
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.92)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <img
+            src={url}
+            alt="product"
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }}
+          />
+        </div>
       )}
-      <button
-        onClick={() => setVisible(false)}
-        style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', padding: '4px 0' }}
-      >
-        Скрыть фото
-      </button>
     </>
   );
 }
@@ -139,7 +150,7 @@ function SubmissionCard({ sub, onAction }: { sub: ProductSubmission; onAction: (
       padding: '16px 18px', marginBottom: 10,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{sub.name}</div>
           {sub.brand && <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{sub.brand}</div>}
@@ -149,10 +160,11 @@ function SubmissionCard({ sub, onAction }: { sub: ProductSubmission; onAction: (
             <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>Источник: {sub.source}</div>
           )}
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+          {sub.hasPhoto && <SubmissionPhoto id={sub.id} />}
           <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{fmtDate(sub.createdAt)}</div>
           <div style={{
-            marginTop: 4, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
             background: sub.status === 'approved' ? 'rgba(100,210,80,0.15)' : sub.status === 'rejected' ? 'rgba(255,87,87,0.12)' : 'rgba(255,159,10,0.12)',
             color: sub.status === 'approved' ? '#64D250' : sub.status === 'rejected' ? 'var(--danger)' : '#FF9F0A',
           }}>
@@ -195,13 +207,6 @@ function SubmissionCard({ sub, onAction }: { sub: ProductSubmission; onAction: (
       {sub.adminComment && (
         <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8 }}>
           Комментарий: {sub.adminComment}
-        </div>
-      )}
-
-      {/* Lazy photo */}
-      {sub.hasPhoto && (
-        <div style={{ marginBottom: 8 }}>
-          <SubmissionPhoto id={sub.id} />
         </div>
       )}
 
