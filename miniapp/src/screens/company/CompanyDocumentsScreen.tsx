@@ -1,10 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 
+const BASE = window.location.origin;
+
 const DOCS = [
-  { label: 'Политика конфиденциальности', url: 'https://eatlyy.ru/privacy' },
-  { label: 'Пользовательское соглашение', url: 'https://eatlyy.ru/terms' },
-  { label: 'Публичная оферта',            url: 'https://eatlyy.ru/offer' },
-  { label: 'Договор для партнёров',       url: 'https://eatlyy.ru/partner-agreement' },
+  { label: 'Пользовательское соглашение',              url: `${BASE}/legal/terms` },
+  { label: 'Политика конфиденциальности',               url: `${BASE}/legal/privacy` },
+  { label: 'Согласие на обработку персональных данных', url: `${BASE}/legal/personal-data` },
+  { label: 'Условия подписки и автопродления',          url: `${BASE}/legal/subscription` },
+  { label: 'Отказ от медицинской ответственности',      url: `${BASE}/legal/medical-disclaimer` },
+  { label: 'Согласие на получение уведомлений',         url: `${BASE}/legal/notifications` },
 ];
 
 export default function CompanyDocumentsScreen() {

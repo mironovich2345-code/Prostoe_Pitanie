@@ -707,6 +707,20 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
             >
               {paymentMutation.isPending ? 'Открываем оплату…' : 'Оплатить'}
             </button>
+
+            {/* Legal consent text */}
+            <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.55, marginTop: 12, textAlign: 'center' }}>
+              Нажимая «Оплатить», вы принимаете{' '}
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Пользовательское соглашение</a>,{' '}
+              <a href="/legal/subscription" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Условия подписки и автопродления</a>,{' '}
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Политику конфиденциальности</a>{' '}
+              и даёте{' '}
+              <a href="/legal/personal-data" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>согласие на обработку персональных данных</a>.
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.55, marginTop: 6, textAlign: 'center' }}>
+              Подписка продлевается автоматически. Отменить автопродление можно в разделе «Подписка».
+            </div>
+
             <button
               onClick={() => { setShowEmailModal(false); setErrorMsg(null); }}
               disabled={paymentMutation.isPending}

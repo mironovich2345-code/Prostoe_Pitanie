@@ -1,9 +1,15 @@
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../ui';
+
+const BASE = window.location.origin;
 
 const DOCS = [
-  { label: 'Политика конфиденциальности', url: 'https://eatlyy.ru/privacy' },
-  { label: 'Пользовательское соглашение', url: 'https://eatlyy.ru/terms' },
-  { label: 'Публичная оферта',            url: 'https://eatlyy.ru/offer' },
+  { label: 'Пользовательское соглашение',              url: `${BASE}/legal/terms` },
+  { label: 'Политика конфиденциальности',               url: `${BASE}/legal/privacy` },
+  { label: 'Согласие на обработку персональных данных', url: `${BASE}/legal/personal-data` },
+  { label: 'Условия подписки и автопродления',          url: `${BASE}/legal/subscription` },
+  { label: 'Отказ от медицинской ответственности',      url: `${BASE}/legal/medical-disclaimer` },
+  { label: 'Согласие на получение уведомлений',         url: `${BASE}/legal/notifications` },
 ];
 
 export default function DocumentsScreen() {
@@ -11,9 +17,7 @@ export default function DocumentsScreen() {
 
   return (
     <div className="screen">
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>Документы</div>
-      </div>
+      <PageHeader title="Документы" onBack={() => navigate('/profile')} />
 
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
         {DOCS.map((doc, i) => (
@@ -29,8 +33,8 @@ export default function DocumentsScreen() {
               textDecoration: 'none',
             }}
           >
-            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>{doc.label}</span>
-            <span style={{ color: 'var(--text-3)', fontSize: 16 }}>›</span>
+            <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.4, flex: 1, marginRight: 8 }}>{doc.label}</span>
+            <span style={{ color: 'var(--text-3)', fontSize: 16, flexShrink: 0 }}>›</span>
           </a>
         ))}
       </div>

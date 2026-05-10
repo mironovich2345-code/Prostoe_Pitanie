@@ -564,6 +564,22 @@ bot.hears(BUTTONS.SETTINGS, async (ctx) => {
   return ctx.reply(text, buildSettingsKeyboard(profile));
 });
 
+// Документы — только ссылки, текст документов в чат не отправляется
+bot.hears(BUTTONS.DOCUMENTS, (ctx) => {
+  const legalBase = process.env.MINIAPP_URL?.replace(/\/+$/, '') ?? 'https://app.eatlyy.ru';
+  return ctx.reply(
+    'Документы EATLYY',
+    Markup.inlineKeyboard([
+      [Markup.button.url('Пользовательское соглашение',   `${legalBase}/legal/terms`)],
+      [Markup.button.url('Политика конфиденциальности',    `${legalBase}/legal/privacy`)],
+      [Markup.button.url('Согласие на обработку ПД',       `${legalBase}/legal/personal-data`)],
+      [Markup.button.url('Условия подписки',               `${legalBase}/legal/subscription`)],
+      [Markup.button.url('Медицинский дисклеймер',         `${legalBase}/legal/medical-disclaimer`)],
+      [Markup.button.url('Уведомления',                    `${legalBase}/legal/notifications`)],
+    ]),
+  );
+});
+
 // Цели профиля
 function registerGoalButton(buttonText: string, goalValue: string, goalLabel: string) {
   bot.hears(buttonText, async (ctx) => {

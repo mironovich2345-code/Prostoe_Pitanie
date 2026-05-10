@@ -24,6 +24,7 @@ import webhooksRouter, { handleYooKassaWebhook } from './routes/webhooks';
 import maxWebhookRouter from './routes/maxWebhook';
 import eventsRouter from './routes/events';
 import productsRouter from './routes/products';
+import legalRouter from './routes/legal';
 
 export function createApiServer() {
   const app = express();
@@ -72,6 +73,9 @@ export function createApiServer() {
   // MAX bot webhook — registered BEFORE platformAuthMiddleware (MAX server-to-server, not user auth)
   // Secured by optional MAX_WEBHOOK_SECRET header check inside the handler.
   app.use('/api/max/webhook', maxWebhookRouter);
+
+  // Legal pages — public, no auth, served before platformAuthMiddleware and SPA static files
+  app.use('/legal', legalRouter);
 
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);

@@ -296,6 +296,14 @@ export default function OnboardingScreen() {
         </div>
       )}
 
+      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center', marginBottom: 14 }}>
+        Продолжая пользоваться EATLYY, вы принимаете{' '}
+        <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Пользовательское соглашение</a>,{' '}
+        <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Политику конфиденциальности</a>,{' '}
+        <a href="/legal/personal-data" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Согласие на обработку персональных данных</a>{' '}
+        и <a href="/legal/medical-disclaimer" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Медицинский дисклеймер</a>.
+      </div>
+
       <button
         className="btn"
         onClick={handleSave}
