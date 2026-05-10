@@ -4,6 +4,30 @@ import { api } from '../../api/client';
 import type { BootstrapData, Product } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import { detectBarcodeFromImageFile } from '../../utils/barcodeScanner';
+import SubmitProductStep from './SubmitProductStep';
+
+// ─── Icons ──────────────────────────────────────────────────────────────────
+
+function CameraIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
+
+function ImageUploadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -74,6 +98,12 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Submit-product mode
+  const [submitMode, setSubmitMode] = useState(false);
+  const [submitBarcode, setSubmitBarcode] = useState('');
+  const [submitName, setSubmitName] = useState('');
+  const [submitSource, setSubmitSource] = useState<'barcode_not_found' | 'search_not_found' | 'manual'>('manual');
 
   // Selected product + add form
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -209,6 +239,19 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
   const pkgG = selectedProduct?.packageWeightG != null
     ? Math.round(selectedProduct.packageWeightG)
     : null;
+
+  // ─── SUBMIT PRODUCT VIEW ─────────────────────────────────────────────────
+  if (submitMode) {
+    return (
+      <SubmitProductStep
+        onBack={() => setSubmitMode(false)}
+        onGoManual={onBack}
+        initialBarcode={submitBarcode}
+        initialName={submitName}
+        source={submitSource}
+      />
+    );
+  }
 
   // ─── SELECTED PRODUCT VIEW ────────────────────────────────────────────────
   if (selectedProduct) {
@@ -469,13 +512,20 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
           {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
             <div style={{
               background: 'var(--surface)', borderRadius: 'var(--r-xl)',
-              border: '1px solid var(--border)', padding: '32px 24px', textAlign: 'center',
+              border: '1px solid var(--border)', padding: '24px', textAlign: 'center',
             }}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>🔍</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>Ничего не найдено</div>
-              <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 16 }}>
                 Попробуйте другой запрос или поиск по штрихкоду
               </div>
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: 13, width: '100%' }}
+                onClick={() => { setSubmitName(searchQuery.trim()); setSubmitBarcode(''); setSubmitSource('search_not_found'); setSubmitMode(true); }}
+              >
+                Добавить продукт в базу
+              </button>
             </div>
           )}
 
@@ -562,6 +612,16 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
             <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{barcodeError}</div>
           )}
 
+          {barcodeError.includes('не найден') && barcodeInput && (
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: 13, width: '100%', marginBottom: 10 }}
+              onClick={() => { setSubmitBarcode(barcodeInput); setSubmitName(''); setSubmitSource('barcode_not_found'); setSubmitMode(true); }}
+            >
+              Добавить продукт в базу
+            </button>
+          )}
+
           <button
             className="btn"
             style={{ fontSize: 14 }}
@@ -574,18 +634,18 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
           <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
             <button
               className="btn btn-secondary"
-              style={{ flex: 1, fontSize: 13 }}
+              style={{ flex: 1, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
               onClick={() => { setScannerOpen(true); setBarcodeError(''); }}
             >
-              📷 Камера
+              <CameraIcon /> Камера
             </button>
             <button
               className="btn btn-secondary"
-              style={{ flex: 1, fontSize: 13 }}
+              style={{ flex: 1, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
               disabled={imageUploading}
               onClick={() => fileInputRef.current?.click()}
             >
-              {imageUploading ? 'Распознаём...' : '🖼 Фото штрихкода'}
+              <ImageUploadIcon /> {imageUploading ? 'Распознаём...' : 'Фото штрихкода'}
             </button>
           </div>
         </>
@@ -607,6 +667,12 @@ export default function ProductSearchStep({ onBack, onDone }: Props) {
           await handleBarcodeFromScan(barcode);
         }}
         onClose={() => setScannerOpen(false)}
+        onUploadPhoto={() => {
+          setScannerOpen(false);
+          // Let modal unmount before triggering file picker
+          setTimeout(() => fileInputRef.current?.click(), 50);
+        }}
+        onManualInput={() => setScannerOpen(false)}
       />
     )}
   </>

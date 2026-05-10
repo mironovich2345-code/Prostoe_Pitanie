@@ -286,6 +286,43 @@ export const api = {
     request<{ found: boolean; product: import('../types').Product | null }>(
       `/api/products/barcode/${encodeURIComponent(barcode)}`,
     ),
+  productsSubmit: (data: {
+    barcode?: string; name: string; brand?: string; packageWeightG?: number;
+    caloriesPer100g: number; proteinPer100g: number; fatPer100g: number; carbsPer100g: number;
+    isHighSugar?: boolean; imageData?: string;
+  }) =>
+    request<{ ok: boolean; submission: { id: string; status: string; name: string; barcode?: string | null } }>(
+      '/api/products/submit', { method: 'POST', body: JSON.stringify(data) },
+    ),
+  adminProductSubmissions: (params: { status?: string; page?: number; pageSize?: number; q?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.status)   qs.set('status',   params.status);
+    if (params.page)     qs.set('page',     String(params.page));
+    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+    if (params.q)        qs.set('q',        params.q);
+    const query = qs.toString();
+    return request<{ submissions: import('../types').ProductSubmission[]; total: number; page: number; pageSize: number; pages: number }>(
+      `/api/admin/product-submissions${query ? `?${query}` : ''}`,
+    );
+  },
+  adminProductSubmissionPhoto: async (id: string): Promise<string> => {
+    const res = await fetch(`${BASE_URL}/api/admin/product-submissions/${encodeURIComponent(id)}/photo`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error('Photo fetch failed');
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
+  adminApproveProductSubmission: (id: string, overrides?: Record<string, unknown>) =>
+    request<{ ok: boolean; productId: string; productName: string }>(
+      `/api/admin/product-submissions/${encodeURIComponent(id)}/approve`,
+      { method: 'PATCH', body: JSON.stringify(overrides ?? {}) },
+    ),
+  adminRejectProductSubmission: (id: string, reason?: string) =>
+    request<{ ok: boolean }>(
+      `/api/admin/product-submissions/${encodeURIComponent(id)}/reject`,
+      { method: 'PATCH', body: JSON.stringify({ reason }) },
+    ),
 
   nutritionInsight: (date: string) =>
     request<import('../types').NutritionInsight>(`/api/nutrition/insight?date=${date}`),

@@ -465,6 +465,35 @@ model Product {
   @@index([isHidden])
 }
 
+model ProductSubmission {
+  id                   String    @id @default(cuid())
+  userId               String?
+  barcode              String?
+  name                 String
+  brand                String?
+  packageWeightG       Float?
+  caloriesPer100g      Float
+  proteinPer100g       Float
+  fatPer100g           Float
+  carbsPer100g         Float
+  isHighSugar          Boolean   @default(false)
+  photoData            String?   // base64 fallback when R2 not configured
+  photoStorageKey      String?   // R2 object key
+  photoStorageProvider String?   // 'r2'
+  status               String    @default("pending") // pending | approved | rejected
+  source               String    @default("user")
+  adminComment         String?
+  reviewedByUserId     String?
+  reviewedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([barcode])
+  @@index([createdAt])
+}
+
 model ProductLookupLog {
   id        String   @id @default(cuid())
   userId    String?

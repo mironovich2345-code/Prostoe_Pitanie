@@ -34,6 +34,13 @@ const ALLOWED_EVENTS = new Set([
   'product_barcode_image_uploaded',
   'product_found_by_barcode',
   'product_not_found_by_barcode',
+  'product_submission_opened',
+  'product_submission_created',
+  'product_submission_failed',
+  'admin_product_submission_approved',
+  'admin_product_submission_rejected',
+  'camera_permission_denied',
+  'camera_permission_error',
 ]);
 
 router.post('/track', (req: AuthRequest, res: Response): void => {

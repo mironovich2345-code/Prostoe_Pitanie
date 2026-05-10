@@ -1723,4 +1723,287 @@ router.get('/analytics', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// ─── Product submissions ─────────────────────────────────────────────────────
+
+const SUBMISSION_SELECT = {
+  id: true, userId: true, barcode: true, name: true, brand: true,
+  packageWeightG: true, caloriesPer100g: true, proteinPer100g: true,
+  fatPer100g: true, carbsPer100g: true, isHighSugar: true,
+  photoStorageKey: true, photoStorageProvider: true, photoData: true,
+  status: true, adminComment: true, source: true, createdAt: true,
+} as const;
+
+// GET /api/admin/product-submissions?status=pending&page=1&pageSize=20&q=
+router.get('/product-submissions', async (req: AuthRequest, res: Response) => {
+  const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
+  const page = Math.max(1, parseInt(typeof req.query.page === 'string' ? req.query.page : '1', 10) || 1);
+  const pageSize = Math.min(50, Math.max(1, parseInt(typeof req.query.pageSize === 'string' ? req.query.pageSize : '20', 10) || 20));
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+  try {
+    const where: Record<string, unknown> = { status };
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { brand: { contains: q, mode: 'insensitive' } },
+        { barcode: { contains: q } },
+      ];
+    }
+
+    const [total, rows] = await Promise.all([
+      (prisma.productSubmission as any).count({ where }),
+      (prisma.productSubmission as any).findMany({
+        where,
+        orderBy: { createdAt: 'asc' as const },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: SUBMISSION_SELECT,
+      }),
+    ]);
+
+    // Batch: user displayNames
+    const userIds = [...new Set((rows as any[]).map((r: any) => r.userId).filter(Boolean))] as string[];
+    const userProfiles = userIds.length
+      ? await (prisma.userProfile as any).findMany({
+          where: { userId: { in: userIds } },
+          select: { userId: true, preferredName: true, telegramUsername: true },
+        })
+      : [];
+    const userMap = new Map<string, string | null>();
+    for (const up of userProfiles) {
+      userMap.set(up.userId, up.preferredName ?? up.telegramUsername ?? null);
+    }
+
+    // Batch: barcode conflicts in Product table
+    const barcodes = [...new Set((rows as any[]).map((r: any) => r.barcode).filter(Boolean))] as string[];
+    const conflictProducts = barcodes.length
+      ? await (prisma.product as any).findMany({
+          where: { barcode: { in: barcodes } },
+          select: { id: true, name: true, barcode: true },
+        })
+      : [];
+    const barcodeMap = new Map<string, { id: string; name: string; barcode: string }>();
+    for (const p of conflictProducts) {
+      if (p.barcode) barcodeMap.set(p.barcode, p);
+    }
+
+    const submissions = (rows as any[]).map((sub: any) => {
+      const hasPhoto = !!(sub.photoData || sub.photoStorageKey);
+      const displayName = sub.userId ? (userMap.get(sub.userId) ?? null) : null;
+      const similarProduct = sub.barcode ? (barcodeMap.get(sub.barcode) ?? null) : null;
+      const { photoData: _pd, photoStorageKey: _k, photoStorageProvider: _pp, userId: _uid, ...rest } = sub;
+      return { ...rest, hasPhoto, displayName, similarProduct };
+    });
+
+    res.json({ submissions, total, page, pageSize, pages: Math.ceil(total / pageSize) });
+  } catch (err) {
+    console.error('[admin/product-submissions/list]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/product-submissions/:id/photo
+router.get('/product-submissions/:id/photo', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  try {
+    const sub = await (prisma.productSubmission as any).findUnique({
+      where: { id },
+      select: { photoData: true, photoStorageKey: true, photoStorageProvider: true },
+    });
+    if (!sub) { res.status(404).json({ error: 'Not found' }); return; }
+
+    if (sub.photoStorageKey) {
+      try {
+        const { getObjectBuffer, extToMime } = await import('../../storage/r2');
+        const buffer = await getObjectBuffer(sub.photoStorageKey as string);
+        const ext = (sub.photoStorageKey as string).split('.').pop() ?? 'jpg';
+        const mime = extToMime(ext);
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        res.send(buffer);
+        return;
+      } catch {
+        // fall through to base64
+      }
+    }
+
+    if (sub.photoData) {
+      const dataUrl = sub.photoData as string;
+      const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+      const mime = mimeMatch?.[1] ?? 'image/jpeg';
+      const base64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(base64, 'base64');
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.send(buffer);
+      return;
+    }
+
+    res.status(404).json({ error: 'No photo' });
+  } catch (err) {
+    console.error('[admin/product-submissions/photo]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/product-submissions/:id/approve
+router.patch('/product-submissions/:id/approve', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  const body = (req.body ?? {}) as Record<string, unknown>;
+
+  const nameOverride  = typeof body.name  === 'string' ? body.name.trim()  : undefined;
+  const brandOverride = typeof body.brand === 'string' ? body.brand.trim() : undefined;
+  const barcodeRaw    = body.barcode != null ? String(body.barcode).replace(/\D/g, '') : undefined;
+  const calOverride   = body.caloriesPer100g != null ? Number(body.caloriesPer100g) : undefined;
+  const proOverride   = body.proteinPer100g  != null ? Number(body.proteinPer100g)  : undefined;
+  const fatOverride   = body.fatPer100g      != null ? Number(body.fatPer100g)      : undefined;
+  const carbOverride  = body.carbsPer100g    != null ? Number(body.carbsPer100g)    : undefined;
+  const pkgOverride   = body.packageWeightG  != null ? Number(body.packageWeightG)  : undefined;
+  const sugarOverride = body.isHighSugar     != null ? !!body.isHighSugar           : undefined;
+  const confidence    = typeof body.confidence === 'string' && ['high', 'medium', 'low'].includes(body.confidence)
+    ? body.confidence as 'high' | 'medium' | 'low'
+    : 'medium';
+
+  if (calOverride !== undefined && (!isFinite(calOverride) || calOverride < 0 || calOverride > 1000)) {
+    res.status(400).json({ error: 'caloriesPer100g out of range' }); return;
+  }
+  for (const [field, val] of [['proteinPer100g', proOverride], ['fatPer100g', fatOverride], ['carbsPer100g', carbOverride]] as [string, number | undefined][]) {
+    if (val !== undefined && (!isFinite(val) || val < 0 || val > 100)) {
+      res.status(400).json({ error: `${field} out of range` }); return;
+    }
+  }
+
+  try {
+    const sub = await (prisma.productSubmission as any).findUnique({
+      where: { id },
+      select: SUBMISSION_SELECT,
+    });
+    if (!sub) { res.status(404).json({ error: 'Not found' }); return; }
+    if (sub.status !== 'pending') { res.status(409).json({ error: 'Already reviewed' }); return; }
+
+    const finalBarcode  = (barcodeRaw !== undefined ? (barcodeRaw || null) : (sub.barcode ?? null));
+    const finalName     = nameOverride  ?? sub.name;
+    const finalBrand    = brandOverride !== undefined ? (brandOverride || null) : (sub.brand ?? null);
+    const finalCal      = calOverride   ?? sub.caloriesPer100g;
+    const finalPro      = proOverride   ?? sub.proteinPer100g;
+    const finalFat      = fatOverride   ?? sub.fatPer100g;
+    const finalCarb     = carbOverride  ?? sub.carbsPer100g;
+    const finalPkg      = pkgOverride   !== undefined ? (pkgOverride || null) : (sub.packageWeightG ?? null);
+    const finalSugar    = sugarOverride !== undefined ? sugarOverride : (sub.isHighSugar ?? false);
+
+    // Barcode conflict: update existing product or create new
+    let product: { id: string; name: string };
+    if (finalBarcode) {
+      const existing = await (prisma.product as any).findUnique({
+        where: { barcode: finalBarcode },
+        select: { id: true, name: true },
+      });
+      if (existing) {
+        product = await (prisma.product as any).update({
+          where: { id: existing.id },
+          data: {
+            name: finalName, brand: finalBrand,
+            caloriesPer100g: finalCal, proteinPer100g: finalPro,
+            fatPer100g: finalFat, carbsPer100g: finalCarb,
+            packageWeightG: finalPkg, isHighSugar: finalSugar,
+            confidence, isVerified: true,
+          },
+          select: { id: true, name: true },
+        });
+      } else {
+        product = await (prisma.product as any).create({
+          data: {
+            barcode: finalBarcode, name: finalName, brand: finalBrand,
+            caloriesPer100g: finalCal, proteinPer100g: finalPro,
+            fatPer100g: finalFat, carbsPer100g: finalCarb,
+            packageWeightG: finalPkg, isHighSugar: finalSugar,
+            confidence, source: 'user', isVerified: true, isHidden: false,
+          },
+          select: { id: true, name: true },
+        });
+      }
+    } else {
+      product = await (prisma.product as any).create({
+        data: {
+          barcode: null, name: finalName, brand: finalBrand,
+          caloriesPer100g: finalCal, proteinPer100g: finalPro,
+          fatPer100g: finalFat, carbsPer100g: finalCarb,
+          packageWeightG: finalPkg, isHighSugar: finalSugar,
+          confidence, source: 'user', isVerified: true, isHidden: false,
+        },
+        select: { id: true, name: true },
+      });
+    }
+
+    await (prisma.productSubmission as any).update({
+      where: { id },
+      data: {
+        status: 'approved',
+        reviewedByUserId: req.userId ?? null,
+        reviewedAt: new Date(),
+        adminComment: typeof body.comment === 'string' ? body.comment.trim() || null : null,
+        photoData: null,
+      },
+    });
+
+    if (sub.photoStorageKey) {
+      import('../../storage/r2').then(({ deleteObject }) => {
+        deleteObject(sub.photoStorageKey as string).catch(() => {});
+      });
+    }
+
+    if (req.userId) {
+      const { trackUserEvent } = await import('../../services/userEventService');
+      trackUserEvent({ userId: req.userId, platform: req.platform ?? 'unknown', eventName: 'admin_product_submission_approved', metadata: { submissionId: id, productId: product.id } });
+    }
+
+    res.json({ ok: true, productId: product.id, productName: product.name });
+  } catch (err) {
+    console.error('[admin/product-submissions/approve]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/product-submissions/:id/reject
+router.patch('/product-submissions/:id/reject', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  const { reason } = (req.body ?? {}) as { reason?: string };
+
+  try {
+    const sub = await (prisma.productSubmission as any).findUnique({
+      where: { id },
+      select: { photoStorageKey: true, status: true },
+    });
+    if (!sub) { res.status(404).json({ error: 'Not found' }); return; }
+    if (sub.status !== 'pending') { res.status(409).json({ error: 'Already reviewed' }); return; }
+
+    await (prisma.productSubmission as any).update({
+      where: { id },
+      data: {
+        status: 'rejected',
+        reviewedByUserId: req.userId ?? null,
+        reviewedAt: new Date(),
+        adminComment: reason?.trim() || null,
+        photoData: null,
+      },
+    });
+
+    if (sub.photoStorageKey) {
+      import('../../storage/r2').then(({ deleteObject }) => {
+        deleteObject(sub.photoStorageKey as string).catch(() => {});
+      });
+    }
+
+    if (req.userId) {
+      const { trackUserEvent } = await import('../../services/userEventService');
+      trackUserEvent({ userId: req.userId, platform: req.platform ?? 'unknown', eventName: 'admin_product_submission_rejected', metadata: { submissionId: id } });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[admin/product-submissions/reject]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

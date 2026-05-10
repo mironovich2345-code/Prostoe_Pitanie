@@ -1,20 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { normalizeBarcode } from '../../utils/barcodeScanner';
+import { api } from '../../api/client';
 
 interface Props {
   onDetected: (barcode: string) => void;
   onClose: () => void;
+  onUploadPhoto?: () => void;
+  onManualInput?: () => void;
 }
 
-export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
+export default function BarcodeScannerModal({ onDetected, onClose, onUploadPhoto, onManualInput }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectedRef = useRef(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+  // Prevents double getUserMedia in React 18 StrictMode (dev double-effect invocation).
+  // useRef resets per component instance, so reopening the modal still works normally.
+  const hasStartedRef = useRef(false);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(true);
 
   useEffect(() => {
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
     let stopped = false;
 
     async function start() {
@@ -50,12 +59,12 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
                 onDetected(normalizeBarcode(results[0].rawValue));
               }
             } catch {
-              // ignore per-frame errors
+              // ignore per-frame detection errors
             }
           }, 300);
           cleanupRef.current = () => clearInterval(timer);
         } else {
-          // ZXing fallback — handles srcObject and play() internally
+          // ZXing fallback — reuses the existing stream, no second getUserMedia call
           const { BrowserMultiFormatReader } = await import('@zxing/browser');
           if (stopped) return;
           const reader = new BrowserMultiFormatReader();
@@ -76,12 +85,16 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
         }
       } catch (e: any) {
         if (!stopped) {
+          const isDenied = e?.name === 'NotAllowedError';
           setError(
-            e?.name === 'NotAllowedError'
+            isDenied
               ? 'Доступ к камере запрещён. Разрешите доступ в настройках браузера.'
-              : 'Не удалось открыть камеру. Попробуйте ввести штрихкод вручную.',
+              : 'Камера недоступна. Загрузите фото штрихкода или введите цифры вручную.',
           );
           setStarting(false);
+          api.trackEvent(isDenied ? 'camera_permission_denied' : 'camera_permission_error', {
+            errorName: e?.name ?? 'unknown',
+          }).catch(() => null);
         }
       }
     }
@@ -170,16 +183,39 @@ export default function BarcodeScannerModal({ onDetected, onClose }: Props) {
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          padding: 32, textAlign: 'center', gap: 16,
+          padding: 32, textAlign: 'center', gap: 12,
         }}>
           <div style={{ fontSize: 40 }}>📷</div>
-          <div style={{ color: '#fff', fontSize: 15, lineHeight: 1.5 }}>{error}</div>
+          <div style={{ color: '#fff', fontSize: 15, lineHeight: 1.5, marginBottom: 8 }}>{error}</div>
+          {onUploadPhoto && (
+            <button
+              onClick={() => { handleClose(); onUploadPhoto(); }}
+              style={{
+                background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: 12, padding: '12px 24px',
+                color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%',
+              }}
+            >
+              Загрузить фото
+            </button>
+          )}
+          {onManualInput && (
+            <button
+              onClick={() => { handleClose(); onManualInput(); }}
+              style={{
+                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 12, padding: '12px 24px',
+                color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%',
+              }}
+            >
+              Ввести вручную
+            </button>
+          )}
           <button
             onClick={handleClose}
             style={{
-              background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 12, padding: '12px 24px',
-              color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 8,
+              background: 'transparent', border: 'none',
+              color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', marginTop: 4,
             }}
           >
             Закрыть

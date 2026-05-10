@@ -255,6 +255,26 @@ export interface Product {
   isVerified: boolean;
 }
 
+export interface ProductSubmission {
+  id: string;
+  barcode?: string | null;
+  name: string;
+  brand?: string | null;
+  packageWeightG?: number | null;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  fatPer100g: number;
+  carbsPer100g: number;
+  isHighSugar: boolean;
+  hasPhoto: boolean;
+  status: 'pending' | 'approved' | 'rejected';
+  source?: string | null;
+  adminComment?: string | null;
+  displayName?: string | null;
+  similarProduct?: { id: string; name: string; barcode: string } | null;
+  createdAt: string;
+}
+
 export interface TodayNutritionData {
   meals: MealEntry[];
   totals: NutritionTotals;
