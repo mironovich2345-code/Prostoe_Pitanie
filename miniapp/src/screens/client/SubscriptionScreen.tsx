@@ -471,6 +471,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
   const [emailTouched, setEmailTouched] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<{ planId: PlanDef['id']; offer?: 'pro_3day' | 'month_1rub' } | null>(null);
+  const [acceptedSubTerms, setAcceptedSubTerms] = useState(false);
   // Set to true after opening the YooKassa page so we know to re-fetch bootstrap
   // when the user returns (visibility change after payment redirect).
   const paymentStarted = useRef(false);
@@ -537,7 +538,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
 
   const paymentMutation = useMutation({
     mutationFn: ({ planId, offer, email }: { planId: 'pro' | 'optimal'; offer?: 'pro_3day' | 'month_1rub'; email: string }) =>
-      api.createPayment(planId, offer, email),
+      api.createPayment(planId, offer, email, acceptedSubTerms),
     onSuccess: (data) => {
       setShowEmailModal(false);
       // Open YooKassa payment page.
@@ -571,6 +572,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
     // Always show the email modal before creating a payment — required for fiscal receipts.
     setPendingPlan({ planId, offer });
     setEmailTouched(false);
+    setAcceptedSubTerms(false);
     setShowEmailModal(true);
   }
 
@@ -578,7 +580,7 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
     if (!pendingPlan) return;
     setEmailTouched(true);
     const email = receiptEmail.trim();
-    if (!EMAIL_RE.test(email)) return;
+    if (!EMAIL_RE.test(email) || !acceptedSubTerms) return;
     paymentMutation.mutate({ planId: pendingPlan.planId, offer: pendingPlan.offer, email });
   }
 
@@ -699,11 +701,30 @@ export default function SubscriptionScreen({ bootstrap }: Props) {
                 Введите корректный email
               </div>
             )}
+            {/* Subscription terms checkbox */}
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              marginTop: 14, cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={acceptedSubTerms}
+                onChange={e => setAcceptedSubTerms(e.target.checked)}
+                style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0, width: 16, height: 16 }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                Принимаю{' '}
+                <a href="/legal/subscription" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>
+                  Условия подписки и автопродления
+                </a>
+              </span>
+            </label>
+
             <button
               onClick={handleEmailConfirm}
-              disabled={paymentMutation.isPending}
+              disabled={paymentMutation.isPending || !acceptedSubTerms}
               className="btn"
-              style={{ marginTop: 16, fontSize: 15, fontWeight: 600, width: '100%' }}
+              style={{ marginTop: 14, fontSize: 15, fontWeight: 600, width: '100%', opacity: acceptedSubTerms ? 1 : 0.45 }}
             >
               {paymentMutation.isPending ? 'Открываем оплату…' : 'Оплатить'}
             </button>

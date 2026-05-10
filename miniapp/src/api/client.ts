@@ -502,11 +502,24 @@ export const api = {
       } | null;
     }>('/api/expert-referral/my-acquisition'),
 
+  // ─── Legal consent ────────────────────────────────────────────────────────
+  legalConsentState: () =>
+    request<{ accepted: boolean }>('/api/legal/consent-state'),
+  legalAcceptRequired: (payload: {
+    source: string;
+    acceptedTerms: boolean;
+    acceptedPrivacy: boolean;
+    acceptedPersonalData: boolean;
+    acceptedMedicalDisclaimer: boolean;
+    platform?: string;
+  }) =>
+    request<{ ok: boolean }>('/api/legal/accept-required', { method: 'POST', body: JSON.stringify(payload) }),
+
   // ─── Payments (YooKassa) ──────────────────────────────────────────────────
-  createPayment: (planId: 'pro' | 'optimal', offer: 'pro_3day' | 'month_1rub' | undefined, receiptEmail: string) =>
+  createPayment: (planId: 'pro' | 'optimal', offer: 'pro_3day' | 'month_1rub' | undefined, receiptEmail: string, acceptedSubscriptionTerms?: boolean) =>
     request<{ confirmationUrl: string; paymentId: string }>(
       '/api/payments/create',
-      { method: 'POST', body: JSON.stringify({ planId, offer, receiptEmail }) },
+      { method: 'POST', body: JSON.stringify({ planId, offer, receiptEmail, acceptedSubscriptionTerms }) },
     ),
   cancelAutoRenew: () =>
     request<{ ok: boolean; autoRenew: boolean }>(

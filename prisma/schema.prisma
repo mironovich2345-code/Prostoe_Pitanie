@@ -437,6 +437,27 @@ model AiCostLog {
   @@index([createdAt])
 }
 
+// ─── Legal consent log ───────────────────────────────────────────────────────
+
+model UserLegalConsent {
+  id                        String   @id @default(cuid())
+  userId                    String
+  platform                  String?
+  source                    String   // 'onboarding' | 'gate' | 'payment'
+  termsVersion              String?
+  privacyVersion            String?
+  acceptedTerms             Boolean  @default(false)
+  acceptedPrivacy           Boolean  @default(false)
+  acceptedPersonalData      Boolean  @default(false)
+  acceptedMedicalDisclaimer Boolean  @default(false)
+  acceptedSubscriptionTerms Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId])
+  @@index([createdAt])
+}
+
 // ─── Product catalog ─────────────────────────────────────────────────────────
 
 model Product {

@@ -55,6 +55,11 @@ const paymentDb = (prisma as unknown as { payment: any }).payment as {
   findFirst(args: { where: object }): Promise<{ id: string } | null>;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const consentDb = (prisma as unknown as { userLegalConsent: any }).userLegalConsent as {
+  create(args: { data: object }): Promise<{ id: string }>;
+};
+
 // Offers that are valid only for first-time purchasers
 const INTRO_OFFERS = ['pro_3day', 'month_1rub'];
 
@@ -70,7 +75,7 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
     return;
   }
 
-  const { planId, offer, receiptEmail } = req.body as { planId?: string; offer?: string; receiptEmail?: string };
+  const { planId, offer, receiptEmail, acceptedSubscriptionTerms } = req.body as { planId?: string; offer?: string; receiptEmail?: string; acceptedSubscriptionTerms?: boolean };
   if (!planId) {
     res.status(400).json({ error: 'planId required' });
     return;
@@ -81,6 +86,13 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
   const emailClean = (receiptEmail ?? '').trim();
   if (!emailClean || !EMAIL_RE.test(emailClean)) {
     res.status(400).json({ error: 'RECEIPT_EMAIL_REQUIRED' });
+    return;
+  }
+
+  // Require explicit acceptance of subscription terms — consent must be recorded
+  // before we create any payment, regardless of what the client sends.
+  if (acceptedSubscriptionTerms !== true) {
+    res.status(400).json({ error: 'SUBSCRIPTION_TERMS_REQUIRED' });
     return;
   }
 
@@ -165,6 +177,17 @@ router.post('/create', async (req: AuthRequest, res: Response) => {
     console.log(
       `[payments/create] payment created: id=${payment.id} userId=${userId} planId=${plan.actualPlanId} amount=${plan.amountRub} ykId=${yookassaResult.yookassaPaymentId}`,
     );
+
+    // Log subscription terms acceptance fire-and-forget
+    if (acceptedSubscriptionTerms) {
+      consentDb.create({
+        data: {
+          userId,
+          source: 'payment',
+          acceptedSubscriptionTerms: true,
+        },
+      }).catch(() => {});
+    }
 
     res.json({
       confirmationUrl: yookassaResult.confirmationUrl,

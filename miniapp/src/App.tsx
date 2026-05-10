@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useBootstrap } from './hooks/useBootstrap';
 import { useTelegramReady } from './hooks/useTelegramReady';
@@ -132,12 +132,121 @@ function TgDebugBlock({ diag, bsStatus, bsError }: { diag: TgDiag; bsStatus: str
   );
 }
 
+// ─── Legal consent gate (shown to existing users who haven't accepted docs) ──
+
+function LegalConsentGate({ onAccepted }: { onAccepted: () => void }) {
+  const [terms, setTerms] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
+  const [personalData, setPersonalData] = useState(false);
+  const [medical, setMedical] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canAccept = terms && privacy && personalData && medical;
+
+  const handleAccept = useCallback(async () => {
+    if (!canAccept || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.legalAcceptRequired({
+        source: 'gate',
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        acceptedPersonalData: true,
+        acceptedMedicalDisclaimer: true,
+      });
+      onAccepted();
+    } catch {
+      setError('Не удалось сохранить согласие. Попробуйте снова.');
+    } finally {
+      setSaving(false);
+    }
+  }, [canAccept, saving, onAccepted]);
+
+  const DOCS = [
+    { state: terms,        set: setTerms,        label: 'Пользовательское соглашение',            href: '/legal/terms' },
+    { state: privacy,      set: setPrivacy,      label: 'Политику конфиденциальности',             href: '/legal/privacy' },
+    { state: personalData, set: setPersonalData, label: 'Согласие на обработку персональных данных', href: '/legal/personal-data' },
+    { state: medical,      set: setMedical,      label: 'Медицинский дисклеймер',                  href: '/legal/medical-disclaimer' },
+  ];
+
+  return (
+    <div className="screen" style={{ paddingBottom: 32 }}>
+      <div style={{ padding: '40px 20px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.5, marginBottom: 8 }}>
+          Обновление документов
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5 }}>
+          Для продолжения работы с EATLYY необходимо ознакомиться и принять актуальные документы.
+        </div>
+      </div>
+
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-lg)',
+        border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 16,
+      }}>
+        {DOCS.map(({ state, set, label, href }, i) => (
+          <label
+            key={href}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '14px 18px',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={state}
+              onChange={e => set(e.target.checked)}
+              style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0, width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5 }}>
+              Принимаю{' '}
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+              >
+                {label}
+              </a>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{
+          color: 'var(--danger)', fontSize: 13, marginBottom: 12,
+          padding: '10px 14px', background: 'rgba(255,87,87,0.1)',
+          borderRadius: 8, border: '1px solid rgba(255,87,87,0.2)',
+        }}>
+          {error}
+        </div>
+      )}
+
+      <button
+        className="btn"
+        onClick={handleAccept}
+        disabled={!canAccept || saving}
+        style={{ opacity: canAccept ? 1 : 0.45 }}
+      >
+        {saving ? 'Сохраняем...' : 'Принять и продолжить'}
+      </button>
+    </div>
+  );
+}
+
 let _t2Logged = false;
 
 export default function App() {
   const { state: tgState, diag: tgDiag } = useTelegramReady();
   const { data: bootstrap, isLoading, error } = useBootstrap(tgState === 'ready');
   const [mode, setMode] = useState<AppMode>('client');
+  const [consentNeeded, setConsentNeeded] = useState(false);
 
   // T2: first App() render
   if (!_t2Logged) { _t2Logged = true; console.info(`[perf] T2 App render ${performance.now().toFixed(0)}ms`); }
@@ -152,6 +261,16 @@ export default function App() {
       api.trackEvent('app_opened');
     }
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (!bootstrap || mode !== 'client') return;
+    const p = bootstrap.profile;
+    const hasProfile = !!(p?.heightCm && p?.currentWeightKg && p?.sex && p?.birthDate && p?.activityLevel);
+    if (!hasProfile) return; // onboarding handles consent for new users
+    api.legalConsentState()
+      .then(r => { if (!r.accepted) setConsentNeeded(true); })
+      .catch(() => {}); // don't block on network error
+  }, [bootstrap, mode]);
 
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
@@ -253,6 +372,14 @@ export default function App() {
     !bootstrap.profile?.birthDate ||
     !bootstrap.profile?.activityLevel
   );
+
+  if (mode === 'client' && consentNeeded && !needsOnboarding) {
+    return (
+      <BrowserRouter>
+        <LegalConsentGate onAccepted={() => setConsentNeeded(false)} />
+      </BrowserRouter>
+    );
+  }
 
   return (
     <BrowserRouter>

@@ -60,6 +60,10 @@ export default function OnboardingScreen() {
   const [goalType, setGoalType] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedPersonalData, setAcceptedPersonalData] = useState(false);
+  const [acceptedMedicalDisclaimer, setAcceptedMedicalDisclaimer] = useState(false);
 
   // Pre-fill once when profile loads (only if state is still blank)
   if (p && sex === '' && birthDate === '' && activityLevel === '') {
@@ -69,13 +73,22 @@ export default function OnboardingScreen() {
     if (p.goalType) setGoalType(p.goalType);
   }
 
-  const canSave = !!sex && !!birthDate && !!activityLevel && !!(p?.heightCm) && !!(p?.currentWeightKg);
+  const canSave = !!sex && !!birthDate && !!activityLevel && !!(p?.heightCm) && !!(p?.currentWeightKg)
+    && acceptedTerms && acceptedPrivacy && acceptedPersonalData && acceptedMedicalDisclaimer;
 
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
     try {
+      await api.legalAcceptRequired({
+        source: 'onboarding',
+        acceptedTerms: true,
+        acceptedPrivacy: true,
+        acceptedPersonalData: true,
+        acceptedMedicalDisclaimer: true,
+      });
+
       const body: Parameters<typeof api.patchProfileData>[0] = {};
       const al = parseFloat(activityLevel);
       if (sex) body.sex = sex;
@@ -282,7 +295,7 @@ export default function OnboardingScreen() {
 
       {!canSave && (
         <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', marginBottom: 12 }}>
-          Заполните рост, вес, пол, дату рождения и уровень активности
+          Заполните все обязательные поля и примите юридические документы
         </div>
       )}
 
@@ -296,13 +309,45 @@ export default function OnboardingScreen() {
         </div>
       )}
 
-      <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center', marginBottom: 14 }}>
-        Продолжая пользоваться EATLYY, вы принимаете{' '}
-        <a href="/legal/terms" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Пользовательское соглашение</a>,{' '}
-        <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Политику конфиденциальности</a>,{' '}
-        <a href="/legal/personal-data" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Согласие на обработку персональных данных</a>{' '}
-        и <a href="/legal/medical-disclaimer" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-2)', textDecoration: 'underline' }}>Медицинский дисклеймер</a>.
-      </div>
+      {/* Legal consent checkboxes */}
+      <GroupCard>
+        <GroupLabel required>Согласие с документами</GroupLabel>
+        {[
+          { state: acceptedTerms, set: setAcceptedTerms, label: 'Пользовательское соглашение', href: '/legal/terms' },
+          { state: acceptedPrivacy, set: setAcceptedPrivacy, label: 'Политику конфиденциальности', href: '/legal/privacy' },
+          { state: acceptedPersonalData, set: setAcceptedPersonalData, label: 'Согласие на обработку персональных данных', href: '/legal/personal-data' },
+          { state: acceptedMedicalDisclaimer, set: setAcceptedMedicalDisclaimer, label: 'Медицинский дисклеймер', href: '/legal/medical-disclaimer' },
+        ].map(({ state, set, label, href }, i, arr) => (
+          <label
+            key={href}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '12px 18px',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={state}
+              onChange={e => set(e.target.checked)}
+              style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0, width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+              Принимаю{' '}
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+              >
+                {label}
+              </a>
+            </span>
+          </label>
+        ))}
+      </GroupCard>
 
       <button
         className="btn"

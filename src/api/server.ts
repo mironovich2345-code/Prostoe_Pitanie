@@ -25,6 +25,7 @@ import maxWebhookRouter from './routes/maxWebhook';
 import eventsRouter from './routes/events';
 import productsRouter from './routes/products';
 import legalRouter from './routes/legal';
+import legalConsentRouter from './routes/legalConsent';
 
 export function createApiServer() {
   const app = express();
@@ -116,6 +117,7 @@ export function createApiServer() {
   app.use('/api/payments', paymentsRouter);
   app.use('/api/events', eventsRouter);
   app.use('/api/products', productsRouter);
+  app.use('/api/legal', legalConsentRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');
