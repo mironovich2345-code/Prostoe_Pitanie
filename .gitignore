@@ -30,3 +30,6 @@ desktop.ini
 
 # Claude Code local metadata
 .claude/
+
+# TypeScript build cache
+*.tsbuildinfo
