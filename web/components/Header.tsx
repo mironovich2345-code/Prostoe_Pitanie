@@ -7,6 +7,7 @@ const NAV = [
   { href: '/clients',  label: 'Клиентам' },
   { href: '/experts',  label: 'Для экспертов' },
   { href: '/trainers', label: 'Каталог' },
+  { href: '/pricing',  label: 'Тарифы' },
   { href: '/support',  label: 'Поддержка' },
 ];
 

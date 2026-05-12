@@ -158,6 +158,86 @@ export default function ClientsPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section className="section">
+        <div className="container">
+          <h2 style={{
+            fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
+            letterSpacing: -0.8, marginBottom: 12, textAlign: 'center',
+          }}>
+            Сколько стоит
+          </h2>
+          <p style={{
+            fontSize: 16, color: 'var(--text-2)', lineHeight: 1.6,
+            textAlign: 'center', maxWidth: 440, margin: '0 auto 40px',
+          }}>
+            Начните с бесплатного плана — или сразу попробуйте Pro с нутрициологом.
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 12, marginBottom: 28,
+          }}>
+            {[
+              { name: 'Free', price: '0 ₽', period: 'навсегда', features: ['Дневник (текст)', 'Ручной КБЖУ', 'История 7 дней'], accent: false },
+              { name: 'Оптимальный', price: '399 ₽', period: 'в месяц', features: ['Анализ фото/голоса', 'Полная история', 'Расширенная статистика'], accent: false },
+              { name: 'Pro', price: '499 ₽', period: 'в месяц', features: ['Всё из Опт.', 'Персональный эксперт', 'Комментарии к приёмам'], accent: true },
+            ].map(({ name, price, period, features, accent }) => (
+              <div key={name} style={{
+                background: accent ? 'var(--accent)' : 'var(--surface)',
+                border: accent ? '2px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: 'var(--r-xl)',
+                padding: '24px 22px',
+                color: accent ? '#0A0A0A' : 'inherit',
+                position: 'relative',
+              }}>
+                {accent && (
+                  <div style={{
+                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                    background: '#0A0A0A', color: 'var(--accent)',
+                    fontSize: 11, fontWeight: 800, padding: '3px 14px', borderRadius: 20,
+                    border: '1px solid var(--accent)', whiteSpace: 'nowrap',
+                  }}>
+                    3 дня за 1 ₽
+                  </div>
+                )}
+                <div style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5, marginBottom: 8,
+                  textTransform: 'uppercase',
+                  color: accent ? 'rgba(10,10,10,0.55)' : 'var(--text-3)',
+                }}>
+                  {name}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 16 }}>
+                  <span style={{
+                    fontSize: 32, fontWeight: 900, letterSpacing: -1,
+                    color: accent ? '#0A0A0A' : 'var(--text)',
+                  }}>{price}</span>
+                  <span style={{ fontSize: 13, color: accent ? 'rgba(10,10,10,0.55)' : 'var(--text-3)' }}>{period}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {features.map((f) => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: accent ? '#0A0A0A' : 'var(--accent)' }}>✓</span>
+                      <span style={{ fontSize: 13, color: accent ? 'rgba(10,10,10,0.8)' : 'var(--text-2)' }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
+              style={{ fontSize: 15, padding: '14px 28px' }}>
+              Попробовать за 1 ₽
+            </a>
+            <Link href="/pricing" className="btn btn-ghost" style={{ fontSize: 15, padding: '14px 24px' }}>
+              Сравнить тарифы
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="section-sm" style={{ background: 'var(--surface)', textAlign: 'center' }}>
         <div className="container" style={{ maxWidth: 520 }}>

@@ -173,6 +173,56 @@ export default function ExpertsPage() {
         </div>
       </section>
 
+      {/* Expert + Pro */}
+      <section className="section" style={{ background: 'var(--surface)' }}>
+        <div className="container" style={{ maxWidth: 720 }}>
+          <h2 style={{
+            fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
+            letterSpacing: -0.8, marginBottom: 12, textAlign: 'center',
+          }}>
+            Эксперт доступен на тарифе Pro
+          </h2>
+          <p style={{
+            fontSize: 16, color: 'var(--text-2)', lineHeight: 1.6,
+            textAlign: 'center', maxWidth: 480, margin: '0 auto 40px',
+          }}>
+            Клиент подключает вас через подписку Pro. Вы получаете доступ к его дневнику
+            и начинаете работу сразу.
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 12, marginBottom: 32,
+          }}>
+            {[
+              { step: '01', title: 'Клиент оформляет Pro', desc: 'Подписка от 499 ₽/мес или 3 дня за 1 ₽ для старта.' },
+              { step: '02', title: 'Выбирает вас в каталоге', desc: 'Ваш профиль виден всем пользователям платформы.' },
+              { step: '03', title: 'Вы получаете доступ', desc: 'Дневник питания клиента открывается вам в реальном времени.' },
+              { step: '04', title: 'Вы зарабатываете', desc: 'Реферальный процент с активной подписки клиента.' },
+            ].map(({ step, title, desc }) => (
+              <div key={step} style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-xl)',
+                padding: '22px 20px',
+              }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 800, color: 'var(--accent)',
+                  letterSpacing: 0.8, marginBottom: 10,
+                }}>{step}</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <Link href="/pricing" className="btn btn-outline" style={{ fontSize: 14, padding: '12px 24px' }}>
+              Смотреть тарифы для клиентов
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Catalog CTA */}
       <section style={{
         padding: '64px 0',

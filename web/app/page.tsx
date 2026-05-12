@@ -180,6 +180,64 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Pricing teaser ── */}
+      <section className="section">
+        <div className="container" style={{ textAlign: 'center' }}>
+          <h2 style={{
+            fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 800,
+            letterSpacing: -1, marginBottom: 12,
+          }}>
+            Тарифы для любого старта
+          </h2>
+          <p style={{
+            fontSize: 17, color: 'var(--text-2)', lineHeight: 1.6,
+            maxWidth: 480, margin: '0 auto 48px',
+          }}>
+            Free навсегда, или Pro с экспертом — первые 3 дня всего за 1 ₽.
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 12, marginBottom: 36,
+          }}>
+            {[
+              { name: 'Free', price: '0 ₽', desc: 'Дневник питания, ввод КБЖУ, история за 7 дней.', accent: false },
+              { name: 'Оптимальный', price: '399 ₽/мес', desc: 'Анализ фото и голоса, полная история, статистика.', accent: false },
+              { name: 'Pro', price: '499 ₽/мес', desc: 'Всё + персональный нутрициолог рядом.', accent: true },
+            ].map(({ name, price, desc, accent }) => (
+              <div key={name} style={{
+                background: accent ? 'var(--accent)' : 'var(--surface)',
+                border: accent ? '2px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: 'var(--r-xl)',
+                padding: '24px 22px',
+                textAlign: 'left',
+                color: accent ? '#0A0A0A' : 'inherit',
+              }}>
+                <div style={{
+                  fontSize: 12, fontWeight: 700, letterSpacing: 0.5, marginBottom: 6,
+                  textTransform: 'uppercase',
+                  color: accent ? 'rgba(10,10,10,0.55)' : 'var(--text-3)',
+                }}>
+                  {name}
+                </div>
+                <div style={{
+                  fontSize: 28, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8,
+                  color: accent ? '#0A0A0A' : 'var(--text)',
+                }}>
+                  {price}
+                </div>
+                <p style={{ fontSize: 14, lineHeight: 1.55, color: accent ? 'rgba(10,10,10,0.7)' : 'var(--text-2)' }}>
+                  {desc}
+                </p>
+              </div>
+            ))}
+          </div>
+          <Link href="/pricing" className="btn btn-outline" style={{ fontSize: 15, padding: '13px 28px' }}>
+            Подробнее о тарифах
+          </Link>
+        </div>
+      </section>
+
       {/* ── For whom ── */}
       <section className="section" style={{ background: 'var(--surface)', paddingTop: 64, paddingBottom: 64 }}>
         <div className="container">
