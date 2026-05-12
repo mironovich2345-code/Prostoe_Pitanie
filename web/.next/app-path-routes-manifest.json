@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/robots.txt/route": "/robots.txt",
+  "/sitemap.xml/route": "/sitemap.xml",
+  "/legal/page": "/legal",
+  "/experts/page": "/experts",
+  "/support/page": "/support",
+  "/page": "/",
+  "/trainers/page": "/trainers",
+  "/clients/page": "/clients",
+  "/trainers/[slug]/page": "/trainers/[slug]"
+}
