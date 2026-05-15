@@ -12,7 +12,8 @@ const SECTIONS = [
   { to: '/user-search',        emoji: '🔍', label: 'Поиск пользователя',    desc: 'По chatId или @username' },
   { to: '/payouts',            emoji: '💳', label: 'Выводы вознаграждения', desc: 'Управление статусами выплат' },
   { to: '/stats',              emoji: '📊', label: 'Статистика',            desc: 'Пользователи, оплаты, ИИ-расходы' },
-  { to: '/product-submissions',emoji: '🥫', label: 'Заявки на продукты',   desc: 'Проверка и одобрение новых продуктов' },
+  { to: '/product-submissions',    emoji: '🥫', label: 'Заявки на продукты',    desc: 'Проверка и одобрение новых продуктов' },
+  { to: '/expert-applications',    emoji: '📝', label: 'Заявки экспертов',      desc: 'Модерация заявок с /experts/apply' },
 ];
 
 export default function AdminDashboardScreen({ onBack }: Props) {

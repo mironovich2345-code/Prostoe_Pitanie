@@ -354,6 +354,16 @@ export const api = {
   referralApply: (code: string) =>
     request<{ ok: boolean }>('/api/referral/apply', { method: 'POST', body: JSON.stringify({ code }) }),
   // ─── Admin API ──────────────────────────────────────────────────────────────
+  adminExpertApplications: (params: { status?: string } = {}) => {
+    const qs = params.status ? `?status=${encodeURIComponent(params.status)}` : '';
+    return request<{ applications: import('../types').ExpertApplication[] }>(`/api/admin/expert-applications${qs}`);
+  },
+  adminExpertApplication: (id: string) =>
+    request<{ application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}`),
+  adminApproveExpertApplication: (id: string) =>
+    request<{ ok: boolean; application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+  adminRejectExpertApplication: (id: string, adminComment?: string) =>
+    request<{ ok: boolean; application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ adminComment }) }),
   adminApplications: () =>
     request<{ applications: Array<{ chatId: string; fullName: string | null; socialLink: string | null; specialization: string | null; bio: string | null; verificationPhotoData: string | null; appliedAt: string | null }> }>('/api/admin/applications'),
   adminApprove: (chatId: string) =>

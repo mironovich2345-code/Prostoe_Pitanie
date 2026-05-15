@@ -2006,4 +2006,104 @@ router.patch('/product-submissions/:id/reject', async (req: AuthRequest, res: Re
   }
 });
 
+// ─── Expert Applications (web) ────────────────────────────────────────────────
+
+// GET /api/admin/expert-applications?status=pending
+router.get('/expert-applications', async (req: AuthRequest, res: Response) => {
+  const { status } = req.query as { status?: string };
+  try {
+    const where = status ? { status } : {};
+    const applications = await (prisma as unknown as { expertApplication: any }).expertApplication.findMany({
+      where,
+      orderBy: { createdAt: 'desc' as const },
+      select: {
+        id: true, userId: true, status: true,
+        fullName: true, specialization: true, city: true, workFormat: true,
+        experienceYears: true, socialLink: true, bio: true, proofLink: true,
+        source: true, adminComment: true, createdAt: true, updatedAt: true,
+      },
+    });
+    res.json({ applications });
+  } catch (err) {
+    console.error('[admin/expert-applications] list error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/expert-applications/:id
+router.get('/expert-applications/:id', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  try {
+    const application = await (prisma as unknown as { expertApplication: any }).expertApplication.findUnique({
+      where: { id },
+      select: {
+        id: true, userId: true, status: true,
+        fullName: true, specialization: true, city: true, workFormat: true,
+        experienceYears: true, socialLink: true, bio: true, proofLink: true,
+        source: true, adminComment: true, createdAt: true, updatedAt: true,
+      },
+    });
+    if (!application) { res.status(404).json({ error: 'Not found' }); return; }
+    res.json({ application });
+  } catch (err) {
+    console.error('[admin/expert-applications] get error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/expert-applications/:id/approve
+router.post('/expert-applications/:id/approve', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  try {
+    const existing = await (prisma as unknown as { expertApplication: any }).expertApplication.findUnique({
+      where: { id }, select: { status: true },
+    });
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
+    if (existing.status === 'approved') { res.status(409).json({ error: 'Already approved' }); return; }
+
+    const application = await (prisma as unknown as { expertApplication: any }).expertApplication.update({
+      where: { id },
+      data: { status: 'approved', adminComment: null, updatedAt: new Date() },
+      select: {
+        id: true, userId: true, status: true,
+        fullName: true, specialization: true, city: true, workFormat: true,
+        experienceYears: true, socialLink: true, bio: true, proofLink: true,
+        source: true, adminComment: true, createdAt: true, updatedAt: true,
+      },
+    });
+    res.json({ ok: true, application });
+  } catch (err) {
+    console.error('[admin/expert-applications] approve error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/expert-applications/:id/reject
+router.post('/expert-applications/:id/reject', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id ?? '');
+  const { adminComment } = (req.body ?? {}) as { adminComment?: string };
+  try {
+    const existing = await (prisma as unknown as { expertApplication: any }).expertApplication.findUnique({
+      where: { id }, select: { status: true },
+    });
+    if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
+    if (existing.status === 'rejected') { res.status(409).json({ error: 'Already rejected' }); return; }
+
+    const application = await (prisma as unknown as { expertApplication: any }).expertApplication.update({
+      where: { id },
+      data: { status: 'rejected', adminComment: adminComment?.trim() || null, updatedAt: new Date() },
+      select: {
+        id: true, userId: true, status: true,
+        fullName: true, specialization: true, city: true, workFormat: true,
+        experienceYears: true, socialLink: true, bio: true, proofLink: true,
+        source: true, adminComment: true, createdAt: true, updatedAt: true,
+      },
+    });
+    res.json({ ok: true, application });
+  } catch (err) {
+    console.error('[admin/expert-applications] reject error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

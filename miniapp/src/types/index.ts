@@ -280,3 +280,21 @@ export interface TodayNutritionData {
   totals: NutritionTotals;
   counts: Record<string, number>;
 }
+
+export interface ExpertApplication {
+  id: string;
+  userId: string;
+  status: 'pending' | 'in_review' | 'approved' | 'rejected';
+  fullName: string;
+  specialization: string;
+  city: string | null;
+  workFormat: string | null;
+  experienceYears: number | null;
+  socialLink: string | null;
+  bio: string;
+  proofLink: string | null;
+  source: string;
+  adminComment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

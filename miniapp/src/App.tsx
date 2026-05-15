@@ -39,6 +39,7 @@ const AdminRewardsScreen = lazy(() => import('./screens/admin/AdminRewardsScreen
 const AdminSubscriptionsScreen = lazy(() => import('./screens/admin/AdminSubscriptionsScreen'));
 const AdminUserSearchScreen = lazy(() => import('./screens/admin/AdminUserSearchScreen'));
 const AdminProductSubmissionsScreen = lazy(() => import('./screens/admin/AdminProductSubmissionsScreen'));
+const AdminExpertApplicationsScreen = lazy(() => import('./screens/admin/AdminExpertApplicationsScreen'));
 import TrainerPendingScreen from './screens/TrainerPendingScreen';
 import TrainerRejectedScreen from './screens/TrainerRejectedScreen';
 import TrainerBlockedScreen from './screens/TrainerBlockedScreen';
@@ -459,6 +460,7 @@ export default function App() {
           <Route path="/subscriptions" element={<AdminSubscriptionsScreen />} />
           <Route path="/user-search" element={<AdminUserSearchScreen />} />
           <Route path="/product-submissions" element={<AdminProductSubmissionsScreen />} />
+          <Route path="/expert-applications" element={<AdminExpertApplicationsScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
