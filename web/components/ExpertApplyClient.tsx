@@ -124,8 +124,12 @@ export default function ExpertApplyClient({ botUsername }: { botUsername: string
         setAuthState('authenticated');
         const { application } = await webApi.getMyApplication();
         setApplication(application);
-      } catch {
-        setSubmitError('Ошибка входа через Telegram. Попробуйте ещё раз.');
+      } catch (err) {
+        const code = err instanceof ApiError ? err.code : null;
+        const msg = code
+          ? `Ошибка входа: ${code}`
+          : 'Ошибка входа через Telegram. Попробуйте ещё раз.';
+        setSubmitError(msg);
       }
     };
 
