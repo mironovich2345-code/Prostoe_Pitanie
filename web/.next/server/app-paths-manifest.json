@@ -3,11 +3,12 @@
   "/robots.txt/route": "app/robots.txt/route.js",
   "/sitemap.xml/route": "app/sitemap.xml/route.js",
   "/clients/page": "app/clients/page.js",
+  "/experts/apply/page": "app/experts/apply/page.js",
   "/legal/page": "app/legal/page.js",
-  "/page": "app/page.js",
   "/experts/page": "app/experts/page.js",
   "/support/page": "app/support/page.js",
-  "/trainers/[slug]/page": "app/trainers/[slug]/page.js",
+  "/page": "app/page.js",
+  "/trainers/page": "app/trainers/page.js",
   "/pricing/page": "app/pricing/page.js",
-  "/trainers/page": "app/trainers/page.js"
+  "/trainers/[slug]/page": "app/trainers/[slug]/page.js"
 }

@@ -100,10 +100,16 @@ export default function ExpertsPage() {
             EATLYY — это инструмент для нутрициологов и диетологов, которые хотят работать
             эффективно и масштабировать практику.
           </p>
-          <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
-            style={{ fontSize: 15, padding: '14px 32px' }}>
-            Подать заявку
-          </a>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <Link href="/experts/apply" className="btn btn-accent"
+              style={{ fontSize: 15, padding: '14px 32px' }}>
+              Подать заявку
+            </Link>
+            <Link href="/trainers" className="btn btn-ghost"
+              style={{ fontSize: 15, padding: '14px 24px' }}>
+              Смотреть каталог
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -240,11 +246,18 @@ export default function ExpertsPage() {
             <Link href="/trainers" className="btn btn-outline" style={{ fontSize: 15, padding: '14px 28px' }}>
               Смотреть каталог
             </Link>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
+            <Link href="/experts/apply" className="btn btn-accent"
               style={{ fontSize: 15, padding: '14px 28px' }}>
               Подать заявку
-            </a>
+            </Link>
           </div>
+          <p style={{ marginTop: 20, fontSize: 13, color: 'var(--text-3)', lineHeight: 1.55 }}>
+            Хотите попасть в каталог?{' '}
+            <Link href="/experts/apply" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+              Заполните заявку эксперта
+            </Link>{' '}
+            — рассмотрим за 1–2 дня.
+          </p>
         </div>
       </section>
     </>

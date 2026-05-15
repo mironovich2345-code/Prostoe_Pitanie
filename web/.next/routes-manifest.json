@@ -54,6 +54,12 @@
       "namedRegex": "^/experts(?:/)?$"
     },
     {
+      "page": "/experts/apply",
+      "regex": "^/experts/apply(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/experts/apply(?:/)?$"
+    },
+    {
       "page": "/legal",
       "regex": "^/legal(?:/)?$",
       "routeKeys": {},
