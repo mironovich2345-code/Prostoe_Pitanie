@@ -1,15 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Script from 'next/script';
-import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
 import { webApi, ApiError } from '@/lib/webApi';
 import type { WebUser, ExpertApplication } from '@/lib/webApi';
 
-const BOT_USERNAME = process.env.NEXT_PUBLIC_BOT_USERNAME ?? 'EATLYY_bot';
+// Let TypeScript know about the global auth callback
+declare global {
+  interface Window {
+    __EATLYY_TG_AUTH__?: (user: Record<string, string | number>) => void;
+  }
+}
+
+const BOT_USERNAME = process.env.NEXT_PUBLIC_BOT_USERNAME ?? '';
+const TG_BOT = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://t.me/EATLYY_bot';
 const TG_SUPPORT = process.env.NEXT_PUBLIC_SUPPORT_URL ?? 'https://t.me/EATLYY_help';
 
 type AuthState = 'loading' | 'unauthenticated' | 'authenticated';
+type WidgetState = 'mounting' | 'ok' | 'error' | 'timeout' | 'no-username';
 
 interface FormValues {
   fullName: string;
@@ -22,72 +29,64 @@ interface FormValues {
   proofLink: string;
 }
 
-const STATUS_CONFIG: Record<string, { icon: string; label: string; sub: string; accent: string; bg: string }> = {
+const STATUS_CONFIG: Record<string, {
+  icon: string; label: string; sub: string; accent: string; bg: string;
+}> = {
   pending: {
     icon: '⏳',
     label: 'Заявка отправлена и ожидает проверки',
     sub: 'Рассматриваем заявки в течение 1–2 рабочих дней. Ответим в Telegram.',
-    accent: 'var(--text-2)',
-    bg: 'var(--surface)',
+    accent: 'var(--text-2)', bg: 'var(--surface)',
   },
   in_review: {
     icon: '🔍',
     label: 'Заявка на проверке',
     sub: 'Команда EATLYY изучает вашу заявку. Ждите ответа в Telegram.',
-    accent: 'var(--accent)',
-    bg: 'var(--accent-dim)',
+    accent: 'var(--accent)', bg: 'var(--accent-dim)',
   },
   approved: {
     icon: '✅',
     label: 'Заявка одобрена — добро пожаловать!',
     sub: 'Ваш профиль эксперта скоро появится в каталоге. Следите за уведомлениями в Telegram.',
-    accent: '#4caf50',
-    bg: 'rgba(76,175,80,0.08)',
+    accent: '#4caf50', bg: 'rgba(76,175,80,0.08)',
   },
   rejected: {
     icon: '✗',
     label: 'Заявка отклонена',
     sub: 'Вы можете подать новую заявку с уточнёнными данными.',
-    accent: '#ef5350',
-    bg: 'rgba(239,83,80,0.08)',
+    accent: '#ef5350', bg: 'rgba(239,83,80,0.08)',
   },
 };
 
 const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  background: 'var(--surface)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--r-md)',
-  padding: '11px 14px',
-  fontSize: 15,
-  color: 'var(--text)',
-  outline: 'none',
-  boxSizing: 'border-box',
-  fontFamily: 'inherit',
+  display: 'block', width: '100%',
+  background: 'var(--surface)', border: '1px solid var(--border-2)',
+  borderRadius: 'var(--r-md)', padding: '11px 14px',
+  fontSize: 15, color: 'var(--text)', outline: 'none',
+  boxSizing: 'border-box', fontFamily: 'inherit',
 };
 
 const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 13,
-  fontWeight: 600,
-  color: 'var(--text-2)',
-  marginBottom: 6,
+  display: 'block', fontSize: 13, fontWeight: 600,
+  color: 'var(--text-2)', marginBottom: 6,
 };
 
 export default function ExpertApplyClient() {
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [webUser, setWebUser] = useState<WebUser | null>(null);
   const [application, setApplication] = useState<ExpertApplication | null>(null);
+  const [widgetState, setWidgetState] = useState<WidgetState>('mounting');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<FormValues>({
     fullName: '', specialization: '', city: '', workFormat: '',
     experienceYears: '', socialLink: '', bio: '', proofLink: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Check auth + load application on mount
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Check auth state on mount
   useEffect(() => {
     webApi.getMe()
       .then(({ user }) => {
@@ -103,11 +102,25 @@ export default function ExpertApplyClient() {
       });
   }, []);
 
-  // Register Telegram Login Widget global callback
+  // Mount Telegram Login Widget via DOM (not next/script) so the widget
+  // can find its <script> element in the correct container.
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).onTelegramAuth = async (tgUser: Record<string, string | number>) => {
+    if (authState !== 'unauthenticated') return;
+
+    const container = widgetRef.current;
+    if (!container) return;
+
+    if (!BOT_USERNAME) {
+      setWidgetState('no-username');
+      return;
+    }
+
+    // Register global callback BEFORE inserting the script so it is
+    // available when Telegram's code evaluates data-onauth.
+    window.__EATLYY_TG_AUTH__ = async (tgUser) => {
       try {
-        const { user } = await webApi.telegramLogin(tgUser);
+        await webApi.telegramLogin(tgUser);
+        const { user } = await webApi.getMe();
         setWebUser(user);
         setAuthState('authenticated');
         const { application } = await webApi.getMyApplication();
@@ -116,12 +129,47 @@ export default function ExpertApplyClient() {
         setSubmitError('Ошибка входа через Telegram. Попробуйте ещё раз.');
       }
     };
-    return () => {
-      delete (window as unknown as Record<string, unknown>).onTelegramAuth;
-    };
-  }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    // Clear any previous script and inject a fresh one
+    container.innerHTML = '';
+    setWidgetState('mounting');
+
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.async = true;
+    script.setAttribute('data-telegram-login', BOT_USERNAME);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-userpic', 'false');
+    script.setAttribute('data-request-access', 'write');
+    // Use a namespaced global name to avoid collisions
+    script.setAttribute('data-onauth', 'window.__EATLYY_TG_AUTH__(user)');
+
+    script.onerror = () => setWidgetState('error');
+
+    script.onload = () => {
+      // Give the widget 3 s to create its iframe
+      const timer = setTimeout(() => {
+        if (container.querySelector('iframe')) {
+          setWidgetState('ok');
+        } else {
+          setWidgetState('timeout');
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
+    };
+
+    container.appendChild(script);
+
+    return () => {
+      container.innerHTML = '';
+      delete window.__EATLYY_TG_AUTH__;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setFieldError(null);
     setSubmitError(null);
@@ -156,13 +204,12 @@ export default function ExpertApplyClient() {
       setApplication(application);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 400 && err.code === 'VALIDATION_ERROR') {
-          const body = err.message;
-          setFieldError({ field: 'form', message: body });
+        if (err.status === 400) {
+          setFieldError({ field: 'form', message: 'Проверьте заполненные поля.' });
         } else if (err.status === 409) {
           setSubmitError('У вас уже есть активная заявка.');
         } else {
-          setSubmitError('Ошибка отправки. Проверьте поля и попробуйте ещё раз.');
+          setSubmitError('Ошибка отправки. Попробуйте ещё раз.');
         }
       } else {
         setSubmitError('Ошибка сети. Попробуйте позже.');
@@ -184,13 +231,7 @@ export default function ExpertApplyClient() {
   // ── Unauthenticated ────────────────────────────────────────────────────────
   if (authState === 'unauthenticated') {
     return (
-      <div style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--r-xl)',
-        padding: '40px 28px',
-        textAlign: 'center',
-      }}>
+      <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 36, marginBottom: 18 }}>🔒</div>
         <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>
           Войдите через Telegram
@@ -203,27 +244,64 @@ export default function ExpertApplyClient() {
           Вы сможете следить за статусом проверки.
         </p>
 
-        {/* Telegram Login Widget */}
-        <Script
-          src="https://telegram.org/js/telegram-widget.js?22"
-          strategy="afterInteractive"
-          data-telegram-login={BOT_USERNAME}
-          data-size="large"
-          data-onauth="onTelegramAuth(user)"
-          data-request-access="write"
+        {/* Widget container — Telegram script must live here so it knows where to render */}
+        <div
+          ref={widgetRef}
+          style={{
+            minHeight: 48,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
         />
 
-        {submitError && (
-          <p style={{ marginTop: 16, fontSize: 13, color: '#ef5350' }}>{submitError}</p>
+        {/* Fallbacks */}
+        {widgetState === 'no-username' && (
+          <p style={{ fontSize: 13, color: '#ef5350', marginBottom: 12 }}>
+            Telegram Login Widget не настроен: отсутствует NEXT_PUBLIC_BOT_USERNAME.
+          </p>
         )}
-        <p style={{ marginTop: 20, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55 }}>
+        {widgetState === 'error' && (
+          <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 12, lineHeight: 1.55 }}>
+            Не удалось загрузить Telegram Login Widget.
+            Попробуйте открыть страницу без блокировщиков рекламы или напишите в{' '}
+            <a href={TG_SUPPORT} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+              поддержку
+            </a>.
+          </p>
+        )}
+        {widgetState === 'timeout' && (
+          <div style={{ marginBottom: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 12 }}>
+              Кнопка Telegram не отобразилась. Проверьте, что домен сайта добавлен
+              в BotFather → Login Widget.
+            </p>
+            <a
+              href={TG_BOT}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline"
+              style={{ fontSize: 14, padding: '10px 20px', display: 'inline-block' }}
+            >
+              Открыть Telegram
+            </a>
+          </div>
+        )}
+
+        {submitError && (
+          <p style={{ fontSize: 13, color: '#ef5350', marginBottom: 8 }}>{submitError}</p>
+        )}
+
+        <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55 }}>
           Мы получаем только имя и Telegram ID. Ничего не публикуем от вашего имени.
         </p>
       </div>
     );
   }
 
-  // ── Authenticated — application exists and is active ───────────────────────
+  // ── Authenticated — application active ────────────────────────────────────
   if (
     application &&
     (application.status === 'pending' ||
@@ -259,7 +337,7 @@ export default function ExpertApplyClient() {
     );
   }
 
-  // ── Authenticated — show form (no app, or rejected) ────────────────────────
+  // ── Authenticated — show form (no app or rejected) ─────────────────────────
   return (
     <div>
       <UserBar webUser={webUser} onLogout={handleLogout} />
@@ -269,8 +347,7 @@ export default function ExpertApplyClient() {
           background: 'rgba(239,83,80,0.07)',
           border: '1px solid rgba(239,83,80,0.22)',
           borderRadius: 'var(--r-lg)',
-          padding: '16px 20px',
-          marginBottom: 24,
+          padding: '16px 20px', marginBottom: 24,
         }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#ef5350', marginBottom: 4 }}>
             Предыдущая заявка была отклонена
@@ -288,16 +365,14 @@ export default function ExpertApplyClient() {
         <FormField label="Имя и фамилия *">
           <input
             name="fullName" type="text" value={form.fullName} onChange={handleChange}
-            placeholder="Анна Соколова" required maxLength={80}
-            style={inputStyle}
+            placeholder="Анна Соколова" required maxLength={80} style={inputStyle}
           />
         </FormField>
 
         <FormField label="Специализация *">
           <input
             name="specialization" type="text" value={form.specialization} onChange={handleChange}
-            placeholder="Нутрициолог, диетолог, фитнес-тренер…" required maxLength={120}
-            style={inputStyle}
+            placeholder="Нутрициолог, диетолог, фитнес-тренер…" required maxLength={120} style={inputStyle}
           />
         </FormField>
 
@@ -305,8 +380,7 @@ export default function ExpertApplyClient() {
           <FormField label="Город">
             <input
               name="city" type="text" value={form.city} onChange={handleChange}
-              placeholder="Москва / Онлайн" maxLength={80}
-              style={inputStyle}
+              placeholder="Москва / Онлайн" maxLength={80} style={inputStyle}
             />
           </FormField>
           <FormField label="Формат работы">
@@ -323,15 +397,13 @@ export default function ExpertApplyClient() {
           <FormField label="Опыт работы (лет)">
             <input
               name="experienceYears" type="number" value={form.experienceYears} onChange={handleChange}
-              placeholder="0" min={0} max={60}
-              style={inputStyle}
+              placeholder="0" min={0} max={60} style={inputStyle}
             />
           </FormField>
           <FormField label="Соцсеть или сайт">
             <input
               name="socialLink" type="text" value={form.socialLink} onChange={handleChange}
-              placeholder="instagram.com/username" maxLength={200}
-              style={inputStyle}
+              placeholder="instagram.com/username" maxLength={200} style={inputStyle}
             />
           </FormField>
         </div>
@@ -345,11 +417,10 @@ export default function ExpertApplyClient() {
           />
         </FormField>
 
-        <FormField label="Подтверждение экспертности (ссылка на диплом, сертификат — по желанию)">
+        <FormField label="Подтверждение экспертности (ссылка на диплом/сертификат — по желанию)">
           <input
             name="proofLink" type="text" value={form.proofLink} onChange={handleChange}
-            placeholder="drive.google.com/… или другая ссылка" maxLength={300}
-            style={inputStyle}
+            placeholder="drive.google.com/… или другая ссылка" maxLength={300} style={inputStyle}
           />
         </FormField>
 
@@ -364,17 +435,16 @@ export default function ExpertApplyClient() {
           disabled={submitting}
           className="btn btn-accent"
           style={{
-            fontSize: 16, padding: '14px 20px',
+            fontSize: 16, padding: '14px 20px', border: 'none',
             opacity: submitting ? 0.6 : 1,
             cursor: submitting ? 'not-allowed' : 'pointer',
-            border: 'none',
           }}
         >
           {submitting ? 'Отправляем…' : 'Отправить заявку'}
         </button>
 
         <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.55 }}>
-          После отправки мы проверим данные и свяжемся с вами в Telegram в течение 1–2 рабочих дней.
+          После отправки свяжемся с вами в Telegram в течение 1–2 рабочих дней.
         </p>
       </form>
     </div>
@@ -390,7 +460,7 @@ function UserBar({ webUser, onLogout }: { webUser: WebUser | null; onLogout: () 
       <span style={{ fontSize: 13, color: 'var(--text-3)' }}>
         Вы вошли через Telegram
         {webUser?.chatId && (
-          <span style={{ color: 'var(--text-3)', marginLeft: 4 }}>· ID {webUser.chatId}</span>
+          <span style={{ marginLeft: 4 }}>· ID {webUser.chatId}</span>
         )}
       </span>
       <button onClick={onLogout} style={{
