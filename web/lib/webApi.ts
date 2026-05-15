@@ -35,13 +35,14 @@ export interface SubmitApplicationData {
   proofLink?: string;
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
     message: string,
   ) {
     super(message);
+    this.name = 'ApiError';
   }
 }
 
@@ -51,11 +52,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
+
   if (!res.ok) {
-    let code = 'API_ERROR';
-    try { code = (await res.json()).error ?? code; } catch { /* ignore */ }
+    // Try to read a structured error code from the JSON body.
+    // If the body isn't JSON (HTML error page, empty 502, etc.),
+    // fall back to API_ERROR_<status> so the caller can see the HTTP status.
+    let code = `API_ERROR_${res.status}`;
+    try {
+      const body = await res.json() as Record<string, unknown>;
+      const bodyCode = body.error ?? body.code ?? body.message;
+      if (typeof bodyCode === 'string' && bodyCode) code = bodyCode;
+    } catch {
+      // non-JSON body — keep the API_ERROR_<status> fallback
+    }
+    console.debug('[webApi] error', res.status, code, path);
     throw new ApiError(res.status, code, `${path}: ${res.status}`);
   }
+
   return res.json() as Promise<T>;
 }
 
@@ -81,5 +94,3 @@ export const webApi = {
       body: JSON.stringify(data),
     }),
 };
-
-export { ApiError };
