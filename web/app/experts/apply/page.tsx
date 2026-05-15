@@ -41,7 +41,7 @@ const STEPS = [
 ];
 
 export default function ExpertApplyPage() {
-  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || '';
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'EATLYY_bot';
   return (
     <>
       {/* Hero */}
