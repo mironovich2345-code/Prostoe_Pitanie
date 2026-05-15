@@ -293,7 +293,12 @@
     },
     "_originalRewrites": {
       "beforeFiles": [],
-      "afterFiles": [],
+      "afterFiles": [
+        {
+          "source": "/api/:path*",
+          "destination": "https://api.eatlyy.ru/api/:path*"
+        }
+      ],
       "fallback": []
     }
   },

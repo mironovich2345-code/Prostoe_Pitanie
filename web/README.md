@@ -63,7 +63,8 @@ npm run start:local          # → http://localhost:3002
 Создайте `web/.env.local` для локальной разработки:
 
 ```env
-NEXT_PUBLIC_API_URL=          # URL backend API (пусто = same origin)
+# URL бэкенда БЕЗ /api на конце. Если не задан — по умолчанию https://api.eatlyy.ru.
+NEXT_PUBLIC_API_URL=https://api.eatlyy.ru
 NEXT_PUBLIC_BOT_URL=https://t.me/EATLYY_bot
 NEXT_PUBLIC_SUPPORT_URL=https://t.me/EATLYY_help
 NEXT_PUBLIC_SITE_URL=https://eatlyy.ru
@@ -89,10 +90,12 @@ Railway автоматически читает `web/railway.toml`.
 Добавьте в панели Railway → Variables для сервиса `web`:
 
 ```
-NEXT_PUBLIC_API_URL       = https://ваш-backend.railway.app
+# БЕЗ /api на конце — next.config.ts сам добавляет /api/:path*
+NEXT_PUBLIC_API_URL       = https://api.eatlyy.ru
 NEXT_PUBLIC_BOT_URL       = https://t.me/EATLYY_bot
 NEXT_PUBLIC_SUPPORT_URL   = https://t.me/EATLYY_help
 NEXT_PUBLIC_SITE_URL      = https://eatlyy.ru
+NEXT_PUBLIC_BOT_USERNAME  = EATLYY_bot
 PORT                      # Railway проставляет автоматически — не трогать
 ```
 

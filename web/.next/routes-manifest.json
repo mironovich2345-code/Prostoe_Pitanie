@@ -15,7 +15,13 @@
   "headers": [],
   "rewrites": {
     "beforeFiles": [],
-    "afterFiles": [],
+    "afterFiles": [
+      {
+        "source": "/api/:path*",
+        "destination": "https://api.eatlyy.ru/api/:path*",
+        "regex": "^/api(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+      }
+    ],
     "fallback": []
   },
   "dynamicRoutes": [
