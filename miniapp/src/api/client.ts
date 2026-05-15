@@ -361,7 +361,7 @@ export const api = {
   adminExpertApplication: (id: string) =>
     request<{ application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}`),
   adminApproveExpertApplication: (id: string) =>
-    request<{ ok: boolean; application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+    request<{ ok: boolean; application: import('../types').ExpertApplication; trainerProfile: { chatId: string; referralCode: string | null; verificationStatus: string } }>(`/api/admin/expert-applications/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
   adminRejectExpertApplication: (id: string, adminComment?: string) =>
     request<{ ok: boolean; application: import('../types').ExpertApplication }>(`/api/admin/expert-applications/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ adminComment }) }),
   adminApplications: () =>

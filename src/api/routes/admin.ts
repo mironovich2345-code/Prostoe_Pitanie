@@ -2055,15 +2055,9 @@ router.get('/expert-applications/:id', async (req: AuthRequest, res: Response) =
 router.post('/expert-applications/:id/approve', async (req: AuthRequest, res: Response) => {
   const id = String(req.params.id ?? '');
   try {
-    const existing = await (prisma as unknown as { expertApplication: any }).expertApplication.findUnique({
-      where: { id }, select: { status: true },
-    });
-    if (!existing) { res.status(404).json({ error: 'Not found' }); return; }
-    if (existing.status === 'approved') { res.status(409).json({ error: 'Already approved' }); return; }
-
-    const application = await (prisma as unknown as { expertApplication: any }).expertApplication.update({
+    // Load full application so we can populate TrainerProfile
+    const app = await (prisma as unknown as { expertApplication: any }).expertApplication.findUnique({
       where: { id },
-      data: { status: 'approved', adminComment: null, updatedAt: new Date() },
       select: {
         id: true, userId: true, status: true,
         fullName: true, specialization: true, city: true, workFormat: true,
@@ -2071,7 +2065,76 @@ router.post('/expert-applications/:id/approve', async (req: AuthRequest, res: Re
         source: true, adminComment: true, createdAt: true, updatedAt: true,
       },
     });
-    res.json({ ok: true, application });
+    if (!app) { res.status(404).json({ error: 'Not found' }); return; }
+    if (app.status === 'approved') { res.status(409).json({ error: 'Already approved' }); return; }
+
+    // Resolve Telegram chatId from UserIdentity so we can set TrainerProfile.chatId.
+    // Web applicants authenticated via Telegram Login Widget, so a 'telegram' identity always exists.
+    // Fall back to a synthetic "web_<userId>" to keep chatId non-null for edge cases.
+    const identity = await (prisma as unknown as { userIdentity: any }).userIdentity.findFirst({
+      where: { userId: app.userId, platform: 'telegram' },
+      select: { platformId: true },
+    });
+    const chatId: string = (identity as { platformId: string } | null)?.platformId ?? `web_${app.userId}`;
+
+    // Find existing TrainerProfile — check by userId first (cross-platform), then by chatId.
+    const existingByUserId = await prisma.trainerProfile.findUnique({
+      where: { userId: app.userId },
+      select: { chatId: true, referralCode: true },
+    });
+    const existingByChatId = existingByUserId
+      ? null
+      : await prisma.trainerProfile.findUnique({
+          where: { chatId },
+          select: { chatId: true, referralCode: true },
+        });
+    const existingProfile = existingByUserId ?? existingByChatId;
+
+    // Preserve existing referralCode; generate a new one if the profile is brand-new.
+    const referralCode: string =
+      existingProfile?.referralCode ??
+      Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    const profileWriteData = {
+      verificationStatus: 'verified',
+      verifiedAt: new Date(),
+      rejectedAt: null,
+      userId: app.userId,
+      fullName: app.fullName as string,
+      specialization: app.specialization as string,
+      bio: (app.bio as string | null) ?? null,
+      socialLink: (app.socialLink as string | null) ?? null,
+      appliedAt: new Date(app.createdAt as string),
+      referralCode,
+    };
+
+    // Atomically update the application status and upsert the TrainerProfile.
+    const { application, trainerProfile } = await prisma.$transaction(async (tx) => {
+      const application = await (tx as unknown as { expertApplication: any }).expertApplication.update({
+        where: { id },
+        data: { status: 'approved', adminComment: null, updatedAt: new Date() },
+        select: {
+          id: true, userId: true, status: true,
+          fullName: true, specialization: true, city: true, workFormat: true,
+          experienceYears: true, socialLink: true, bio: true, proofLink: true,
+          source: true, adminComment: true, createdAt: true, updatedAt: true,
+        },
+      });
+
+      const trainerProfile = existingProfile
+        ? await tx.trainerProfile.update({
+            where: { chatId: existingProfile.chatId },
+            data: profileWriteData,
+          })
+        : await tx.trainerProfile.create({
+            data: { chatId, ...profileWriteData },
+          });
+
+      return { application, trainerProfile };
+    });
+
+    console.log('[admin/expert-applications] approved id=%s → TrainerProfile chatId=%s', id, trainerProfile.chatId);
+    res.json({ ok: true, application, trainerProfile });
   } catch (err) {
     console.error('[admin/expert-applications] approve error:', err);
     res.status(500).json({ error: 'Internal server error' });

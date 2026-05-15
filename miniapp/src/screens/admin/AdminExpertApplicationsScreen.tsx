@@ -41,10 +41,16 @@ function ApplicationCard({ app }: { app: ExpertApplication }) {
   const [expanded, setExpanded] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [comment, setComment] = useState('');
+  const [approvedProfile, setApprovedProfile] = useState<{ chatId: string; referralCode: string | null } | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: () => api.adminApproveExpertApplication(app.id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-expert-applications'] }); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['admin-expert-applications'] });
+      if (data.trainerProfile) {
+        setApprovedProfile({ chatId: data.trainerProfile.chatId, referralCode: data.trainerProfile.referralCode ?? null });
+      }
+    },
   });
   const rejectMutation = useMutation({
     mutationFn: () => api.adminRejectExpertApplication(app.id, comment || undefined),
@@ -99,6 +105,21 @@ function ApplicationCard({ app }: { app: ExpertApplication }) {
           <FieldRow label="Подтверждение" value={app.proofLink} />
           {app.adminComment && (
             <FieldRow label="Комментарий админа" value={app.adminComment} />
+          )}
+
+          {approvedProfile && (
+            <div style={{
+              marginTop: 14, padding: '12px 14px', borderRadius: 10,
+              background: 'rgba(76,175,80,0.1)', border: '1px solid rgba(76,175,80,0.3)',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#4caf50', marginBottom: 4 }}>
+                ✓ TrainerProfile создан / обновлён
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                chatId: {approvedProfile.chatId}
+                {approvedProfile.referralCode ? ` · ref: ${approvedProfile.referralCode}` : ''}
+              </div>
+            </div>
           )}
 
           {canAct && (
