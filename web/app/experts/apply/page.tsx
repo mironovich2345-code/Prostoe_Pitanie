@@ -41,6 +41,7 @@ const STEPS = [
 ];
 
 export default function ExpertApplyPage() {
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || '';
   return (
     <>
       {/* Hero */}
@@ -205,7 +206,7 @@ export default function ExpertApplyPage() {
             borderRadius: 'var(--r-xl)',
             padding: '32px 28px',
           }}>
-            <ExpertApplyClient />
+            <ExpertApplyClient botUsername={botUsername} />
           </div>
         </div>
       </section>

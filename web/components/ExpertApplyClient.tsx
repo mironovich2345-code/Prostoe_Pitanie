@@ -11,7 +11,6 @@ declare global {
   }
 }
 
-const BOT_USERNAME = process.env.NEXT_PUBLIC_BOT_USERNAME ?? '';
 const TG_BOT = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://t.me/EATLYY_bot';
 const TG_SUPPORT = process.env.NEXT_PUBLIC_SUPPORT_URL ?? 'https://t.me/EATLYY_help';
 
@@ -71,7 +70,7 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--text-2)', marginBottom: 6,
 };
 
-export default function ExpertApplyClient() {
+export default function ExpertApplyClient({ botUsername }: { botUsername: string }) {
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [webUser, setWebUser] = useState<WebUser | null>(null);
   const [application, setApplication] = useState<ExpertApplication | null>(null);
@@ -110,7 +109,7 @@ export default function ExpertApplyClient() {
     const container = widgetRef.current;
     if (!container) return;
 
-    if (!BOT_USERNAME) {
+    if (!botUsername) {
       setWidgetState('no-username');
       return;
     }
@@ -137,7 +136,7 @@ export default function ExpertApplyClient() {
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.async = true;
-    script.setAttribute('data-telegram-login', BOT_USERNAME);
+    script.setAttribute('data-telegram-login', botUsername);
     script.setAttribute('data-size', 'large');
     script.setAttribute('data-userpic', 'false');
     script.setAttribute('data-request-access', 'write');
@@ -164,8 +163,7 @@ export default function ExpertApplyClient() {
       container.innerHTML = '';
       delete window.__EATLYY_TG_AUTH__;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState]);
+  }, [authState, botUsername]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

@@ -2,13 +2,13 @@
   "/_not-found/page": "/_not-found",
   "/robots.txt/route": "/robots.txt",
   "/sitemap.xml/route": "/sitemap.xml",
-  "/experts/apply/page": "/experts/apply",
-  "/clients/page": "/clients",
   "/legal/page": "/legal",
+  "/clients/page": "/clients",
+  "/experts/apply/page": "/experts/apply",
   "/experts/page": "/experts",
   "/page": "/",
   "/support/page": "/support",
-  "/trainers/page": "/trainers",
+  "/trainers/[slug]/page": "/trainers/[slug]",
   "/pricing/page": "/pricing",
-  "/trainers/[slug]/page": "/trainers/[slug]"
+  "/trainers/page": "/trainers"
 }
