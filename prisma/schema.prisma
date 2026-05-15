@@ -10,14 +10,15 @@ datasource db {
 // ─── Platform-independent user identity ──────────────────────────────────────
 
 model User {
-  id             String            @id @default(uuid())
-  createdAt      DateTime          @default(now())
-  mergedAt       DateTime?
-  identities     UserIdentity[]
-  profile        UserProfile?
-  trainerProfile TrainerProfile?
-  subscription   UserSubscription?
-  payments       Payment[]
+  id                  String               @id @default(uuid())
+  createdAt           DateTime             @default(now())
+  mergedAt            DateTime?
+  identities          UserIdentity[]
+  profile             UserProfile?
+  trainerProfile      TrainerProfile?
+  subscription        UserSubscription?
+  payments            Payment[]
+  expertApplications  ExpertApplication[]
 }
 
 model UserIdentity {
@@ -434,6 +435,37 @@ model AiCostLog {
   @@index([userId])
   @@index([chatId])
   @@index([scenario])
+  @@index([createdAt])
+}
+
+// ─── Expert applications (from web) ─────────────────────────────────────────
+
+/// Application submitted via web site. Separate from TrainerProfile (which is the
+/// operational profile created AFTER approval). One user may have multiple applications
+/// over time; only one pending/in_review allowed at a time.
+model ExpertApplication {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  /// pending | in_review | approved | rejected
+  status          String   @default("pending")
+  fullName        String
+  specialization  String
+  city            String?
+  workFormat      String?
+  experienceYears Int?
+  socialLink      String?
+  bio             String
+  proofLink       String?
+  /// Where the application came from: 'web'
+  source          String   @default("web")
+  /// Set by admin on rejection to communicate reason to applicant
+  adminComment    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
   @@index([createdAt])
 }
 

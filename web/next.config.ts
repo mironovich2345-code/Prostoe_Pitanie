@@ -2,10 +2,21 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
-  // Point file-tracing root to this directory to avoid monorepo lockfile warnings.
   outputFileTracingRoot: path.join(__dirname),
-  // All API calls go to the existing Express backend.
-  // Set NEXT_PUBLIC_API_URL in .env.local when backend is on a different host.
+
+  // Proxy /api/* to the Express backend.
+  // This makes all API calls same-origin from the browser, which allows
+  // HttpOnly cookies (web session) to work regardless of deployment domain.
+  async rewrites() {
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+    if (!apiUrl) return [];
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -290,6 +290,11 @@
     "configFileName": "next.config.ts",
     "turbopack": {
       "root": "C:\\Users\\PC\\Desktop\\Prostoe_Pitanie\\web"
+    },
+    "_originalRewrites": {
+      "beforeFiles": [],
+      "afterFiles": [],
+      "fallback": []
     }
   },
   "appDir": "C:\\Users\\PC\\Desktop\\Prostoe_Pitanie\\web",

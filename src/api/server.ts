@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { platformAuthMiddleware } from './middleware/platformAuth';
 import { preAuthRateLimit, generalRateLimit, authRateLimit, aiRateLimit } from './middleware/rateLimit';
@@ -26,6 +27,8 @@ import eventsRouter from './routes/events';
 import productsRouter from './routes/products';
 import legalRouter from './routes/legal';
 import legalConsentRouter from './routes/legalConsent';
+import webAuthRouter from './routes/webAuth';
+import expertApplicationsWebRouter from './routes/expertApplicationsWeb';
 
 export function createApiServer() {
   const app = express();
@@ -60,6 +63,7 @@ export function createApiServer() {
   }));
   console.info('[cors] origin=', typeof corsOrigin === 'string' ? corsOrigin : 'function', '| MINIAPP_ORIGIN=', rawMiniappOrigin ?? '(not set → *)' );
   app.use(express.json({ limit: '12mb' })); // raised to 12mb: supports expert doc uploads (≤5 MB) and 4-photo meals (4 × 2 MB decoded ≈ 10.7 MB base64)
+  app.use(cookieParser()); // needed for web-session cookie (web auth routes)
 
   // Health check (no auth)
   app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -80,6 +84,11 @@ export function createApiServer() {
 
   // Pre-auth IP rate limit — fires before Telegram auth to stop spam at entry points
   app.use('/api/bootstrap', preAuthRateLimit as express.RequestHandler);
+
+  // Web auth routes — cookie-based, registered BEFORE platformAuthMiddleware.
+  // These do NOT require a Telegram init-data header.
+  app.use('/api/web-auth', webAuthRouter);
+  app.use('/api/expert-applications', expertApplicationsWebRouter);
 
   // All /api routes require platform auth (Telegram or MAX)
   app.use('/api', platformAuthMiddleware as express.RequestHandler);
