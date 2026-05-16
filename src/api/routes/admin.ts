@@ -6,6 +6,7 @@ import { fetchYooKassaPayment } from '../../services/yookassaService';
 import { activateSubscription, type PlanId } from '../../services/subscriptionService';
 import { normalizeOfferType } from '../../utils/referral';
 import { getObjectBuffer, deleteObject } from '../../storage/r2';
+import { generateUniqueSlug } from '../../utils/slug';
 
 const router = Router();
 
@@ -211,11 +212,19 @@ router.get('/experts', async (_req: AuthRequest, res: Response) => {
       where: { verificationStatus: 'verified' },
       orderBy: { verifiedAt: 'desc' },
       select: {
+        id: true,
         chatId: true,
         fullName: true,
         specialization: true,
-        verifiedAt: true,
+        bio: true,
+        city: true,
+        experienceYears: true,
+        suitableFor: true,
+        tags: true,
         socialLink: true,
+        publicStatus: true,
+        slug: true,
+        verifiedAt: true,
         verificationStatus: true,
       },
     });
@@ -238,6 +247,147 @@ router.post('/experts/:chatId/revoke', async (req: AuthRequest, res: Response) =
     res.json({ ok: true, verificationStatus: updated.verificationStatus });
   } catch (err) {
     console.error('[admin/experts/revoke]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Shared select for public trainer profile fields ───────────────────────
+
+const TRAINER_PUBLIC_SELECT = {
+  id: true,
+  chatId: true,
+  fullName: true,
+  specialization: true,
+  bio: true,
+  city: true,
+  experienceYears: true,
+  suitableFor: true,
+  tags: true,
+  socialLink: true,
+  publicStatus: true,
+  slug: true,
+  verifiedAt: true,
+  verificationStatus: true,
+} as const;
+
+// ─── POST /api/admin/trainers/:id/publish ───────────────────────────────────
+
+router.post('/trainers/:id/publish', async (req: AuthRequest, res: Response) => {
+  const id = parseInt(String(req.params.id ?? ''), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const profile = await prisma.trainerProfile.findUnique({
+      where: { id },
+      select: { id: true, verificationStatus: true, fullName: true, specialization: true, bio: true, slug: true },
+    });
+    if (!profile) { res.status(404).json({ error: 'Not found' }); return; }
+    if (profile.verificationStatus !== 'verified') {
+      res.status(400).json({ error: 'not_verified' });
+      return;
+    }
+    const missing: string[] = [];
+    if (!profile.fullName?.trim())       missing.push('fullName');
+    if (!profile.specialization?.trim()) missing.push('specialization');
+    if (!profile.bio?.trim())            missing.push('bio');
+    if (missing.length > 0) {
+      res.status(400).json({ error: 'incomplete_profile', missing });
+      return;
+    }
+    const slug = profile.slug ?? await generateUniqueSlug(profile.fullName ?? '', id);
+    const updated = await prisma.trainerProfile.update({
+      where: { id },
+      data: { publicStatus: 'published', slug },
+      select: TRAINER_PUBLIC_SELECT,
+    });
+    res.json({ ok: true, trainer: updated });
+  } catch (err) {
+    console.error('[admin/trainers/publish]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/admin/trainers/:id/hide ─────────────────────────────────────
+
+router.post('/trainers/:id/hide', async (req: AuthRequest, res: Response) => {
+  const id = parseInt(String(req.params.id ?? ''), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const profile = await prisma.trainerProfile.findUnique({ where: { id }, select: { id: true } });
+    if (!profile) { res.status(404).json({ error: 'Not found' }); return; }
+    const updated = await prisma.trainerProfile.update({
+      where: { id },
+      data: { publicStatus: 'hidden' },
+      select: TRAINER_PUBLIC_SELECT,
+    });
+    res.json({ ok: true, trainer: updated });
+  } catch (err) {
+    console.error('[admin/trainers/hide]', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── PATCH /api/admin/trainers/:id/public-profile ──────────────────────────
+
+router.patch('/trainers/:id/public-profile', async (req: AuthRequest, res: Response) => {
+  const id = parseInt(String(req.params.id ?? ''), 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const profile = await prisma.trainerProfile.findUnique({ where: { id }, select: { id: true } });
+    if (!profile) { res.status(404).json({ error: 'Not found' }); return; }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const data: Record<string, unknown> = {};
+
+    if ('fullName' in body) {
+      const v = String(body.fullName ?? '').trim();
+      if (v.length < 2 || v.length > 80) { res.status(400).json({ error: 'invalid_fullName' }); return; }
+      data.fullName = v;
+    }
+    if ('specialization' in body) {
+      const v = String(body.specialization ?? '').trim();
+      if (v.length < 2 || v.length > 120) { res.status(400).json({ error: 'invalid_specialization' }); return; }
+      data.specialization = v;
+    }
+    if ('bio' in body) {
+      const v = String(body.bio ?? '').trim();
+      if (v.length < 20 || v.length > 2000) { res.status(400).json({ error: 'invalid_bio' }); return; }
+      data.bio = v;
+    }
+    if ('city' in body) {
+      const v = String(body.city ?? '').trim();
+      data.city = v.length > 0 ? v.substring(0, 80) : null;
+    }
+    if ('socialLink' in body) {
+      const v = String(body.socialLink ?? '').trim();
+      data.socialLink = v.length > 0 ? v.substring(0, 200) : null;
+    }
+    if ('experienceYears' in body) {
+      const n = body.experienceYears === null || body.experienceYears === '' ? null : Number(body.experienceYears);
+      if (n !== null && (isNaN(n) || n < 0 || n > 60)) { res.status(400).json({ error: 'invalid_experienceYears' }); return; }
+      data.experienceYears = n;
+    }
+    if ('suitableFor' in body) {
+      const v = String(body.suitableFor ?? '').trim();
+      data.suitableFor = v.length > 0 ? v.substring(0, 500) : null;
+    }
+    if ('tags' in body) {
+      const v = String(body.tags ?? '').trim();
+      data.tags = v.length > 0 ? v.substring(0, 300) : null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      res.status(400).json({ error: 'no_fields' });
+      return;
+    }
+
+    const updated = await prisma.trainerProfile.update({
+      where: { id },
+      data,
+      select: TRAINER_PUBLIC_SELECT,
+    });
+    res.json({ ok: true, trainer: updated });
+  } catch (err) {
+    console.error('[admin/trainers/public-profile]', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

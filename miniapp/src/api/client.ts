@@ -156,6 +156,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface AdminTrainer {
+  id: number;
+  chatId: string;
+  fullName: string | null;
+  specialization: string | null;
+  bio: string | null;
+  city: string | null;
+  experienceYears: number | null;
+  suitableFor: string | null;
+  tags: string | null;
+  socialLink: string | null;
+  publicStatus: string;
+  slug: string | null;
+  verifiedAt: string | null;
+  verificationStatus: string;
+}
+
 export const api = {
   bootstrap: () => request<import('../types').BootstrapData>('/api/bootstrap'),
   nutritionToday: () => request<import('../types').TodayNutritionData>('/api/nutrition/today'),
@@ -371,9 +388,15 @@ export const api = {
   adminReject: (chatId: string, note?: string) =>
     request<{ ok: boolean; verificationStatus: string }>(`/api/admin/applications/${encodeURIComponent(chatId)}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
   adminExperts: () =>
-    request<{ experts: Array<{ chatId: string; fullName: string | null; specialization: string | null; verifiedAt: string | null; socialLink: string | null }> }>('/api/admin/experts'),
+    request<{ experts: AdminTrainer[] }>('/api/admin/experts'),
   adminRevokeExpert: (chatId: string) =>
     request<{ ok: boolean }>(`/api/admin/experts/${encodeURIComponent(chatId)}/revoke`, { method: 'POST' }),
+  adminPublishTrainer: (id: number) =>
+    request<{ ok: boolean; trainer: AdminTrainer }>(`/api/admin/trainers/${id}/publish`, { method: 'POST' }),
+  adminHideTrainer: (id: number) =>
+    request<{ ok: boolean; trainer: AdminTrainer }>(`/api/admin/trainers/${id}/hide`, { method: 'POST' }),
+  adminUpdateTrainerPublicProfile: (id: number, data: { fullName?: string; specialization?: string; bio?: string; city?: string; experienceYears?: number | null; suitableFor?: string; tags?: string; socialLink?: string }) =>
+    request<{ ok: boolean; trainer: AdminTrainer }>(`/api/admin/trainers/${id}/public-profile`, { method: 'PATCH', body: JSON.stringify(data) }),
   adminPayouts: () =>
     request<{ payouts: Array<{ id: number; trainerId: string; trainerName: string | null; referredChatId: string; planId: string; amountRub: number; status: string; holdUntil: string | null; paidAt: string | null; createdAt: string }> }>('/api/admin/payouts'),
   adminPayoutRequests: () =>
