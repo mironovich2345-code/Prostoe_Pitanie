@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { resolveUserId } from '../utils/resolveUser';
+import prisma from '../../db';
 
 const router = express.Router();
 
@@ -157,6 +158,98 @@ router.get('/me', (req, res) => {
 router.post('/logout', (_req, res) => {
   res.clearCookie(COOKIE_NAME, buildCookieOptions());
   res.json({ ok: true });
+});
+
+// ─── MAX web-login deeplink flow ──────────────────────────────────────────────
+
+const TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function generateLoginToken(): string {
+  return crypto.randomBytes(16).toString('hex'); // 32 hex chars — fits MAX 128-char payload limit
+}
+
+// POST /api/web-auth/max/start
+// Creates a one-time login token and returns a MAX deeplink.
+// No auth required — this is the first step for unauthenticated users.
+router.post('/max/start', async (_req, res) => {
+  const maxBotName = process.env.MAX_BOT_NAME;
+  if (!maxBotName) {
+    res.status(503).json({ error: 'max_not_configured' });
+    return;
+  }
+
+  const token = generateLoginToken();
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+
+  try {
+    await prisma.webLoginToken.create({
+      data: { token, platform: 'max', status: 'pending', expiresAt },
+    });
+
+    const deeplink = `https://max.ru/${maxBotName}?start=web_login_${token}`;
+    res.json({ token, deeplink, expiresAt: expiresAt.toISOString() });
+  } catch (err) {
+    console.error('[web-auth/max/start] error:', (err as Error).message);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
+// GET /api/web-auth/max/status?token=...
+// Polls login token status. Issues session cookie when confirmed.
+router.get('/max/status', async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  if (!token) {
+    res.status(400).json({ error: 'missing_token' });
+    return;
+  }
+
+  try {
+    const record = await prisma.webLoginToken.findUnique({ where: { token } });
+    if (!record) {
+      res.status(404).json({ error: 'token_not_found' });
+      return;
+    }
+
+    // Treat past-expiry pending tokens as expired
+    if (record.status === 'pending' && record.expiresAt < new Date()) {
+      await prisma.webLoginToken.update({ where: { token }, data: { status: 'expired' } }).catch(() => {});
+      res.json({ status: 'expired' });
+      return;
+    }
+
+    if (record.status === 'pending') {
+      res.json({ status: 'pending' });
+      return;
+    }
+
+    if (record.status === 'expired' || record.status === 'canceled') {
+      res.json({ status: record.status });
+      return;
+    }
+
+    if (record.status === 'confirmed' && record.userId) {
+      // Issue web session cookie — same params as Telegram auth
+      const sessionPayload = { userId: record.userId, platform: 'max' as const };
+      const jwtToken = jwt.sign(sessionPayload, getSecret(), { expiresIn: '30d' });
+      res.cookie(COOKIE_NAME, jwtToken, buildCookieOptions());
+
+      res.json({
+        status: 'confirmed',
+        user: {
+          id: record.userId,
+          platform: 'max',
+          displayName: record.platformName ?? undefined,
+          username: record.platformUsername ?? undefined,
+        },
+      });
+      return;
+    }
+
+    res.json({ status: record.status });
+  } catch (err) {
+    console.error('[web-auth/max/status] error:', (err as Error).message);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
 });
 
 export default router;

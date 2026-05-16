@@ -2,16 +2,16 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/robots.txt/route": "app/robots.txt/route.js",
   "/sitemap.xml/route": "app/sitemap.xml/route.js",
-  "/client/expert/page": "app/client/expert/page.js",
   "/clients/page": "app/clients/page.js",
+  "/client/expert/page": "app/client/expert/page.js",
+  "/expert/profile/page": "app/expert/profile/page.js",
   "/expert/requests/page": "app/expert/requests/page.js",
   "/experts/apply/page": "app/experts/apply/page.js",
-  "/expert/profile/page": "app/expert/profile/page.js",
-  "/legal/page": "app/legal/page.js",
   "/experts/page": "app/experts/page.js",
-  "/support/page": "app/support/page.js",
+  "/legal/page": "app/legal/page.js",
   "/page": "app/page.js",
+  "/support/page": "app/support/page.js",
+  "/pricing/page": "app/pricing/page.js",
   "/trainers/page": "app/trainers/page.js",
-  "/trainers/[slug]/page": "app/trainers/[slug]/page.js",
-  "/pricing/page": "app/pricing/page.js"
+  "/trainers/[slug]/page": "app/trainers/[slug]/page.js"
 }

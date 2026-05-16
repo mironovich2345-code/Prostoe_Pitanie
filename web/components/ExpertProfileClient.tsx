@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { webApi, ApiError } from '@/lib/webApi';
 import type { ExpertProfile } from '@/lib/webApi';
+import MaxLoginButton from '@/components/MaxLoginButton';
 
 declare global {
   interface Window {
@@ -137,6 +138,27 @@ export default function ExpertProfileClient({ botUsername }: Props) {
     return () => { container.innerHTML = ''; delete window.__EATLYY_TG_AUTH_PROFILE__; };
   }, [authState, botUsername]);
 
+  async function loadAfterAuth() {
+    const profileResp = await webApi.getExpertProfile().catch((err) => {
+      if (err instanceof ApiError && err.status === 403) return null;
+      throw err;
+    });
+    if (!profileResp) {
+      setNotExpert(true);
+      setAuthState('authenticated');
+      return;
+    }
+    const p = profileResp.profile;
+    setProfile(p);
+    setForm({
+      fullName: p.fullName ?? '', specialization: p.specialization ?? '',
+      bio: p.bio ?? '', city: p.city ?? '', socialLink: p.socialLink ?? '',
+      experienceYears: p.experienceYears != null ? String(p.experienceYears) : '',
+      suitableFor: p.suitableFor ?? '', tags: p.tags ?? '',
+    });
+    setAuthState('authenticated');
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setSaveError(null); setSaveOk(false);
@@ -234,6 +256,8 @@ export default function ExpertProfileClient({ botUsername }: Props) {
           </p>
         )}
         {loginError && <p style={{ fontSize: 13, color: '#ef5350', marginBottom: 8 }}>{loginError}</p>}
+        <OrDivider />
+        <MaxLoginButton onSuccess={loadAfterAuth} />
       </div>
     );
   }
@@ -421,6 +445,16 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <label style={labelStyle}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function OrDivider() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px auto', maxWidth: 280 }}>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>или</span>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
     </div>
   );
 }

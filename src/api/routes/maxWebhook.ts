@@ -49,6 +49,8 @@
 
 import { Router, Request, Response } from 'express';
 import { sendMaxMessage } from '../../services/maxClient';
+import prisma from '../../db';
+import { resolveUserId } from '../utils/resolveUser';
 
 const router = Router();
 
@@ -107,13 +109,57 @@ function validateSecret(req: Request): boolean {
 
 // ─── Single update handler ────────────────────────────────────────────────────
 
+async function handleWebLogin(u: BotStartedUpdate, loginToken: string): Promise<void> {
+  const record = await prisma.webLoginToken.findUnique({ where: { token: loginToken } });
+
+  if (!record || record.platform !== 'max') {
+    console.log(`[maxWebhook] web_login: token not found`);
+    await sendMaxMessage({ chat_id: u.chat_id }, 'Ссылка для входа недействительна. Вернитесь на сайт и попробуйте снова.');
+    return;
+  }
+
+  if (record.status !== 'pending' || record.expiresAt < new Date()) {
+    console.log(`[maxWebhook] web_login: token status=${record.status} expired=${record.expiresAt < new Date()}`);
+    await sendMaxMessage({ chat_id: u.chat_id }, 'Ссылка для входа устарела. Вернитесь на сайт и попробуйте снова.');
+    return;
+  }
+
+  const platformId = String(u.user.user_id);
+  const userId = await resolveUserId('max', platformId, {
+    firstName: u.user.name,
+    username: u.user.username,
+  });
+
+  await prisma.webLoginToken.update({
+    where: { token: loginToken },
+    data: {
+      status: 'confirmed',
+      userId,
+      platformUserId: platformId,
+      platformUsername: u.user.username ?? null,
+      platformName: u.user.name ?? null,
+      confirmedAt: new Date(),
+    },
+  });
+
+  console.log(`[maxWebhook] web_login: confirmed userId=${userId}`);
+  await sendMaxMessage({ chat_id: u.chat_id }, 'Вход выполнен! Вернитесь на сайт EATLYY — страница обновится автоматически.');
+}
+
 async function handleUpdate(update: MaxUpdate): Promise<void> {
   const type = update.update_type;
 
   if (type === 'bot_started') {
     const u = update as BotStartedUpdate;
-    const displayName = u.user.name ?? `Пользователь ${u.user.user_id}`;
-    console.log(`[maxWebhook] bot_started  chat_id=${u.chat_id} user_id=${u.user.user_id} name="${displayName}"`);
+    const payload = u.payload ?? '';
+    const hasPayload = payload.length > 0;
+    console.log(`[maxWebhook] bot_started  chat_id=${u.chat_id} user_id=${u.user.user_id} has_payload=${hasPayload} payload_prefix=${payload.slice(0, 15) || '(none)'}`);
+
+    if (payload.startsWith('web_login_')) {
+      const loginToken = payload.slice('web_login_'.length);
+      await handleWebLogin(u, loginToken);
+      return;
+    }
 
     await sendMaxMessage({ chat_id: u.chat_id }, GREETING);
     return;

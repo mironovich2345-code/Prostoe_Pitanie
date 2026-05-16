@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { webApi, ApiError } from '@/lib/webApi';
 import type { WebUser, ExpertApplication } from '@/lib/webApi';
+import MaxLoginButton from '@/components/MaxLoginButton';
 
 // Let TypeScript know about the global auth callback
 declare global {
@@ -185,6 +186,14 @@ export default function ExpertApplyClient({ botUsername }: { botUsername: string
     setAuthState('unauthenticated');
   };
 
+  async function loadAfterAuth() {
+    const { user } = await webApi.getMe();
+    setWebUser(user);
+    setAuthState('authenticated');
+    const { application } = await webApi.getMyApplication();
+    setApplication(application);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
@@ -297,7 +306,10 @@ export default function ExpertApplyClient({ botUsername }: { botUsername: string
           <p style={{ fontSize: 13, color: '#ef5350', marginBottom: 8 }}>{submitError}</p>
         )}
 
-        <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55 }}>
+        <OrDivider />
+        <MaxLoginButton onSuccess={loadAfterAuth} />
+
+        <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.55, marginTop: 16 }}>
           Мы получаем только имя и Telegram ID. Ничего не публикуем от вашего имени.
         </p>
       </div>
@@ -492,6 +504,16 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <label style={labelStyle}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function OrDivider() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px auto', maxWidth: 280 }}>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>или</span>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
     </div>
   );
 }

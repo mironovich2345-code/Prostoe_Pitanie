@@ -91,6 +91,33 @@ model WebhookLog {
   createdAt   DateTime  @default(now())
 }
 
+// ─── Web login via MAX (deeplink token flow) ─────────────────────────────────
+
+/// One-time token for cross-platform web login (currently MAX only).
+/// Flow: browser POST /start → get token → open MAX deeplink → bot confirms token → browser polls /status → gets session cookie.
+model WebLoginToken {
+  id               String    @id @default(cuid())
+  /// Random hex string, embedded in MAX deeplink payload web_login_<token>
+  token            String    @unique
+  /// 'max' — only platform supported for now
+  platform         String
+  /// pending | confirmed | expired | canceled
+  status           String    @default("pending")
+  /// Filled after MAX bot confirms the login
+  userId           String?
+  platformUserId   String?
+  platformUsername String?
+  platformName     String?
+  expiresAt        DateTime
+  confirmedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([token])
+  @@index([platform, status])
+  @@index([expiresAt])
+}
+
 // ─── Account linking (TG ↔ MAX multi-platform) ───────────────────────────────
 
 /// One-time cross-platform link request.

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { webApi, ApiError, type ClientExpertRequest } from '@/lib/webApi';
+import MaxLoginButton from '@/components/MaxLoginButton';
 
 declare global {
   interface Window {
@@ -102,7 +103,9 @@ export default function ClientExpertClient({ botUsername }: Props) {
           Войдите, чтобы увидеть своего эксперта и статус заявок.
         </p>
         <div ref={widgetRef} style={{ minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }} />
-        {loginError && <p style={{ fontSize: 13, color: '#ef5350' }}>{loginError}</p>}
+        {loginError && <p style={{ fontSize: 13, color: '#ef5350', marginBottom: 12 }}>{loginError}</p>}
+        <OrDivider />
+        <MaxLoginButton onSuccess={loadData} />
       </div>
     );
   }
@@ -288,6 +291,16 @@ function RejectedBlock({ req }: { req: ClientExpertRequest }) {
       <Link href="/trainers" className="btn btn-outline" style={{ fontSize: 14, padding: '10px 22px' }}>
         Выбрать другого эксперта
       </Link>
+    </div>
+  );
+}
+
+function OrDivider() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px auto', maxWidth: 280 }}>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      <span style={{ fontSize: 12, color: 'var(--text-3)' }}>или</span>
+      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
     </div>
   );
 }
