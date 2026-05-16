@@ -35,6 +35,7 @@ export interface ExpertProfile {
   suitableFor: string | null;
   tags: string | null;
   publicStatus: string;
+  slug: string | null;
   referralCode: string | null;
   verificationStatus: string;
   verifiedAt: string | null;
@@ -131,7 +132,7 @@ export const webApi = {
     }),
 
   publishExpertProfile: () =>
-    request<{ ok: boolean; publicStatus: string }>('/api/web/expert/profile/publish', { method: 'POST' }),
+    request<{ ok: boolean; publicStatus: string; slug?: string }>('/api/web/expert/profile/publish', { method: 'POST' }),
 
   hideExpertProfile: () =>
     request<{ ok: boolean; publicStatus: string }>('/api/web/expert/profile/hide', { method: 'POST' }),

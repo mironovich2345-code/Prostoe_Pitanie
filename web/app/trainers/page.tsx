@@ -77,8 +77,23 @@ export default async function TrainersPage() {
           </div>
 
           {experts.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-3)' }}>
-              Эксперты появятся здесь в ближайшее время
+            <div style={{ textAlign: 'center', padding: '80px 0' }}>
+              <p style={{ color: 'var(--text-2)', fontSize: 16, marginBottom: 16 }}>
+                Эксперты скоро появятся. Сейчас можно подать заявку или открыть EATLYY в Telegram.
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <a href="/experts/apply" className="btn btn-outline" style={{ fontSize: 14, padding: '10px 22px' }}>
+                  Стать экспертом
+                </a>
+                <a
+                  href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME || 'EATLYY_bot'}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn btn-ghost"
+                  style={{ fontSize: 14, padding: '10px 22px' }}
+                >
+                  Открыть EATLYY
+                </a>
+              </div>
             </div>
           )}
         </div>

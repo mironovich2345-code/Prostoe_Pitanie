@@ -16,17 +16,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const expert = await getExpertBySlug(slug);
   if (!expert) return { title: 'Эксперт не найден' };
+  const name = expert.fullName ?? 'Эксперт';
+  const desc = expert.bio ? expert.bio.substring(0, 160) : undefined;
   return {
-    title: `${expert.name} — ${expert.specialization}`,
-    description: expert.shortBio,
+    title: `${name} — ${expert.specialization ?? 'Эксперт'}`,
+    description: desc,
     openGraph: {
-      title: `${expert.name} — ${expert.specialization} | EATLYY`,
-      description: expert.shortBio,
+      title: `${name} — ${expert.specialization ?? 'Эксперт'} | EATLYY`,
+      description: desc,
       url: `/trainers/${slug}`,
     },
     twitter: {
-      title: `${expert.name} — ${expert.specialization} | EATLYY`,
-      description: expert.shortBio,
+      title: `${name} — ${expert.specialization ?? 'Эксперт'} | EATLYY`,
+      description: desc,
     },
   };
 }
@@ -37,6 +39,11 @@ export default async function TrainerPage({ params }: Props) {
   const { slug } = await params;
   const expert = await getExpertBySlug(slug);
   if (!expert) notFound();
+
+  const tags = expert.tags ? expert.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const forWhomItems = expert.suitableFor
+    ? expert.suitableFor.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    : [];
 
   return (
     <>
@@ -65,98 +72,98 @@ export default async function TrainerPage({ params }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 40, flexShrink: 0,
             }}>
-              {expert.emoji}
+              🥗
             </div>
             <div>
               <h1 style={{
                 fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 900,
                 letterSpacing: -0.8, lineHeight: 1.1, marginBottom: 4,
               }}>
-                {expert.name}
+                {expert.fullName ?? 'Эксперт'}
               </h1>
-              <div style={{ fontSize: 16, color: 'var(--accent)', fontWeight: 600 }}>
-                {expert.specialization}
-              </div>
+              {expert.specialization && (
+                <div style={{ fontSize: 16, color: 'var(--accent)', fontWeight: 600 }}>
+                  {expert.specialization}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Meta row */}
-          <div style={{
-            display: 'flex', gap: 20, flexWrap: 'wrap',
-            padding: '16px 20px',
-            background: 'var(--surface)',
-            borderRadius: 'var(--r-lg)',
-            border: '1px solid var(--border)',
-            marginBottom: 32,
-          }}>
-            <MetaChip icon="📍" label={expert.city} />
-            <MetaChip icon="⏱" label={`${expert.experience} лет опыта`} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: 'var(--accent)', display: 'inline-block',
-              }} />
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                {expert.rating}
-              </span>
-              <span style={{ fontSize: 14, color: 'var(--text-3)' }}>
-                ({expert.reviewCount} отзывов)
-              </span>
+          {(expert.city || expert.experienceYears != null) && (
+            <div style={{
+              display: 'flex', gap: 20, flexWrap: 'wrap',
+              padding: '16px 20px',
+              background: 'var(--surface)',
+              borderRadius: 'var(--r-lg)',
+              border: '1px solid var(--border)',
+              marginBottom: 32,
+            }}>
+              {expert.city && <MetaChip icon="📍" label={expert.city} />}
+              {expert.experienceYears != null && (
+                <MetaChip icon="⏱" label={`${expert.experienceYears} лет опыта`} />
+              )}
             </div>
-          </div>
+          )}
 
           {/* Tags */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 40 }}>
-            {expert.tags.map((tag) => (
-              <span key={tag} style={{
-                fontSize: 13, fontWeight: 600,
-                background: 'var(--accent-dim)',
-                border: '1px solid rgba(215,255,63,0.2)',
-                color: 'var(--accent)',
-                borderRadius: 8, padding: '5px 14px',
-              }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Bio */}
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--r-xl)',
-            padding: '28px 24px',
-            marginBottom: 24,
-          }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>О себе</h2>
-            <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.75 }}>
-              {expert.fullBio}
-            </p>
-          </div>
-
-          {/* For whom */}
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--r-xl)',
-            padding: '28px 24px',
-            marginBottom: 36,
-          }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18 }}>Кому подходит</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {expert.forWhom.map((item) => (
-                <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: 'var(--accent)', flexShrink: 0, marginTop: 7,
-                  }} />
-                  <span style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.6 }}>
-                    {item}
-                  </span>
-                </div>
+          {tags.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 40 }}>
+              {tags.map((tag) => (
+                <span key={tag} style={{
+                  fontSize: 13, fontWeight: 600,
+                  background: 'var(--accent-dim)',
+                  border: '1px solid rgba(215,255,63,0.2)',
+                  color: 'var(--accent)',
+                  borderRadius: 8, padding: '5px 14px',
+                }}>
+                  {tag}
+                </span>
               ))}
             </div>
-          </div>
+          )}
+
+          {/* Bio */}
+          {expert.bio && (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-xl)',
+              padding: '28px 24px',
+              marginBottom: 24,
+            }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>О себе</h2>
+              <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.75 }}>
+                {expert.bio}
+              </p>
+            </div>
+          )}
+
+          {/* For whom */}
+          {forWhomItems.length > 0 && (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-xl)',
+              padding: '28px 24px',
+              marginBottom: 36,
+            }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18 }}>Кому подходит</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {forWhomItems.map((item) => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: 'var(--accent)', flexShrink: 0, marginTop: 7,
+                    }} />
+                    <span style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                      {item}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* CTA */}
           <div style={{

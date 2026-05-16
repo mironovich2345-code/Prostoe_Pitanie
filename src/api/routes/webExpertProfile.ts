@@ -17,10 +17,32 @@ const PROFILE_SELECT = {
   suitableFor: true,
   tags: true,
   publicStatus: true,
+  slug: true,
   referralCode: true,
   verificationStatus: true,
   verifiedAt: true,
 } as const;
+
+// Transliterate Cyrillic → Latin for URL-safe slugs.
+const CYR: Record<string, string> = {
+  а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'y',
+  к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',
+  х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'shch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya',
+};
+function toSlug(name: string): string {
+  return name.toLowerCase()
+    .split('').map(c => CYR[c] ?? c).join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+async function generateUniqueSlug(name: string, profileId: number): Promise<string> {
+  const base = toSlug(name) || `expert-${profileId}`;
+  const taken = await prisma.trainerProfile.findUnique({ where: { slug: base }, select: { id: true } });
+  if (!taken || taken.id === profileId) return base;
+  // Suffix with profile id to guarantee uniqueness.
+  return `${base}-${profileId}`;
+}
 
 async function findVerifiedProfile(userId: string) {
   const profile = await prisma.trainerProfile.findUnique({
@@ -133,12 +155,16 @@ router.post('/profile/publish', async (req: WebAuthRequest, res: Response) => {
       return;
     }
 
-    await prisma.trainerProfile.update({
+    // Generate slug on first publish if not already set.
+    const slug = profile.slug ?? await generateUniqueSlug(profile.fullName ?? '', profile.id);
+
+    const updated = await prisma.trainerProfile.update({
       where: { userId: req.webUser!.userId },
-      data: { publicStatus: 'published' },
+      data: { publicStatus: 'published', slug },
+      select: { publicStatus: true, slug: true },
     });
 
-    res.json({ ok: true, publicStatus: 'published' });
+    res.json({ ok: true, publicStatus: updated.publicStatus, slug: updated.slug });
   } catch (err) {
     console.error('[web/expert/profile] publish error:', err);
     res.status(500).json({ error: 'Internal server error' });

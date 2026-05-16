@@ -239,6 +239,7 @@ model TrainerProfile {
   verificationPhotoSizeBytes       Int?      // original file size in bytes; null for legacy records
   requisitesData                   String?   // JSON-encoded company requisites (ИП/ООО fields)
   publicStatus    String    @default("draft") // draft | published | hidden
+  slug            String?   @unique           // URL-friendly public identifier for /trainers/:slug
   city            String?
   experienceYears Int?
   suitableFor     String?   // free-form text: who benefits most from this expert

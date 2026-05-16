@@ -171,8 +171,8 @@ export default function ExpertProfileClient({ botUsername }: Props) {
   const handlePublish = async () => {
     setPublishing(true); setSaveError(null);
     try {
-      const { publicStatus } = await webApi.publishExpertProfile();
-      setProfile(prev => prev ? { ...prev, publicStatus } : prev);
+      const { publicStatus, slug } = await webApi.publishExpertProfile();
+      setProfile(prev => prev ? { ...prev, publicStatus, slug: slug ?? prev.slug } : prev);
     } catch (err) {
       const code = err instanceof ApiError ? err.code : null;
       if (code === 'incomplete_profile') {
@@ -294,8 +294,17 @@ export default function ExpertProfileClient({ botUsername }: Props) {
           background: 'rgba(76,175,80,0.07)', border: '1px solid rgba(76,175,80,0.2)',
           borderRadius: 'var(--r-lg)', padding: '12px 16px', marginBottom: 20, fontSize: 13,
           color: 'var(--text-2)', lineHeight: 1.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
-          ✓ Ваш профиль опубликован в каталоге экспертов.
+          <span>✓ Ваш профиль опубликован в каталоге экспертов.</span>
+          {profile.slug && (
+            <Link
+              href={`/trainers/${profile.slug}`}
+              style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}
+            >
+              Открыть публичную карточку →
+            </Link>
+          )}
         </div>
       )}
 
