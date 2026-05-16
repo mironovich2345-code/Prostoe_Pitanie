@@ -25,7 +25,10 @@ const _base = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '').replace
 
 async function get<T>(path: string): Promise<T> {
   const url = `${_base}${path}`;
-  const res = await fetch(url, { next: { revalidate: 60 } });
+  const res = await fetch(url, {
+    next: { revalidate: 60 },
+    signal: AbortSignal.timeout(5000),
+  });
   if (!res.ok) throw new Error(`API ${res.status} ${url}`);
   return res.json() as Promise<T>;
 }
