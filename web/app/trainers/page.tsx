@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import ExpertCard from '@/components/ExpertCard';
 import { getExperts } from '@/lib/api';
 
+// Keep page and fetch caches aligned: ISR revalidates after 10 s so a
+// newly-published expert appears quickly. Raise to 60 once catalog is stable.
+export const revalidate = 10;
+
 export const metadata: Metadata = {
   title: 'Каталог экспертов',
   description:
