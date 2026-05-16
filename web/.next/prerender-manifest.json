@@ -26,30 +26,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/expert/profile": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/expert/profile",
-      "dataRoute": "/expert/profile.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/robots.txt": {
       "initialHeaders": {
         "cache-control": "public, max-age=0, must-revalidate",
@@ -79,7 +55,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/experts/apply": {
+    "/clients": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -92,8 +68,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/experts/apply",
-      "dataRoute": "/experts/apply.rsc",
+      "srcRoute": "/clients",
+      "dataRoute": "/clients.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -103,7 +79,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/experts": {
+    "/expert/profile": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -116,8 +92,37 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/experts",
-      "dataRoute": "/experts.rsc",
+      "srcRoute": "/expert/profile",
+      "dataRoute": "/expert/profile.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/sitemap.xml": {
+      "initialHeaders": {
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-type": "application/xml",
+        "x-next-cache-tags": "_N_T_/layout,_N_T_/sitemap.xml/layout,_N_T_/sitemap.xml/route,_N_T_/sitemap.xml"
+      },
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/sitemap.xml",
+      "dataRoute": null,
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -248,7 +253,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/clients": {
+    "/experts": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -261,8 +266,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/clients",
-      "dataRoute": "/clients.rsc",
+      "srcRoute": "/experts",
+      "dataRoute": "/experts.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -422,12 +427,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/sitemap.xml": {
-      "initialHeaders": {
-        "cache-control": "public, max-age=0, must-revalidate",
-        "content-type": "application/xml",
-        "x-next-cache-tags": "_N_T_/layout,_N_T_/sitemap.xml/layout,_N_T_/sitemap.xml/route,_N_T_/sitemap.xml"
-      },
+    "/experts/apply": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -440,8 +440,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/sitemap.xml",
-      "dataRoute": null,
+      "srcRoute": "/experts/apply",
+      "dataRoute": "/experts/apply.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
