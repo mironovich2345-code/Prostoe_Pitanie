@@ -74,6 +74,7 @@ export interface ClientExpertRequest {
     fullName: string | null;
     specialization: string | null;
     slug: string | null;
+    city: string | null;
     publicStatus: string;
   } | null;
 }

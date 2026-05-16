@@ -48,6 +48,12 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
+      "page": "/client/expert",
+      "regex": "^/client/expert(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/expert(?:/)?$"
+    },
+    {
       "page": "/clients",
       "regex": "^/clients(?:/)?$",
       "routeKeys": {},

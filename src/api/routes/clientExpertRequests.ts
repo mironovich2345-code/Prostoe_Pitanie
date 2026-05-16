@@ -47,7 +47,7 @@ router.get('/me', async (req: WebAuthRequest, res: Response) => {
     const trainers = trainerIds.length > 0
       ? await prisma.trainerProfile.findMany({
           where: { id: { in: trainerIds } },
-          select: { id: true, fullName: true, specialization: true, slug: true, publicStatus: true },
+          select: { id: true, fullName: true, specialization: true, slug: true, city: true, publicStatus: true },
         })
       : [];
     const trainerMap = new Map(trainers.map(t => [t.id, t]));

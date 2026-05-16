@@ -218,7 +218,12 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 14 }}>
           Ваша заявка принята — ожидайте ответа эксперта.
         </p>
-        <LogoutLink onLogout={handleLogout} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <Link href="/client/expert" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+            Посмотреть статус →
+          </Link>
+          <LogoutLink onLogout={handleLogout} />
+        </div>
       </div>
     );
   }
@@ -236,7 +241,12 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 14 }}>
           Откройте EATLYY в Telegram, чтобы начать работу с экспертом.
         </p>
-        <LogoutLink onLogout={handleLogout} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <Link href="/client/expert" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+            Мой эксперт →
+          </Link>
+          <LogoutLink onLogout={handleLogout} />
+        </div>
       </div>
     );
   }

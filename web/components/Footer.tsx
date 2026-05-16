@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 const LEGAL_LINKS = [
+  { href: '/client/expert',  label: 'Мой эксперт' },
   { href: '/pricing',        label: 'Тарифы' },
   { href: '/experts/apply',  label: 'Заявка эксперта' },
   { href: '/legal',          label: 'Документы' },
