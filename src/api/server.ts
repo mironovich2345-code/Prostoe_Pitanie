@@ -29,6 +29,7 @@ import legalRouter from './routes/legal';
 import legalConsentRouter from './routes/legalConsent';
 import webAuthRouter from './routes/webAuth';
 import expertApplicationsWebRouter from './routes/expertApplicationsWeb';
+import webExpertProfileRouter from './routes/webExpertProfile';
 
 export function createApiServer() {
   const app = express();
@@ -89,6 +90,7 @@ export function createApiServer() {
   // These do NOT require a Telegram init-data header.
   app.use('/api/web-auth', webAuthRouter);
   app.use('/api/expert-applications', expertApplicationsWebRouter);
+  app.use('/api/web/expert', webExpertProfileRouter);
 
   // All /api routes require platform auth (Telegram or MAX)
   app.use('/api', platformAuthMiddleware as express.RequestHandler);

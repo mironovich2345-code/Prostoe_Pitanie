@@ -2104,6 +2104,8 @@ router.post('/expert-applications/:id/approve', async (req: AuthRequest, res: Re
       specialization: app.specialization as string,
       bio: (app.bio as string | null) ?? null,
       socialLink: (app.socialLink as string | null) ?? null,
+      city: (app.city as string | null) ?? null,
+      experienceYears: (app.experienceYears as number | null) ?? null,
       appliedAt: new Date(app.createdAt as string),
       referralCode,
     };

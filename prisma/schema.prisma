@@ -238,6 +238,11 @@ model TrainerProfile {
   verificationPhotoStorageProvider String?   // 'r2' — set together with storageKey; null for legacy records
   verificationPhotoSizeBytes       Int?      // original file size in bytes; null for legacy records
   requisitesData                   String?   // JSON-encoded company requisites (ИП/ООО fields)
+  publicStatus    String    @default("draft") // draft | published | hidden
+  city            String?
+  experienceYears Int?
+  suitableFor     String?   // free-form text: who benefits most from this expert
+  tags            String?   // comma-separated tags, e.g. "похудение,питание,спорт"
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }

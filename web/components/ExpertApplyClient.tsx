@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { webApi, ApiError } from '@/lib/webApi';
 import type { WebUser, ExpertApplication } from '@/lib/webApi';
 
@@ -329,7 +330,18 @@ export default function ExpertApplyClient({ botUsername }: { botUsername: string
             Заявка от {new Date(application.createdAt).toLocaleDateString('ru-RU')}
           </p>
         </div>
-        <div style={{ marginTop: 20, textAlign: 'center' }}>
+        {application.status === 'approved' && (
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <Link
+              href="/expert/profile"
+              className="btn btn-accent"
+              style={{ fontSize: 14, padding: '12px 28px', display: 'inline-block' }}
+            >
+              Перейти к профилю эксперта →
+            </Link>
+          </div>
+        )}
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
           <a href={TG_SUPPORT} target="_blank" rel="noopener noreferrer"
             style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'underline' }}>
             Задать вопрос в поддержку

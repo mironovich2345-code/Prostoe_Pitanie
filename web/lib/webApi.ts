@@ -24,6 +24,33 @@ export interface ExpertApplication {
   updatedAt: string;
 }
 
+export interface ExpertProfile {
+  id: number;
+  fullName: string | null;
+  specialization: string | null;
+  bio: string | null;
+  socialLink: string | null;
+  city: string | null;
+  experienceYears: number | null;
+  suitableFor: string | null;
+  tags: string | null;
+  publicStatus: string;
+  referralCode: string | null;
+  verificationStatus: string;
+  verifiedAt: string | null;
+}
+
+export interface UpdateExpertProfileData {
+  fullName?: string;
+  specialization?: string;
+  bio?: string;
+  city?: string;
+  socialLink?: string;
+  experienceYears?: number | null;
+  suitableFor?: string;
+  tags?: string;
+}
+
 export interface SubmitApplicationData {
   fullName: string;
   specialization: string;
@@ -93,4 +120,19 @@ export const webApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  getExpertProfile: () =>
+    request<{ profile: ExpertProfile }>('/api/web/expert/profile'),
+
+  updateExpertProfile: (data: UpdateExpertProfileData) =>
+    request<{ profile: ExpertProfile }>('/api/web/expert/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  publishExpertProfile: () =>
+    request<{ ok: boolean; publicStatus: string }>('/api/web/expert/profile/publish', { method: 'POST' }),
+
+  hideExpertProfile: () =>
+    request<{ ok: boolean; publicStatus: string }>('/api/web/expert/profile/hide', { method: 'POST' }),
 };
