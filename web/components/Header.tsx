@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const NAV = [
+const NAV: { href: string; label: string; prefetch?: false }[] = [
   { href: '/clients',  label: 'Клиентам' },
   { href: '/experts',  label: 'Для экспертов' },
-  { href: '/trainers', label: 'Каталог' },
+  // prefetch=false: the catalog is ISR-backed — prefetching caches a stale RSC
+  // payload in the browser, causing the first click to show old data until refresh.
+  { href: '/trainers', label: 'Каталог', prefetch: false },
   { href: '/pricing',  label: 'Тарифы' },
   { href: '/support',  label: 'Поддержка' },
 ];
@@ -37,12 +39,13 @@ export default function Header() {
 
         {/* Nav links */}
         <nav style={{ display: 'flex', gap: 4, flex: 1, alignItems: 'center' }}>
-          {NAV.map(({ href, label }) => {
+          {NAV.map(({ href, label, prefetch }) => {
             const active = pathname === href || pathname.startsWith(href + '/');
             return (
               <Link
                 key={href}
                 href={href}
+                prefetch={prefetch}
                 style={{
                   padding: '6px 14px',
                   fontSize: 14,

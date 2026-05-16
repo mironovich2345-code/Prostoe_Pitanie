@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import ExpertCard from '@/components/ExpertCard';
 import { getExperts } from '@/lib/api';
 
-// Keep page and fetch caches aligned: ISR revalidates after 10 s so a
-// newly-published expert appears quickly. Raise to 60 once catalog is stable.
-export const revalidate = 10;
+// force-dynamic: every request fetches fresh data from the API.
+// This prevents stale build-time snapshots (which could contain mock experts
+// if the API was unreachable during Railway build) from ever being served.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Каталог экспертов',

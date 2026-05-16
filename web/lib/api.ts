@@ -2,13 +2,15 @@
  * EATLYY Web — Public API client
  *
  * Fetches from the real backend via NEXT_PUBLIC_API_URL.
- * Falls back to mock data ONLY when the API is completely unreachable
- * (network error / timeout). A successful 200 with an empty list is NOT
- * a failure — it means the catalog is empty and we show the empty state.
+ * Mock data is ONLY used in local development (NODE_ENV === 'development').
+ * In production, a failed API call returns [] / null — never mock experts.
+ * A successful 200 with an empty list shows the empty-state UI, not mocks.
  */
 
 import type { Expert } from '@/data/experts';
 import { EXPERTS } from '@/data/experts';
+
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 export interface PublicTrainer {
   slug: string;
@@ -35,7 +37,7 @@ async function get<T>(path: string, revalidate = 60): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Map mock Expert → PublicTrainer for local-dev fallback only.
+// Map mock Expert → PublicTrainer. Used in development only.
 function mockToPublicTrainer(e: Expert): PublicTrainer {
   return {
     slug: e.slug,
@@ -54,29 +56,32 @@ function mockToPublicTrainer(e: Expert): PublicTrainer {
 
 export async function getExperts(): Promise<PublicTrainer[]> {
   try {
-    // Use short revalidation so a newly published expert appears quickly.
     const raw = await get<PublicTrainer[] | { trainers?: PublicTrainer[] }>(
       '/api/public/trainers',
       10,
     );
 
-    // Support both `{ trainers: [...] }` and bare `[...]` shapes.
     const list: PublicTrainer[] = Array.isArray(raw)
       ? raw
       : (raw as { trainers?: PublicTrainer[] }).trainers ?? [];
 
     console.log(
-      `[api/public/trainers] format=${Array.isArray(raw) ? 'array' : 'object.trainers'} count=${list.length} base=${_base || '(empty)'}`,
+      `[trainers] source=api count=${list.length} env=${process.env.NODE_ENV} base=${_base || '(empty)'}`,
     );
 
     return list;
   } catch (err) {
-    // Only fall back to mock data when the API is unreachable (timeout, network, 5xx).
-    console.warn(
-      '[api/public/trainers] fetch failed, using mock data:',
-      err instanceof Error ? err.message : String(err),
-    );
-    return EXPERTS.map(mockToPublicTrainer);
+    const msg = err instanceof Error ? err.message : String(err);
+
+    if (IS_DEV) {
+      console.warn(`[trainers] source=mock (dev fallback): ${msg}`);
+      return EXPERTS.map(mockToPublicTrainer);
+    }
+
+    // Production: never show stale mock experts — return empty list so the
+    // empty-state UI is displayed and no fake profiles pollute the catalog.
+    console.error(`[trainers] source=empty (api unreachable in production): ${msg}`);
+    return [];
   }
 }
 
@@ -87,7 +92,6 @@ export async function getExpertBySlug(slug: string): Promise<PublicTrainer | nul
       60,
     );
 
-    // Support both `{ trainer: {...} }` and bare object shapes.
     const trainer: PublicTrainer | null =
       raw !== null && typeof raw === 'object' && 'trainer' in raw
         ? (raw as { trainer: PublicTrainer }).trainer ?? null
@@ -96,7 +100,13 @@ export async function getExpertBySlug(slug: string): Promise<PublicTrainer | nul
     return trainer;
   } catch (err: unknown) {
     if (err instanceof Error && err.message.includes('404')) return null;
-    // Any other error (timeout, network): fall back to mock lookup.
-    return EXPERTS.map(mockToPublicTrainer).find(e => e.slug === slug) ?? null;
+
+    if (IS_DEV) {
+      return EXPERTS.map(mockToPublicTrainer).find(e => e.slug === slug) ?? null;
+    }
+
+    // Production: treat any API failure as not-found rather than showing mock profile.
+    console.error(`[trainers/${slug}] api error in production:`, err instanceof Error ? err.message : String(err));
+    return null;
   }
 }
