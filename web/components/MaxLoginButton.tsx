@@ -48,11 +48,21 @@ export default function MaxLoginButton({ onSuccess }: Props) {
       });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({})) as Record<string, string>;
-        if (body.error === 'max_not_configured') {
-          setErrorMsg('MAX-авторизация недоступна. Попробуйте войти через Telegram.');
+        const code = body.error ?? 'unknown';
+        const missing = body.missing ?? '';
+        let msg: string;
+        if (resp.status === 404) {
+          msg = 'MAX_START_404: эндпоинт не найден';
+        } else if (resp.status === 503 && code === 'max_not_configured') {
+          msg = missing
+            ? `MAX_CONFIG_ERROR: отсутствует ${missing}`
+            : 'MAX_CONFIG_ERROR: MAX не настроен';
+        } else if (resp.status === 500) {
+          msg = `MAX_START_500: ${code}`;
         } else {
-          setErrorMsg('Ошибка запуска входа. Попробуйте ещё раз.');
+          msg = `MAX_API_ERROR_${resp.status}: ${code}`;
         }
+        setErrorMsg(msg);
         setState('error');
         return;
       }

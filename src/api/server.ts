@@ -33,6 +33,8 @@ import webExpertProfileRouter from './routes/webExpertProfile';
 import publicTrainersRouter from './routes/publicTrainers';
 import clientExpertRequestsRouter from './routes/clientExpertRequests';
 import webExpertClientRequestsRouter from './routes/webExpertClientRequests';
+import webMeRouter from './routes/webMe';
+import webProfileRouter from './routes/webProfile';
 
 export function createApiServer() {
   const app = express();
@@ -93,6 +95,8 @@ export function createApiServer() {
   // These do NOT require a Telegram init-data header.
   app.use('/api/web-auth', webAuthRouter);
   app.use('/api/expert-applications', expertApplicationsWebRouter);
+  app.use('/api/web', webMeRouter);
+  app.use('/api/web', webProfileRouter);
   app.use('/api/web/expert', webExpertProfileRouter);
   app.use('/api/web/expert', webExpertClientRequestsRouter);
   app.use('/api/public/trainers', publicTrainersRouter);

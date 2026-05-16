@@ -91,6 +91,28 @@ model WebhookLog {
   createdAt   DateTime  @default(now())
 }
 
+// ─── Phone login OTP codes ────────────────────────────────────────────────────
+
+/// One-time SMS OTP for phone-based web login.
+/// Code is never stored in plaintext — only HMAC-SHA256 hash is persisted.
+model PhoneLoginCode {
+  id         String    @id @default(cuid())
+  /// E.164 normalised phone, e.g. +79990000000
+  phone      String
+  /// HMAC-SHA256(code, PHONE_CODE_HASH_SECRET)
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  /// Failed verify attempts; code is locked after OTP_MAX_ATTEMPTS
+  attempts   Int       @default(0)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([expiresAt])
+}
+
 // ─── Web login via MAX (deeplink token flow) ─────────────────────────────────
 
 /// One-time token for cross-platform web login (currently MAX only).

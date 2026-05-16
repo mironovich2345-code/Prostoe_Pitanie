@@ -91,6 +91,129 @@ export interface ExpertClientRequest {
   };
 }
 
+// ─── GET /api/web/me — full identity/state snapshot ───────────────────────────
+
+export interface WebMeIdentity {
+  platform: string;
+  platformId: string;
+  username: string | null;
+  firstName: string | null;
+}
+
+export interface WebMeProfile {
+  preferredName: string | null;
+  currentWeightKg: number | null;
+  desiredWeightKg: number | null;
+  heightCm: number | null;
+  goalType: string | null;
+  dailyCaloriesKcal: number | null;
+  dailyProteinG: number | null;
+  dailyFatG: number | null;
+  dailyCarbsG: number | null;
+  city: string | null;
+}
+
+export interface WebMeSubscription {
+  planId: string | null;
+  status: string | null;
+  currentPeriodEnd: string | null;
+  accessLevel: 'basic' | 'full';
+  hasOptimal: boolean;
+  hasPro: boolean;
+}
+
+export interface WebMeRoles {
+  isClient: boolean;
+  isExpert: boolean;
+  isCompany: boolean;
+  isAdmin: boolean;
+}
+
+export interface WebMeExpertState {
+  exists: boolean;
+  status: string | null;
+  publicStatus: string | null;
+  slug: string | null;
+  referralCode: string | null;
+  fullName: string | null;
+  specialization: string | null;
+  city: string | null;
+}
+
+export interface WebMeCompanyState {
+  exists: boolean;
+  status: string | null;
+  publicStatus: string | null;
+  slug: string | null;
+  referralCode: string | null;
+  name: string | null;
+  city: string | null;
+}
+
+export interface WebMeApplicationState {
+  exists: boolean;
+  status: string | null;
+  adminComment: string | null;
+  createdAt: string | null;
+}
+
+export interface WebMeClientExpertState {
+  hasExpert: boolean;
+  expert: {
+    id: number;
+    fullName: string | null;
+    specialization: string | null;
+    slug: string | null;
+    city: string | null;
+    publicStatus: string;
+  } | null;
+  pendingRequest: {
+    id: string;
+    status: string;
+    createdAt: string;
+    expert: {
+      id: number;
+      fullName: string | null;
+      slug: string | null;
+    } | null;
+  } | null;
+}
+
+export interface WebMeAuth {
+  currentMethod: 'telegram' | 'max' | 'phone' | null;
+  identities: {
+    telegram: { connected: boolean; username: string | null; platformId: string | null };
+    max: { connected: boolean; username: string | null; platformId: string | null };
+    phone: { connected: boolean; phoneMasked: string | null };
+  };
+}
+
+export interface WebMeResponse {
+  ok: boolean;
+  user: { id: string; createdAt: string };
+  identity: WebMeIdentity | null;
+  profile: WebMeProfile | null;
+  subscription: WebMeSubscription;
+  roles: WebMeRoles;
+  expert: WebMeExpertState;
+  company: WebMeCompanyState;
+  expertApplication: WebMeApplicationState;
+  clientExpert: WebMeClientExpertState;
+  auth: WebMeAuth;
+}
+
+export interface PhoneCodeRequestResponse { ok: boolean }
+export interface PhoneCodeVerifyResponse  { ok: boolean; userId: string }
+
+export interface WebClientProfileUpdatePayload {
+  preferredName?: string | null;
+  city?: string | null;
+  heightCm?: number;
+  currentWeightKg?: number;
+  desiredWeightKg?: number;
+  goalType?: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -131,6 +254,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const webApi = {
   getMe: () =>
     request<{ user: WebUser }>('/api/web-auth/me'),
+
+  getMeData: () =>
+    request<WebMeResponse>('/api/web/me'),
 
   telegramLogin: (data: Record<string, string | number>) =>
     request<{ user: WebUser }>('/api/web-auth/telegram', {
@@ -189,4 +315,26 @@ export const webApi = {
 
   rejectExpertClientRequest: (id: string) =>
     request<{ ok: boolean; status: string }>(`/api/web/expert/client-requests/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
+
+  // ─── Web client profile ──────────────────────────────────────────────────────
+
+  updateClientProfile: (payload: WebClientProfileUpdatePayload) =>
+    request<{ ok: boolean; profile: Partial<WebMeProfile> }>('/api/web/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  // ─── Phone / SMS OTP login ───────────────────────────────────────────────────
+
+  requestPhoneCode: (phone: string) =>
+    request<PhoneCodeRequestResponse>('/api/web-auth/phone/request-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
+
+  verifyPhoneCode: (phone: string, code: string) =>
+    request<PhoneCodeVerifyResponse>('/api/web-auth/phone/verify-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    }),
 };

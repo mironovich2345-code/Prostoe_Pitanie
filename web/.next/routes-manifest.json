@@ -48,6 +48,12 @@
       "namedRegex": "^/_not\\-found(?:/)?$"
     },
     {
+      "page": "/client",
+      "regex": "^/client(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client(?:/)?$"
+    },
+    {
       "page": "/client/expert",
       "regex": "^/client/expert(?:/)?$",
       "routeKeys": {},
@@ -88,6 +94,12 @@
       "regex": "^/legal(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/legal(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
     },
     {
       "page": "/pricing",

@@ -5,7 +5,7 @@ export interface WebAuthRequest extends Request {
   webUser?: {
     userId: string;
     chatId: string;
-    platform: 'telegram' | 'max';
+    platform: 'telegram' | 'max' | 'phone';
   };
 }
 
@@ -25,7 +25,7 @@ export function requireWebAuth(req: WebAuthRequest, res: Response, next: NextFun
     const payload = jwt.verify(token, getSecret()) as {
       userId: string;
       chatId: string;
-      platform: 'telegram' | 'max';
+      platform: 'telegram' | 'max' | 'phone';
     };
     req.webUser = { userId: payload.userId, chatId: payload.chatId, platform: payload.platform };
     next();

@@ -2,6 +2,8 @@ import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { resolveUserId } from '../utils/resolveUser';
+import { normalizePhone } from '../../utils/normalizePhone';
+import { sendSmsCode } from '../../services/smsService';
 import prisma from '../../db';
 
 const router = express.Router();
@@ -160,6 +162,164 @@ router.post('/logout', (_req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Phone / SMS OTP web-login flow ──────────────────────────────────────────
+
+const OTP_TTL_MS            = 10 * 60 * 1000; // 10 min
+const OTP_MAX_ATTEMPTS      = 5;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;     // 60 s between sends
+const OTP_RATE_LIMIT_MAX    = 3;              // sends per phone or IP per window
+const OTP_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+function getCodeHashSecret(): string {
+  return process.env.PHONE_CODE_HASH_SECRET ?? process.env.WEB_SESSION_SECRET ?? 'dev-secret-change-in-production';
+}
+
+function hashOtp(code: string): string {
+  return crypto.createHmac('sha256', getCodeHashSecret()).update(code).digest('hex');
+}
+
+function generateOtp(): string {
+  return crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
+// POST /api/web-auth/phone/request-code
+router.post('/phone/request-code', async (req, res) => {
+  try {
+    const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone : '';
+    let phone: string;
+    try { phone = normalizePhone(rawPhone); }
+    catch { res.status(400).json({ error: 'invalid_phone' }); return; }
+
+    const ip = ((req.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]?.trim()) ?? (req.socket.remoteAddress ?? 'unknown');
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - OTP_RATE_LIMIT_WINDOW_MS);
+
+    // Rate limit — same phone
+    const phoneCount = await prisma.phoneLoginCode.count({
+      where: { phone, createdAt: { gte: windowStart } },
+    });
+    if (phoneCount >= OTP_RATE_LIMIT_MAX) {
+      res.status(429).json({ error: 'rate_limit_exceeded' });
+      return;
+    }
+
+    // Rate limit — same IP
+    if (ip !== 'unknown') {
+      const ipCount = await prisma.phoneLoginCode.count({
+        where: { ip, createdAt: { gte: windowStart } },
+      });
+      if (ipCount >= OTP_RATE_LIMIT_MAX) {
+        res.status(429).json({ error: 'rate_limit_exceeded' });
+        return;
+      }
+    }
+
+    // Resend cooldown
+    const lastCode = await prisma.phoneLoginCode.findFirst({
+      where: { phone },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (lastCode && now.getTime() - lastCode.createdAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+      res.status(429).json({ error: 'resend_too_soon' });
+      return;
+    }
+
+    const code     = generateOtp();
+    const codeHash = hashOtp(code);
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
+
+    await prisma.phoneLoginCode.create({
+      data: {
+        phone,
+        codeHash,
+        expiresAt,
+        ip,
+        userAgent: ((req.headers['user-agent'] ?? '') as string).slice(0, 512),
+      },
+    });
+
+    await sendSmsCode(phone, code);
+
+    res.json({ ok: true });
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === 'sms_provider_not_configured') {
+      res.status(503).json({ error: 'sms_provider_not_configured' });
+      return;
+    }
+    console.error('[web-auth/phone/request-code] error:', msg);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
+// POST /api/web-auth/phone/verify-code
+router.post('/phone/verify-code', async (req, res) => {
+  try {
+    const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone : '';
+    const rawCode  = typeof req.body?.code  === 'string' ? req.body.code.trim() : '';
+
+    let phone: string;
+    try { phone = normalizePhone(rawPhone); }
+    catch { res.status(400).json({ error: 'invalid_phone' }); return; }
+
+    if (!rawCode || !/^\d{4,6}$/.test(rawCode)) {
+      res.status(400).json({ error: 'invalid_code' });
+      return;
+    }
+
+    const now = new Date();
+    const record = await prisma.phoneLoginCode.findFirst({
+      where: { phone, consumedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Always same response shape to avoid phone enumeration
+    if (!record) {
+      res.status(401).json({ error: 'code_not_found_or_expired' });
+      return;
+    }
+
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      res.status(401).json({ error: 'too_many_attempts' });
+      return;
+    }
+
+    const expectedBuf = Buffer.from(hashOtp(rawCode), 'hex');
+    const actualBuf   = Buffer.from(record.codeHash,  'hex');
+    const match = expectedBuf.length === actualBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, actualBuf);
+
+    if (!match) {
+      await prisma.phoneLoginCode.update({
+        where: { id: record.id },
+        data:  { attempts: { increment: 1 } },
+      });
+      res.status(401).json({ error: 'invalid_code' });
+      return;
+    }
+
+    // Mark code consumed
+    await prisma.phoneLoginCode.update({
+      where: { id: record.id },
+      data:  { consumedAt: now },
+    });
+
+    // Resolve or create platform-independent User via UserIdentity(phone, +7...)
+    const userId = await resolveUserId('phone', phone);
+
+    const sessionPayload = { userId, platform: 'phone' as const };
+    const token = jwt.sign(sessionPayload, getSecret(), { expiresIn: '30d' });
+    res.cookie(COOKIE_NAME, token, buildCookieOptions());
+
+    res.json({ ok: true, userId });
+  } catch (err) {
+    console.error('[web-auth/phone/verify-code] error:', (err as Error).message);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
 // ─── MAX web-login deeplink flow ──────────────────────────────────────────────
 
 const TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -174,7 +334,13 @@ function generateLoginToken(): string {
 router.post('/max/start', async (_req, res) => {
   const maxBotName = process.env.MAX_BOT_NAME;
   if (!maxBotName) {
-    res.status(503).json({ error: 'max_not_configured' });
+    console.warn('[web-auth/max/start] MAX_BOT_NAME env var not set');
+    res.status(503).json({ error: 'max_not_configured', missing: 'MAX_BOT_NAME' });
+    return;
+  }
+  if (!process.env.MAX_BOT_TOKEN) {
+    console.warn('[web-auth/max/start] MAX_BOT_TOKEN env var not set');
+    res.status(503).json({ error: 'max_not_configured', missing: 'MAX_BOT_TOKEN' });
     return;
   }
 
