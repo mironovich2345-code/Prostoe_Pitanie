@@ -105,6 +105,13 @@ export default function ExpertRequestsClient({ botUsername }: Props) {
     }
   }
 
+  async function handleLogout() {
+    await webApi.logout().catch(() => {});
+    setRequests([]);
+    setNotExpert(false);
+    setAuthState('unauthenticated');
+  }
+
   async function handleReject(id: string) {
     setActionPending(id);
     try {
@@ -150,6 +157,14 @@ export default function ExpertRequestsClient({ botUsername }: Props) {
         <Link href="/experts/apply" className="btn btn-accent" style={{ fontSize: 15, padding: '14px 32px' }}>
           Подать заявку
         </Link>
+        <div style={{ marginTop: 20 }}>
+          <button onClick={handleLogout} style={{
+            background: 'none', border: 'none', padding: 0,
+            color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+          }}>
+            Выйти
+          </button>
+        </div>
       </div>
     );
   }
@@ -164,8 +179,20 @@ export default function ExpertRequestsClient({ botUsername }: Props) {
 
   return (
     <div>
-      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginBottom: 20 }}>
-        Заявки клиентов
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 20, gap: 12,
+      }}>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>
+          Заявки клиентов
+        </div>
+        <button onClick={handleLogout} style={{
+          background: 'none', border: 'none', padding: 0,
+          color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+          flexShrink: 0,
+        }}>
+          Выйти
+        </button>
       </div>
 
       {/* Filter tabs */}

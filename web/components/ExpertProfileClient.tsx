@@ -197,6 +197,15 @@ export default function ExpertProfileClient({ botUsername }: Props) {
     }
   };
 
+  const handleLogout = async () => {
+    await webApi.logout().catch(() => {});
+    setProfile(null);
+    setNotExpert(false);
+    setSaveError(null);
+    setSaveOk(false);
+    setAuthState('unauthenticated');
+  };
+
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (authState === 'loading') {
     return (
@@ -241,6 +250,14 @@ export default function ExpertProfileClient({ botUsername }: Props) {
         <Link href="/experts/apply" className="btn btn-accent" style={{ fontSize: 15, padding: '14px 32px' }}>
           Подать заявку
         </Link>
+        <div style={{ marginTop: 20 }}>
+          <button onClick={handleLogout} style={{
+            background: 'none', border: 'none', padding: 0,
+            color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+          }}>
+            Выйти
+          </button>
+        </div>
       </div>
     );
   }
@@ -250,6 +267,19 @@ export default function ExpertProfileClient({ botUsername }: Props) {
 
   return (
     <div>
+      {/* Auth bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        marginBottom: 16,
+      }}>
+        <button onClick={handleLogout} style={{
+          background: 'none', border: 'none', padding: 0,
+          color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+        }}>
+          Выйти
+        </button>
+      </div>
+
       {/* Status badge */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

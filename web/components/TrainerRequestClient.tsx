@@ -18,8 +18,20 @@ interface Props {
   botUsername: string;
 }
 
+function LogoutLink({ onLogout }: { onLogout: () => void }) {
+  return (
+    <button onClick={onLogout} style={{
+      background: 'none', border: 'none', padding: 0,
+      color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+    }}>
+      Выйти
+    </button>
+  );
+}
+
 export default function TrainerRequestClient({ trainerSlug, botUsername }: Props) {
   const [authState, setAuthState] = useState<AuthState>('loading');
+  const [isSelf, setIsSelf] = useState(false);
   const [hasPro, setHasPro] = useState<boolean | null>(null);
   const [requestStatus, setRequestStatus] = useState<RequestStatus>(null);
   const [message, setMessage] = useState('');
@@ -30,10 +42,16 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
   const username = botUsername || 'EATLYY_bot';
 
   async function loadUserData() {
-    const [subResp, requestsResp] = await Promise.all([
+    const [subResp, requestsResp, profileResp] = await Promise.all([
       webApi.getWebSubscriptionStatus().catch(() => ({ hasPro: false })),
       webApi.getMyClientExpertRequests().catch(() => ({ requests: [] })),
+      webApi.getExpertProfile().catch(() => null),
     ]);
+    if (profileResp?.profile?.slug === trainerSlug) {
+      setIsSelf(true);
+      setAuthState('authenticated');
+      return;
+    }
     setHasPro(subResp.hasPro);
     const match = requestsResp.requests.find(r => r.expert?.slug === trainerSlug);
     setRequestStatus((match?.status as RequestStatus) ?? null);
@@ -84,6 +102,16 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState, username]);
 
+  async function handleLogout() {
+    await webApi.logout().catch(() => {});
+    setIsSelf(false);
+    setHasPro(null);
+    setRequestStatus(null);
+    setMessage('');
+    setSubmitError(null);
+    setAuthState('unauthenticated');
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -96,6 +124,7 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         if (err.code === 'requires_pro') { setHasPro(false); return; }
         if (err.code === 'pending_exists') { setRequestStatus('pending'); return; }
         if (err.code === 'already_connected') { setRequestStatus('accepted'); return; }
+        if (err.code === 'cannot_request_self') { setIsSelf(true); return; }
         setSubmitError(`Ошибка: ${err.code}`);
       } else {
         setSubmitError('Ошибка. Попробуйте ещё раз.');
@@ -118,6 +147,38 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
     return (
       <div style={boxStyle}>
         <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Загрузка…</div>
+      </div>
+    );
+  }
+
+  // ── Self-profile — expert viewing their own public card ──────────────────────
+  if (isSelf) {
+    return (
+      <div style={{ ...boxStyle, textAlign: 'left' }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: 'var(--accent-dim)', border: '1px solid rgba(215,255,63,0.25)',
+          borderRadius: 20, padding: '6px 14px', marginBottom: 14,
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>Ваша карточка</span>
+        </div>
+        <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 20 }}>
+          Это ваша публичная карточка эксперта. Клиенты смогут найти вас здесь и отправить заявку.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+          <Link href="/expert/profile" className="btn btn-accent" style={{ fontSize: 14, padding: '11px 22px' }}>
+            Мой профиль
+          </Link>
+          <Link href="/expert/requests" className="btn btn-outline" style={{ fontSize: 14, padding: '11px 22px' }}>
+            Заявки клиентов
+          </Link>
+        </div>
+        <button onClick={handleLogout} style={{
+          background: 'none', border: 'none', padding: 0,
+          color: 'var(--text-3)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
+        }}>
+          Войти другим аккаунтом
+        </button>
       </div>
     );
   }
@@ -154,9 +215,10 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#4caf50' }}>Заявка отправлена</span>
         </div>
-        <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 14 }}>
           Ваша заявка принята — ожидайте ответа эксперта.
         </p>
+        <LogoutLink onLogout={handleLogout} />
       </div>
     );
   }
@@ -171,9 +233,10 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#4caf50' }}>Эксперт принял заявку</span>
         </div>
-        <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 14 }}>
           Откройте EATLYY в Telegram, чтобы начать работу с экспертом.
         </p>
+        <LogoutLink onLogout={handleLogout} />
       </div>
     );
   }
@@ -191,9 +254,12 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 16 }}>
           Этот эксперт не принял вашу заявку. Вы можете выбрать другого.
         </p>
-        <Link href="/trainers" className="btn btn-outline" style={{ fontSize: 14, padding: '10px 22px' }}>
-          Смотреть других экспертов
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <Link href="/trainers" className="btn btn-outline" style={{ fontSize: 14, padding: '10px 22px' }}>
+            Смотреть других экспертов
+          </Link>
+          <LogoutLink onLogout={handleLogout} />
+        </div>
       </div>
     );
   }
@@ -208,7 +274,7 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
         <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 24, maxWidth: 360, margin: '0 auto 24px' }}>
           Подключение эксперта доступно на Pro.
         </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
           <Link href="/pricing" className="btn btn-accent" style={{ fontSize: 14, padding: '12px 26px' }}>
             Смотреть тарифы
           </Link>
@@ -221,6 +287,7 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
             Открыть в Telegram
           </a>
         </div>
+        <LogoutLink onLogout={handleLogout} />
       </div>
     );
   }
@@ -262,6 +329,9 @@ export default function TrainerRequestClient({ trainerSlug, botUsername }: Props
           {submitting ? 'Отправляем…' : 'Отправить заявку'}
         </button>
       </form>
+      <div style={{ marginTop: 14 }}>
+        <LogoutLink onLogout={handleLogout} />
+      </div>
     </div>
   );
 }
