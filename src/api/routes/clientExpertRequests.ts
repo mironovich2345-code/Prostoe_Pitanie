@@ -111,7 +111,7 @@ router.post('/', async (req: WebAuthRequest, res: Response) => {
       where: {
         OR: [
           ...(trainer.userId ? [{ trainerUserId: trainer.userId, clientUserId: userId }] : []),
-          { trainerId: trainer.chatId, clientId: chatId },
+          ...(chatId ? [{ trainerId: trainer.chatId, clientId: chatId }] : []),
         ],
       },
       select: { status: true },

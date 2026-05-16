@@ -160,9 +160,22 @@ interface EditFormProps {
   onCancel: () => void;
 }
 
+const ACTIVITY_OPTIONS = [
+  { value: 1.2,   label: 'Почти нет активности',  desc: 'Сидячая работа, < 4 000 шагов/день' },
+  { value: 1.375, label: 'Лёгкая активность',      desc: 'Прогулки, 4 000–7 000 шагов/день' },
+  { value: 1.55,  label: 'Средняя активность',     desc: 'Тренировки несколько раз в неделю' },
+  { value: 1.725, label: 'Высокая активность',     desc: 'Интенсивные нагрузки почти ежедневно' },
+  { value: 1.9,   label: 'Очень высокая',          desc: 'Профессиональный спорт' },
+];
+
 function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
   const [name,     setName]     = useState(profile?.preferredName    ?? '');
   const [city,     setCity]     = useState(profile?.city             ?? '');
+  const [sex,      setSex]      = useState(profile?.sex              ?? '');
+  const [birthDate,setBirthDate]= useState(
+    profile?.birthDate ? profile.birthDate.split('T')[0] : ''
+  );
+  const [activity, setActivity] = useState(profile?.activityLevel?.toString() ?? '');
   const [height,   setHeight]   = useState(profile?.heightCm?.toString()        ?? '');
   const [weight,   setWeight]   = useState(profile?.currentWeightKg?.toString() ?? '');
   const [desired,  setDesired]  = useState(profile?.desiredWeightKg?.toString() ?? '');
@@ -187,6 +200,13 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
     const trimCity = city.trim();
     if (trimName !== (profile?.preferredName    ?? '')) payload.preferredName    = trimName || null;
     if (trimCity !== (profile?.city             ?? '')) payload.city             = trimCity || null;
+    if (sex  && sex  !== (profile?.sex  ?? ''))         payload.sex              = sex;
+    if (birthDate) {
+      const existingBd = profile?.birthDate ? profile.birthDate.split('T')[0] : '';
+      if (birthDate !== existingBd) payload.birthDate = birthDate;
+    }
+    const al = activity ? parseFloat(activity) : NaN;
+    if (!isNaN(al) && al !== profile?.activityLevel)    payload.activityLevel    = al;
     if (h  !== undefined && h  !== profile?.heightCm)        payload.heightCm        = h;
     if (cw !== undefined && cw !== profile?.currentWeightKg) payload.currentWeightKg = cw;
     if (dw !== undefined && dw !== profile?.desiredWeightKg) payload.desiredWeightKg = dw;
@@ -202,9 +222,12 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
     } catch (err) {
       const code = err instanceof ApiError ? err.code : null;
       setError(
-        code === 'invalid_heightCm'        ? 'Рост: 100–250 см'        :
-        code === 'invalid_currentWeightKg' ? 'Вес: 30–300 кг'          :
-        code === 'invalid_desiredWeightKg' ? 'Желаемый вес: 30–300 кг' :
+        code === 'invalid_heightCm'        ? 'Рост: 100–250 см'                          :
+        code === 'invalid_currentWeightKg' ? 'Вес: 30–300 кг'                            :
+        code === 'invalid_desiredWeightKg' ? 'Желаемый вес: 30–300 кг'                   :
+        code === 'invalid_sex'             ? 'Выберите пол'                               :
+        code === 'invalid_birthDate'       ? 'Укажите корректную дату рождения (13–100 лет)' :
+        code === 'invalid_activityLevel'   ? 'Выберите уровень активности'               :
         'Ошибка сохранения. Попробуйте ещё раз.',
       );
       setSaving(false);
@@ -237,6 +260,53 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
         <label style={lbl}>Город</label>
         <input style={inp} type="text" value={city} onChange={e => setCity(e.target.value)} maxLength={100} placeholder="Москва" disabled={saving} />
       </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ ...lbl, marginBottom: 6 }}>Пол</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[{ v: 'male', l: 'Мужской' }, { v: 'female', l: 'Женский' }].map(opt => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setSex(opt.v)}
+              disabled={saving}
+              style={{
+                flex: 1, padding: '9px 4px', fontSize: 13, fontWeight: 600,
+                borderRadius: 8, border: 'none', cursor: saving ? 'default' : 'pointer',
+                background: sex === opt.v ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+                color: sex === opt.v ? '#000' : 'var(--text-2)',
+              }}
+            >
+              {opt.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label style={lbl}>Дата рождения</label>
+        <input
+          style={inp} type="date" value={birthDate}
+          onChange={e => setBirthDate(e.target.value)}
+          disabled={saving}
+          min={new Date(new Date().getFullYear() - 100, 0, 1).toISOString().split('T')[0]}
+          max={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate()).toISOString().split('T')[0]}
+        />
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label style={lbl}>Уровень активности</label>
+        <select
+          style={{ ...inp, cursor: 'pointer' }} value={activity}
+          onChange={e => setActivity(e.target.value)} disabled={saving}
+        >
+          <option value="">Не выбран</option>
+          {ACTIVITY_OPTIONS.map(o => (
+            <option key={o.value} value={String(o.value)}>{o.label} — {o.desc}</option>
+          ))}
+        </select>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
         <div>
           <label style={lbl}>Рост, см</label>
@@ -289,13 +359,173 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
   );
 }
 
+// ─── Phone Link Form ──────────────────────────────────────────────────────────
+
+interface PhoneLinkFormProps {
+  onSuccess: () => Promise<void>;
+}
+
+function PhoneLinkForm({ onSuccess }: PhoneLinkFormProps) {
+  const [stage,     setStage]     = useState<'phone' | 'code'>('phone');
+  const [loading,   setLoading]   = useState(false);
+  const [phone,     setPhone]     = useState('');
+  const [code,      setCode]      = useState('');
+  const [error,     setError]     = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  function startCountdown() {
+    setCountdown(60);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timerRef.current!); timerRef.current = null; return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  function linkErrorText(err: unknown, ctx: 'request' | 'verify'): string {
+    const c = err instanceof ApiError ? err.code : null;
+    if (c === 'phone_already_linked')
+      return 'Этот телефон уже привязан к другому аккаунту. Напишите в поддержку, если хотите объединить доступы.';
+    if (ctx === 'request') {
+      if (c === 'invalid_phone')       return 'Неверный формат номера. Введите +79...';
+      if (c === 'rate_limit_exceeded') return 'Слишком много попыток. Подождите немного.';
+      if (c === 'resend_too_soon')     return 'Повторная отправка доступна через минуту.';
+      if (c === 'sms_provider_not_configured') return 'SMS временно недоступны.';
+      return 'Ошибка отправки SMS. Попробуйте ещё раз.';
+    }
+    if (c === 'invalid_code')              return 'Неверный код. Попробуйте ещё раз.';
+    if (c === 'code_not_found_or_expired') return 'Код устарел. Запросите новый.';
+    if (c === 'too_many_attempts')         return 'Слишком много попыток. Запросите новый код.';
+    return 'Ошибка. Попробуйте ещё раз.';
+  }
+
+  async function handleRequestCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await webApi.requestPhoneLinkCode(phone);
+      if (result.alreadyLinked) { await onSuccess(); return; }
+      setCode('');
+      setStage('code');
+      startCountdown();
+    } catch (err) {
+      setError(linkErrorText(err, 'request'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await webApi.verifyPhoneLinkCode(phone, code);
+      await onSuccess();
+    } catch (err) {
+      setError(linkErrorText(err, 'verify'));
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (countdown > 0 || loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await webApi.requestPhoneLinkCode(phone);
+      setCode('');
+      startCountdown();
+    } catch (err) {
+      setError(linkErrorText(err, 'request'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inp: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', padding: '9px 12px',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-2)',
+    borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none', display: 'block',
+  };
+
+  if (stage === 'phone') {
+    return (
+      <form onSubmit={handleRequestCode} style={{ marginTop: 10 }}>
+        <input
+          type="tel" placeholder="+79990000000" value={phone}
+          onChange={e => setPhone(e.target.value)}
+          style={inp} autoComplete="tel" required disabled={loading}
+        />
+        {error && <p style={{ fontSize: 12, color: '#ef5350', margin: '6px 0 0' }}>{error}</p>}
+        <button type="submit" disabled={loading || !phone.trim()} style={{
+          marginTop: 8, padding: '8px 16px',
+          background: 'none', border: '1px solid var(--border-2)',
+          borderRadius: 8, fontSize: 12, fontWeight: 600,
+          color: 'var(--text-2)', cursor: loading || !phone.trim() ? 'default' : 'pointer',
+          opacity: (loading || !phone.trim()) ? 0.5 : 1,
+        }}>
+          {loading ? 'Отправка…' : 'Получить SMS-код'}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleVerifyCode} style={{ marginTop: 10 }}>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>
+        Код отправлен на <strong style={{ color: 'var(--text-2)' }}>{phone}</strong>
+      </p>
+      <input
+        type="text" inputMode="numeric" pattern="\d*" maxLength={6}
+        placeholder="000000" value={code}
+        onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+        style={{ ...inp, letterSpacing: 6, textAlign: 'center', fontSize: 20, fontWeight: 700 }}
+        autoComplete="one-time-code" required disabled={loading}
+        // eslint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus
+      />
+      {error && <p style={{ fontSize: 12, color: '#ef5350', margin: '6px 0 0' }}>{error}</p>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8, alignItems: 'center' }}>
+        <button type="submit" disabled={loading || code.length < 4} style={{
+          padding: '8px 16px', background: 'var(--accent)', border: 'none',
+          borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#000', cursor: 'pointer',
+          opacity: (loading || code.length < 4) ? 0.5 : 1,
+        }}>
+          {loading ? 'Проверка…' : 'Подтвердить'}
+        </button>
+        <button type="button" onClick={handleResend} disabled={countdown > 0 || loading} style={{
+          background: 'none', border: 'none', padding: 0, fontSize: 11,
+          color: countdown > 0 ? 'var(--text-3)' : 'var(--accent)',
+          cursor: countdown > 0 ? 'default' : 'pointer',
+          textDecoration: countdown > 0 ? 'none' : 'underline',
+        }}>
+          {countdown > 0 ? `Повторно через ${countdown} с` : 'Отправить снова'}
+        </button>
+        <button type="button" onClick={() => { setStage('phone'); setCode(''); setError(null); }} style={{
+          background: 'none', border: 'none', padding: 0,
+          fontSize: 11, color: 'var(--text-3)', cursor: 'pointer', textDecoration: 'underline',
+        }}>
+          Изменить номер
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ClientDashboard({ botUsername, maxBotName }: Props) {
-  const [authState, setAuthState] = useState<AuthState>('loading');
-  const [data, setData]           = useState<WebMeResponse | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [editing, setEditing]     = useState(false);
+  const [authState, setAuthState]     = useState<AuthState>('loading');
+  const [data, setData]               = useState<WebMeResponse | null>(null);
+  const [loginError, setLoginError]   = useState<string | null>(null);
+  const [editing, setEditing]         = useState(false);
+  const [showPhoneLink, setShowPhoneLink] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const username  = botUsername || 'EATLYY_bot';
 
@@ -389,13 +619,28 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
 
   if (!data) return null;
 
-  const { identity, profile, subscription, roles, expert, expertApplication, clientExpert } = data;
+  const { identity, profile, subscription, roles, expert, expertApplication, clientExpert, auth } = data;
 
   const displayName = profile?.preferredName ?? identity?.firstName ?? 'Кабинет';
   const tgBotUrl    = `https://t.me/${username}`;
   const maxBotUrl   = maxBotName ? `https://max.ru/${maxBotName}` : null;
-  const hasProfileData = !!(profile?.heightCm || profile?.currentWeightKg || profile?.goalType || profile?.city || profile?.preferredName);
+  const hasProfileData = !!(profile?.heightCm || profile?.currentWeightKg || profile?.goalType || profile?.city || profile?.preferredName || profile?.sex);
   const hasMacros      = !!(profile?.dailyCaloriesKcal);
+
+  // Which fields are still needed to calculate КБЖУ
+  const missingForMacros = [
+    !profile?.sex           && 'пол',
+    !profile?.birthDate     && 'дата рождения',
+    !profile?.heightCm      && 'рост',
+    !profile?.currentWeightKg && 'текущий вес',
+    !profile?.activityLevel && 'уровень активности',
+  ].filter(Boolean) as string[];
+
+  const SEX_LABELS: Record<string, string> = { male: 'Мужской', female: 'Женский' };
+  const ACTIVITY_LABELS: Record<string, string> = {
+    '1.2': 'Почти нет активности', '1.375': 'Лёгкая активность',
+    '1.55': 'Средняя активность',  '1.725': 'Высокая активность', '1.9': 'Очень высокая',
+  };
 
   return (
     <div>
@@ -453,10 +698,19 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
           <>
             <Row label="Имя"          value={profile?.preferredName} />
             <Row label="Город"        value={profile?.city} />
+            <Row label="Пол"          value={profile?.sex ? (SEX_LABELS[profile.sex] ?? profile.sex) : null} />
+            <Row label="Дата рождения" value={profile?.birthDate
+              ? new Date(profile.birthDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+              : null}
+            />
             <Row label="Рост"         value={profile?.heightCm        ? `${profile.heightCm} см`        : null} />
             <Row label="Вес"          value={profile?.currentWeightKg ? `${profile.currentWeightKg} кг` : null} />
             <Row label="Желаемый вес" value={profile?.desiredWeightKg ? `${profile.desiredWeightKg} кг` : null} />
             <Row label="Цель"         value={profile?.goalType        ? (GOAL_LABELS[profile.goalType] ?? profile.goalType) : null} />
+            <Row label="Активность"   value={profile?.activityLevel
+              ? (ACTIVITY_LABELS[String(profile.activityLevel)] ?? String(profile.activityLevel))
+              : null}
+            />
           </>
         ) : (
           <div>
@@ -507,24 +761,44 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
           </>
         ) : (
           <div>
-            <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 8 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 10 }}>
               КБЖУ пока не рассчитано.
             </p>
-            <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 12 }}>
-              Для полного расчёта нужны пол, возраст и уровень активности — их можно указать в боте.
-            </p>
-            <a href={tgBotUrl} target="_blank" rel="noopener noreferrer" style={{
-              display: 'inline-block',
-              padding: '8px 16px',
-              background: 'none',
-              border: '1px solid var(--border-2)',
-              borderRadius: 8,
-              fontSize: 12, fontWeight: 600,
-              color: 'var(--text-2)',
-              textDecoration: 'none',
-            }}>
-              Открыть Telegram бота →
-            </a>
+            {missingForMacros.length > 0 ? (
+              <>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
+                  Для расчёта нужно указать: <strong style={{ color: 'var(--text-2)' }}>{missingForMacros.join(', ')}</strong>.
+                </p>
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{
+                    padding: '9px 20px',
+                    background: 'var(--accent)', border: 'none',
+                    borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    color: '#000', cursor: 'pointer',
+                  }}
+                >
+                  Заполнить анкету
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
+                  Все данные есть — обновите профиль, чтобы пересчитать норму.
+                </p>
+                <button
+                  onClick={() => setEditing(true)}
+                  style={{
+                    padding: '9px 20px',
+                    background: 'none', border: '1px solid var(--border-2)',
+                    borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    color: 'var(--text-2)', cursor: 'pointer',
+                  }}
+                >
+                  Обновить профиль
+                </button>
+              </>
+            )}
           </div>
         )}
       </Card>
@@ -563,6 +837,67 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
             Расширить доступ →
           </Link>
         )}
+      </Card>
+
+      {/* ── Auth methods card ── */}
+      <Card>
+        <SLabel>Способы входа</SLabel>
+
+        {/* Telegram */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Telegram</span>
+          {auth.identities.telegram.connected ? (
+            <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
+              ✓{auth.identities.telegram.username ? ` @${auth.identities.telegram.username}` : ' подключён'}
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>не подключён</span>
+          )}
+        </div>
+
+        {/* MAX */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>MAX</span>
+          {auth.identities.max.connected ? (
+            <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
+              ✓{auth.identities.max.username ? ` @${auth.identities.max.username}` : ' подключён'}
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>не подключён</span>
+          )}
+        </div>
+
+        {/* Phone */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Телефон</span>
+            {auth.identities.phone.connected ? (
+              <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
+                ✓ {auth.identities.phone.phoneMasked}
+              </span>
+            ) : (
+              <button
+                onClick={() => setShowPhoneLink(v => !v)}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: 12, color: 'var(--accent)', cursor: 'pointer',
+                  fontWeight: 600, textDecoration: 'underline',
+                }}
+              >
+                {showPhoneLink ? 'Отмена' : 'Привязать телефон'}
+              </button>
+            )}
+          </div>
+
+          {!auth.identities.phone.connected && showPhoneLink && (
+            <PhoneLinkForm
+              onSuccess={async () => {
+                setShowPhoneLink(false);
+                await loadData();
+              }}
+            />
+          )}
+        </div>
       </Card>
 
       {/* ── E: My Expert card ── */}

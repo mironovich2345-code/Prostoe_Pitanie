@@ -5,11 +5,16 @@ import { calcNorms, calcAge, deriveGoal } from '../../utils/normsCalc';
 
 const router = express.Router();
 
-const VALID_GOAL_TYPES = new Set(['lose', 'maintain', 'gain', 'track']);
+const VALID_GOAL_TYPES  = new Set(['lose', 'maintain', 'gain', 'track']);
+const VALID_SEX         = new Set(['male', 'female']);
+const VALID_ACTIVITY    = new Set([1.2, 1.375, 1.55, 1.725, 1.9]);
 
 const SAFE_SELECT = {
   preferredName:     true,
   city:              true,
+  sex:               true,
+  birthDate:         true,
+  activityLevel:     true,
   heightCm:          true,
   currentWeightKg:   true,
   desiredWeightKg:   true,
@@ -70,6 +75,36 @@ router.patch('/profile', requireWebAuth as express.RequestHandler, async (req: W
     data.goalType = body.goalType as string;
   }
 
+  if ('sex' in body) {
+    if (typeof body.sex !== 'string' || !VALID_SEX.has(body.sex)) {
+      res.status(400).json({ error: 'invalid_sex' }); return;
+    }
+    data.sex = body.sex;
+  }
+
+  if ('birthDate' in body) {
+    if (body.birthDate === null) {
+      data.birthDate = null;
+    } else if (typeof body.birthDate !== 'string') {
+      res.status(400).json({ error: 'invalid_birthDate' }); return;
+    } else {
+      const d = new Date(body.birthDate);
+      if (isNaN(d.getTime())) { res.status(400).json({ error: 'invalid_birthDate' }); return; }
+      const now = new Date();
+      // Age must be 13–100 years
+      const minBirth = new Date(now.getFullYear() - 100, now.getMonth(), now.getDate());
+      const maxBirth = new Date(now.getFullYear() - 13,  now.getMonth(), now.getDate());
+      if (d < minBirth || d > maxBirth) { res.status(400).json({ error: 'invalid_birthDate' }); return; }
+      data.birthDate = d;
+    }
+  }
+
+  if ('activityLevel' in body) {
+    const v = Number(body.activityLevel);
+    if (isNaN(v) || !VALID_ACTIVITY.has(v)) { res.status(400).json({ error: 'invalid_activityLevel' }); return; }
+    data.activityLevel = v;
+  }
+
   if (Object.keys(data).length === 0) {
     res.status(400).json({ error: 'no_fields' }); return;
   }
@@ -99,8 +134,7 @@ router.patch('/profile', requireWebAuth as express.RequestHandler, async (req: W
     }
 
     // Attempt inline КБЖУ recalculation when all required fields exist.
-    // Requires: sex + birthDate + heightCm + currentWeightKg + activityLevel
-    // (sex/birthDate/activityLevel are set via the bot; not editable here).
+    // Requires: sex + birthDate + heightCm + currentWeightKg + activityLevel.
     const freshForCalc = await prisma.userProfile.findUnique({
       where: { id: savedId },
       select: {

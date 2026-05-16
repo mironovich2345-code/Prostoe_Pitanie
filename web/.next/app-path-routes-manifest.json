@@ -6,14 +6,14 @@
   "/client/page": "/client",
   "/expert/requests/page": "/expert/requests",
   "/expert/profile/page": "/expert/profile",
-  "/legal/page": "/legal",
   "/clients/page": "/clients",
   "/experts/apply/page": "/experts/apply",
   "/login/page": "/login",
+  "/legal/page": "/legal",
   "/experts/page": "/experts",
   "/support/page": "/support",
   "/page": "/",
-  "/trainers/[slug]/page": "/trainers/[slug]",
+  "/pricing/page": "/pricing",
   "/trainers/page": "/trainers",
-  "/pricing/page": "/pricing"
+  "/trainers/[slug]/page": "/trainers/[slug]"
 }

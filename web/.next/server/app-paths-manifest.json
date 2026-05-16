@@ -6,14 +6,14 @@
   "/client/page": "app/client/page.js",
   "/expert/requests/page": "app/expert/requests/page.js",
   "/expert/profile/page": "app/expert/profile/page.js",
-  "/legal/page": "app/legal/page.js",
   "/clients/page": "app/clients/page.js",
   "/experts/apply/page": "app/experts/apply/page.js",
   "/login/page": "app/login/page.js",
+  "/legal/page": "app/legal/page.js",
   "/experts/page": "app/experts/page.js",
   "/support/page": "app/support/page.js",
   "/page": "app/page.js",
-  "/trainers/[slug]/page": "app/trainers/[slug]/page.js",
+  "/pricing/page": "app/pricing/page.js",
   "/trainers/page": "app/trainers/page.js",
-  "/pricing/page": "app/pricing/page.js"
+  "/trainers/[slug]/page": "app/trainers/[slug]/page.js"
 }

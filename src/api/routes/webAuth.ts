@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { resolveUserId } from '../utils/resolveUser';
+import { requireWebAuth, WebAuthRequest } from '../middleware/webAuth';
 import { normalizePhone } from '../../utils/normalizePhone';
 import { sendSmsCode } from '../../services/smsService';
 import prisma from '../../db';
@@ -414,6 +415,198 @@ router.get('/max/status', async (req, res) => {
     res.json({ status: record.status });
   } catch (err) {
     console.error('[web-auth/max/status] error:', (err as Error).message);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
+// ─── Phone-link flow (authenticated user attaches a phone to their account) ────
+//
+// POST /api/web-auth/phone/link/request-code
+// POST /api/web-auth/phone/link/verify-code
+//
+// Unlike the login flow, these endpoints:
+//   - require an existing web session (requireWebAuth)
+//   - do NOT create a new User
+//   - do NOT issue / change the session cookie
+//   - only create a new UserIdentity(platform='phone') for the current userId
+
+// POST /api/web-auth/phone/link/request-code
+router.post('/phone/link/request-code', requireWebAuth as express.RequestHandler, async (req: WebAuthRequest, res) => {
+  try {
+    const { userId } = req.webUser!;
+    const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone : '';
+    let phone: string;
+    try { phone = normalizePhone(rawPhone); }
+    catch { res.status(400).json({ error: 'invalid_phone' }); return; }
+
+    // Check if a phone identity already exists for this phone number
+    const existing = await prisma.userIdentity.findUnique({
+      where: { platform_platformId: { platform: 'phone', platformId: phone } },
+      select: { userId: true },
+    });
+    if (existing) {
+      if (existing.userId === userId) {
+        // Already linked to this account — no SMS needed
+        res.json({ ok: true, alreadyLinked: true });
+        return;
+      }
+      // Linked to a different account — refuse
+      res.status(409).json({ ok: false, error: 'phone_already_linked' });
+      return;
+    }
+
+    // Apply the same rate limits as the regular request-code endpoint
+    const ip = ((req.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]?.trim()) ?? (req.socket.remoteAddress ?? 'unknown');
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - OTP_RATE_LIMIT_WINDOW_MS);
+
+    const phoneCount = await prisma.phoneLoginCode.count({
+      where: { phone, createdAt: { gte: windowStart } },
+    });
+    if (phoneCount >= OTP_RATE_LIMIT_MAX) {
+      res.status(429).json({ error: 'rate_limit_exceeded' });
+      return;
+    }
+
+    if (ip !== 'unknown') {
+      const ipCount = await prisma.phoneLoginCode.count({
+        where: { ip, createdAt: { gte: windowStart } },
+      });
+      if (ipCount >= OTP_RATE_LIMIT_MAX) {
+        res.status(429).json({ error: 'rate_limit_exceeded' });
+        return;
+      }
+    }
+
+    const lastCode = await prisma.phoneLoginCode.findFirst({
+      where: { phone },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (lastCode && now.getTime() - lastCode.createdAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+      res.status(429).json({ error: 'resend_too_soon' });
+      return;
+    }
+
+    const code     = generateOtp();
+    const codeHash = hashOtp(code);
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
+
+    await prisma.phoneLoginCode.create({
+      data: {
+        phone,
+        codeHash,
+        expiresAt,
+        ip,
+        userAgent: ((req.headers['user-agent'] ?? '') as string).slice(0, 512),
+      },
+    });
+
+    await sendSmsCode(phone, code);
+
+    res.json({ ok: true });
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg === 'sms_provider_not_configured') {
+      res.status(503).json({ error: 'sms_provider_not_configured' });
+      return;
+    }
+    console.error('[web-auth/phone/link/request-code] error:', msg);
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+});
+
+// POST /api/web-auth/phone/link/verify-code
+router.post('/phone/link/verify-code', requireWebAuth as express.RequestHandler, async (req: WebAuthRequest, res) => {
+  try {
+    const { userId } = req.webUser!;
+    const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone : '';
+    const rawCode  = typeof req.body?.code  === 'string' ? req.body.code.trim() : '';
+
+    let phone: string;
+    try { phone = normalizePhone(rawPhone); }
+    catch { res.status(400).json({ error: 'invalid_phone' }); return; }
+
+    if (!rawCode || !/^\d{4,6}$/.test(rawCode)) {
+      res.status(400).json({ error: 'invalid_code' });
+      return;
+    }
+
+    const now = new Date();
+    const record = await prisma.phoneLoginCode.findFirst({
+      where: { phone, consumedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!record) {
+      res.status(401).json({ error: 'code_not_found_or_expired' });
+      return;
+    }
+
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      res.status(401).json({ error: 'too_many_attempts' });
+      return;
+    }
+
+    const expectedBuf = Buffer.from(hashOtp(rawCode), 'hex');
+    const actualBuf   = Buffer.from(record.codeHash,  'hex');
+    const match = expectedBuf.length === actualBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, actualBuf);
+
+    if (!match) {
+      await prisma.phoneLoginCode.update({
+        where: { id: record.id },
+        data:  { attempts: { increment: 1 } },
+      });
+      res.status(401).json({ error: 'invalid_code' });
+      return;
+    }
+
+    // Code is correct — consume it immediately
+    await prisma.phoneLoginCode.update({
+      where: { id: record.id },
+      data:  { consumedAt: now },
+    });
+
+    // Re-check identity state (race-safe: could have been linked in parallel)
+    const existing = await prisma.userIdentity.findUnique({
+      where: { platform_platformId: { platform: 'phone', platformId: phone } },
+      select: { userId: true },
+    });
+
+    if (existing) {
+      if (existing.userId === userId) {
+        res.json({ ok: true, alreadyLinked: true });
+        return;
+      }
+      res.status(409).json({ ok: false, error: 'phone_already_linked' });
+      return;
+    }
+
+    // Create the phone identity for the current user (no new User created)
+    try {
+      await prisma.userIdentity.create({
+        data: {
+          userId,
+          platform:   'phone',
+          platformId: phone,
+          username:   null,
+          firstName:  null,
+        },
+      });
+    } catch (createErr: unknown) {
+      // P2002 = unique constraint violation (race condition)
+      if ((createErr as { code?: string }).code === 'P2002') {
+        res.status(409).json({ ok: false, error: 'phone_already_linked' });
+        return;
+      }
+      throw createErr;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[web-auth/phone/link/verify-code] error:', (err as Error).message);
     res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 });

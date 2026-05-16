@@ -6,6 +6,15 @@ import type { UserSubscription } from '../../services/subscriptionService';
 
 const router = express.Router();
 
+function maskPhone(phone: string): string {
+  // E.164 Russian: +7XXXXXXXXXX (12 chars) → +7 *** ***-XX-XX
+  if (phone.startsWith('+7') && phone.length === 12) {
+    const last4 = phone.slice(-4);
+    return `+7 *** ***-${last4.slice(0, 2)}-${last4.slice(2)}`;
+  }
+  return `+*** ***${phone.slice(-4)}`;
+}
+
 function getAdminIds(): Set<string> {
   const raw = process.env.ADMIN_USER_IDS ?? '';
   return new Set(raw.split(',').map(s => s.trim()).filter(Boolean));
@@ -62,6 +71,9 @@ router.get('/me', requireWebAuth as express.RequestHandler, async (req: WebAuthR
           dailyFatG: true,
           dailyCarbsG: true,
           city: true,
+          sex: true,
+          birthDate: true,
+          activityLevel: true,
         },
       }),
 
@@ -111,9 +123,10 @@ router.get('/me', requireWebAuth as express.RequestHandler, async (req: WebAuthR
       }),
     ]);
 
-    const primaryIdentity = allIdentities.find(i => i.platform === 'telegram') ?? allIdentities[0] ?? null;
-    const tgIdentity = allIdentities.find(i => i.platform === 'telegram') ?? null;
-    const maxIdentity = allIdentities.find(i => i.platform === 'max') ?? null;
+    const primaryIdentity  = allIdentities.find(i => i.platform === 'telegram') ?? allIdentities[0] ?? null;
+    const tgIdentity       = allIdentities.find(i => i.platform === 'telegram') ?? null;
+    const maxIdentity      = allIdentities.find(i => i.platform === 'max')      ?? null;
+    const phoneIdentity    = allIdentities.find(i => i.platform === 'phone')    ?? null;
 
     if (!userRecord) {
       res.status(401).json({ ok: false, error: 'unauthorized' });
@@ -197,16 +210,19 @@ router.get('/me', requireWebAuth as express.RequestHandler, async (req: WebAuthR
         firstName: primaryIdentity.firstName ?? null,
       } : null,
       profile: profile ? {
-        preferredName: profile.preferredName ?? null,
-        currentWeightKg: profile.currentWeightKg ?? null,
-        desiredWeightKg: profile.desiredWeightKg ?? null,
-        heightCm: profile.heightCm ?? null,
-        goalType: profile.goalType ?? null,
-        dailyCaloriesKcal: profile.dailyCaloriesKcal ?? null,
-        dailyProteinG: profile.dailyProteinG ?? null,
-        dailyFatG: profile.dailyFatG ?? null,
-        dailyCarbsG: profile.dailyCarbsG ?? null,
-        city: profile.city ?? null,
+        preferredName:    profile.preferredName    ?? null,
+        currentWeightKg:  profile.currentWeightKg  ?? null,
+        desiredWeightKg:  profile.desiredWeightKg  ?? null,
+        heightCm:         profile.heightCm         ?? null,
+        goalType:         profile.goalType         ?? null,
+        dailyCaloriesKcal:profile.dailyCaloriesKcal?? null,
+        dailyProteinG:    profile.dailyProteinG    ?? null,
+        dailyFatG:        profile.dailyFatG        ?? null,
+        dailyCarbsG:      profile.dailyCarbsG      ?? null,
+        city:             profile.city             ?? null,
+        sex:              profile.sex              ?? null,
+        birthDate:        profile.birthDate?.toISOString() ?? null,
+        activityLevel:    profile.activityLevel    ?? null,
       } : null,
       subscription: {
         planId: userSub?.planId ?? null,
@@ -303,7 +319,9 @@ router.get('/me', requireWebAuth as express.RequestHandler, async (req: WebAuthR
             username: maxIdentity.username ?? null,
             platformId: maxIdentity.platformId,
           } : { connected: false, username: null, platformId: null },
-          phone: { connected: false, phoneMasked: null },
+          phone: phoneIdentity
+            ? { connected: true,  phoneMasked: maskPhone(phoneIdentity.platformId) }
+            : { connected: false, phoneMasked: null },
         },
       },
     });

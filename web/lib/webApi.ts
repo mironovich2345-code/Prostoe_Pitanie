@@ -101,16 +101,19 @@ export interface WebMeIdentity {
 }
 
 export interface WebMeProfile {
-  preferredName: string | null;
-  currentWeightKg: number | null;
-  desiredWeightKg: number | null;
-  heightCm: number | null;
-  goalType: string | null;
+  preferredName:     string | null;
+  currentWeightKg:   number | null;
+  desiredWeightKg:   number | null;
+  heightCm:          number | null;
+  goalType:          string | null;
   dailyCaloriesKcal: number | null;
-  dailyProteinG: number | null;
-  dailyFatG: number | null;
-  dailyCarbsG: number | null;
-  city: string | null;
+  dailyProteinG:     number | null;
+  dailyFatG:         number | null;
+  dailyCarbsG:       number | null;
+  city:              string | null;
+  sex:               string | null;
+  birthDate:         string | null;  // ISO string (e.g. "2000-01-15T00:00:00.000Z")
+  activityLevel:     number | null;
 }
 
 export interface WebMeSubscription {
@@ -205,13 +208,19 @@ export interface WebMeResponse {
 export interface PhoneCodeRequestResponse { ok: boolean }
 export interface PhoneCodeVerifyResponse  { ok: boolean; userId: string }
 
+export interface PhoneLinkRequestResponse { ok: boolean; alreadyLinked?: boolean }
+export interface PhoneLinkVerifyResponse  { ok: boolean; alreadyLinked?: boolean }
+
 export interface WebClientProfileUpdatePayload {
-  preferredName?: string | null;
-  city?: string | null;
-  heightCm?: number;
+  preferredName?:  string | null;
+  city?:           string | null;
+  sex?:            string;
+  birthDate?:      string;        // YYYY-MM-DD
+  activityLevel?:  number;
+  heightCm?:       number;
   currentWeightKg?: number;
   desiredWeightKg?: number;
-  goalType?: string;
+  goalType?:       string;
 }
 
 export class ApiError extends Error {
@@ -334,6 +343,20 @@ export const webApi = {
 
   verifyPhoneCode: (phone: string, code: string) =>
     request<PhoneCodeVerifyResponse>('/api/web-auth/phone/verify-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    }),
+
+  // ─── Phone-link (attach phone to an already-authenticated account) ───────────
+
+  requestPhoneLinkCode: (phone: string) =>
+    request<PhoneLinkRequestResponse>('/api/web-auth/phone/link/request-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
+
+  verifyPhoneLinkCode: (phone: string, code: string) =>
+    request<PhoneLinkVerifyResponse>('/api/web-auth/phone/link/verify-code', {
       method: 'POST',
       body: JSON.stringify({ phone, code }),
     }),
