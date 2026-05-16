@@ -62,6 +62,23 @@ export default function Header() {
           })}
         </nav>
 
+        {/* Cabinet link */}
+        <Link
+          href="/client"
+          style={{
+            padding: '6px 14px',
+            fontSize: 13, fontWeight: 700,
+            color: (pathname === '/client' || pathname.startsWith('/client/')) ? '#000' : 'var(--accent)',
+            background: (pathname === '/client' || pathname.startsWith('/client/')) ? 'var(--accent)' : 'var(--accent-dim)',
+            border: '1px solid rgba(215,255,63,0.25)',
+            borderRadius: 'var(--r-sm)',
+            marginRight: 8,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Личный кабинет
+        </Link>
+
         {/* CTA */}
         <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
           style={{ padding: '8px 18px', fontSize: 13, borderRadius: 'var(--r-md)' }}>

@@ -86,6 +86,10 @@ export default function HomePage() {
               style={{ fontSize: 16, padding: '16px 32px' }}>
               Найти эксперта
             </Link>
+            <Link href="/client" className="btn btn-ghost"
+              style={{ fontSize: 16, padding: '16px 32px' }}>
+              Личный кабинет
+            </Link>
           </div>
         </div>
       </section>
