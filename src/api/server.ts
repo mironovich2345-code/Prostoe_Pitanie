@@ -31,6 +31,8 @@ import webAuthRouter from './routes/webAuth';
 import expertApplicationsWebRouter from './routes/expertApplicationsWeb';
 import webExpertProfileRouter from './routes/webExpertProfile';
 import publicTrainersRouter from './routes/publicTrainers';
+import clientExpertRequestsRouter from './routes/clientExpertRequests';
+import webExpertClientRequestsRouter from './routes/webExpertClientRequests';
 
 export function createApiServer() {
   const app = express();
@@ -92,7 +94,9 @@ export function createApiServer() {
   app.use('/api/web-auth', webAuthRouter);
   app.use('/api/expert-applications', expertApplicationsWebRouter);
   app.use('/api/web/expert', webExpertProfileRouter);
+  app.use('/api/web/expert', webExpertClientRequestsRouter);
   app.use('/api/public/trainers', publicTrainersRouter);
+  app.use('/api/client-expert-requests', clientExpertRequestsRouter);
 
   // All /api routes require platform auth (Telegram or MAX)
   app.use('/api', platformAuthMiddleware as express.RequestHandler);

@@ -60,6 +60,12 @@
       "namedRegex": "^/expert/profile(?:/)?$"
     },
     {
+      "page": "/expert/requests",
+      "regex": "^/expert/requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/expert/requests(?:/)?$"
+    },
+    {
       "page": "/experts",
       "regex": "^/experts(?:/)?$",
       "routeKeys": {},

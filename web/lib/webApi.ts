@@ -63,6 +63,33 @@ export interface SubmitApplicationData {
   proofLink?: string;
 }
 
+export interface ClientExpertRequest {
+  id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'canceled';
+  message: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+  expert: {
+    id: number;
+    fullName: string | null;
+    specialization: string | null;
+    slug: string | null;
+    publicStatus: string;
+  } | null;
+}
+
+export interface ExpertClientRequest {
+  id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'canceled';
+  message: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+  client: {
+    displayName: string;
+    telegramUsername: string | null;
+  };
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -136,4 +163,29 @@ export const webApi = {
 
   hideExpertProfile: () =>
     request<{ ok: boolean; publicStatus: string }>('/api/web/expert/profile/hide', { method: 'POST' }),
+
+  // ─── Client → Expert requests ───────────────────────────────────────────────
+
+  getWebSubscriptionStatus: () =>
+    request<{ hasPro: boolean }>('/api/client-expert-requests/subscription-status'),
+
+  createClientExpertRequest: (trainerSlug: string, message?: string) =>
+    request<{ request: ClientExpertRequest }>('/api/client-expert-requests', {
+      method: 'POST',
+      body: JSON.stringify({ trainerSlug, message }),
+    }),
+
+  getMyClientExpertRequests: () =>
+    request<{ requests: ClientExpertRequest[] }>('/api/client-expert-requests/me'),
+
+  // ─── Expert incoming requests ────────────────────────────────────────────────
+
+  getExpertClientRequests: () =>
+    request<{ requests: ExpertClientRequest[] }>('/api/web/expert/client-requests'),
+
+  acceptExpertClientRequest: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/api/web/expert/client-requests/${encodeURIComponent(id)}/accept`, { method: 'POST' }),
+
+  rejectExpertClientRequest: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/api/web/expert/client-requests/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
 };

@@ -375,6 +375,12 @@ export default function ExpertProfileClient({ botUsername }: Props) {
           )}
           Профиль виден клиентам только после публикации.
         </p>
+
+        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+          <Link href="/expert/requests" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+            Входящие заявки клиентов →
+          </Link>
+        </div>
       </form>
     </div>
   );

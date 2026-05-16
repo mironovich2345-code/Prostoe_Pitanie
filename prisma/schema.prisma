@@ -446,6 +446,32 @@ model AiCostLog {
 
 // ─── Expert applications (from web) ─────────────────────────────────────────
 
+/// Request sent by a web client to a published expert.
+/// One active pending request per (client, trainer) pair is enforced at DB level.
+model ClientExpertRequest {
+  id               String    @id @default(cuid())
+  /// User.id of the requesting client
+  clientUserId     String
+  /// User.id of the expert (TrainerProfile.userId); null for legacy chatId-only profiles
+  expertUserId     String?
+  /// TrainerProfile.id — always set; used for ownership checks on accept/reject
+  trainerProfileId Int
+  /// pending | accepted | rejected | canceled
+  status           String    @default("pending")
+  message          String?
+  source           String    @default("web")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  respondedAt      DateTime?
+
+  @@unique([clientUserId, trainerProfileId])
+  @@index([clientUserId])
+  @@index([expertUserId])
+  @@index([trainerProfileId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 /// Application submitted via web site. Separate from TrainerProfile (which is the
 /// operational profile created AFTER approval). One user may have multiple applications
 /// over time; only one pending/in_review allowed at a time.

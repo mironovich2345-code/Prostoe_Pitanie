@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getExperts, getExpertBySlug } from '@/lib/api';
+import TrainerRequestClient from '@/components/TrainerRequestClient';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -33,12 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-const TG_BOT = process.env.NEXT_PUBLIC_BOT_URL ?? 'https://t.me/EATLYY_bot';
-
 export default async function TrainerPage({ params }: Props) {
   const { slug } = await params;
   const expert = await getExpertBySlug(slug);
   if (!expert) notFound();
+
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'EATLYY_bot';
 
   const tags = expert.tags ? expert.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
   const forWhomItems = expert.suitableFor
@@ -165,30 +166,13 @@ export default async function TrainerPage({ params }: Props) {
             </div>
           )}
 
-          {/* CTA */}
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--r-xl)',
-            padding: '28px 24px',
-            textAlign: 'center',
-          }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4, marginBottom: 8 }}>
-              Готовы начать?
-            </h2>
-            <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 22, maxWidth: 380, margin: '0 auto 22px' }}>
-              Откройте EATLYY в Telegram, выберите эксперта и подключите его к своему дневнику.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
-                style={{ fontSize: 15, padding: '14px 28px' }}>
-                Выбрать эксперта
-              </a>
-              <Link href="/trainers" className="btn btn-ghost"
-                style={{ fontSize: 15, padding: '14px 24px' }}>
-                Смотреть других
-              </Link>
-            </div>
+          {/* CTA — dynamic request flow */}
+          <TrainerRequestClient trainerSlug={slug} botUsername={botUsername} />
+
+          <div style={{ marginTop: 12, textAlign: 'center' }}>
+            <Link href="/trainers" style={{ fontSize: 13, color: 'var(--text-3)' }}>
+              ← Смотреть других экспертов
+            </Link>
           </div>
         </div>
       </section>
