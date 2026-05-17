@@ -33,6 +33,8 @@ import webExpertProfileRouter from './routes/webExpertProfile';
 import publicTrainersRouter from './routes/publicTrainers';
 import clientExpertRequestsRouter from './routes/clientExpertRequests';
 import webExpertClientRequestsRouter from './routes/webExpertClientRequests';
+import webExpertClientsRouter from './routes/webExpertClients';
+import webCompanyRouter from './routes/webCompany';
 import webMeRouter from './routes/webMe';
 import webProfileRouter from './routes/webProfile';
 
@@ -99,6 +101,8 @@ export function createApiServer() {
   app.use('/api/web', webProfileRouter);
   app.use('/api/web/expert', webExpertProfileRouter);
   app.use('/api/web/expert', webExpertClientRequestsRouter);
+  app.use('/api/web/expert', webExpertClientsRouter);
+  app.use('/api/web/company', webCompanyRouter);
   app.use('/api/public/trainers', publicTrainersRouter);
   app.use('/api/client-expert-requests', clientExpertRequestsRouter);
 

@@ -996,10 +996,31 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
         </Card>
       )}
 
-      {/* ── Expert cabinet links ── */}
-      {(roles.isExpert || roles.isCompany) && (
+      {/* ── Expert / Company cabinet links ── */}
+      {roles.isCompany && (
         <Card>
-          <SLabel>Кабинет {roles.isCompany ? 'компании' : 'эксперта'}</SLabel>
+          <SLabel>Кабинет компании</SLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { href: '/company',         label: 'Обзор' },
+              { href: '/company/profile', label: 'Профиль компании' },
+              { href: '/company/offers',  label: 'Реферальные офферы' },
+              { href: '/company/stats',   label: 'Статистика' },
+            ].map((item, i, arr) => (
+              <span key={item.href}>
+                <Link href={item.href} style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{item.label}</span>
+                  <span style={{ color: 'var(--text-3)' }}>→</span>
+                </Link>
+                {i < arr.length - 1 && <div style={{ height: 1, background: 'var(--border)', marginTop: 10 }} />}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+      {roles.isExpert && (
+        <Card>
+          <SLabel>Кабинет эксперта</SLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Link href="/expert/profile" style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
               <span>Мой профиль эксперта</span>

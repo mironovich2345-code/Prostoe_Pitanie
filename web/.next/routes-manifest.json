@@ -26,6 +26,14 @@
   },
   "dynamicRoutes": [
     {
+      "page": "/expert/clients/[linkId]",
+      "regex": "^/expert/clients/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPlinkId": "nxtPlinkId"
+      },
+      "namedRegex": "^/expert/clients/(?<nxtPlinkId>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/trainers/[slug]",
       "regex": "^/trainers/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -64,6 +72,36 @@
       "regex": "^/clients(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/clients(?:/)?$"
+    },
+    {
+      "page": "/company",
+      "regex": "^/company(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/company(?:/)?$"
+    },
+    {
+      "page": "/company/offers",
+      "regex": "^/company/offers(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/company/offers(?:/)?$"
+    },
+    {
+      "page": "/company/profile",
+      "regex": "^/company/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/company/profile(?:/)?$"
+    },
+    {
+      "page": "/company/stats",
+      "regex": "^/company/stats(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/company/stats(?:/)?$"
+    },
+    {
+      "page": "/expert/clients",
+      "regex": "^/expert/clients(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/expert/clients(?:/)?$"
     },
     {
       "page": "/expert/profile",

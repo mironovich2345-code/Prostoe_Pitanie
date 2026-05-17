@@ -63,6 +63,60 @@ type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
   type __Unused = __Check
 }
 
+// Validate ../../app/company/offers/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/company/offers">> = Specific
+  const handler = {} as typeof import("../../app/company/offers/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/company/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/company">> = Specific
+  const handler = {} as typeof import("../../app/company/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/company/profile/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/company/profile">> = Specific
+  const handler = {} as typeof import("../../app/company/profile/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/company/stats/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/company/stats">> = Specific
+  const handler = {} as typeof import("../../app/company/stats/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/expert/clients/[linkId]/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/expert/clients/[linkId]">> = Specific
+  const handler = {} as typeof import("../../app/expert/clients/[linkId]/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/expert/clients/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/expert/clients">> = Specific
+  const handler = {} as typeof import("../../app/expert/clients/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/expert/profile/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/expert/profile">> = Specific

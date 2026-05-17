@@ -223,6 +223,117 @@ export interface WebClientProfileUpdatePayload {
   goalType?:       string;
 }
 
+// ─── Expert cabinet — client list & card ─────────────────────────────────────
+
+export type WebExpertAccessStatus = 'active_pro' | 'wrong_tariff' | 'unpaid' | 'unknown';
+
+export interface WebExpertClientSubscription {
+  planId: string;
+  status: string;
+  accessLevel: 'full' | 'basic';
+  currentPeriodEnd: string | null;
+}
+
+export interface WebExpertClientSummary {
+  linkId: string;
+  clientUserId: string | null;
+  displayName: string;
+  username: string | null;
+  city: string | null;
+  goalType: string | null;
+  currentWeightKg: number | null;
+  desiredWeightKg: number | null;
+  dailyCaloriesKcal: number | null;
+  subscription: WebExpertClientSubscription | null;
+  accessStatus: WebExpertAccessStatus;
+  connectedAt: string;
+}
+
+export interface WebExpertClientDetail {
+  linkId: string;
+  userId: string | null;
+  displayName: string;
+  username: string | null;
+  city: string | null;
+  goalType: string | null;
+  currentWeightKg: number | null;
+  desiredWeightKg: number | null;
+  heightCm: number | null;
+  dailyCaloriesKcal: number | null;
+  dailyProteinG: number | null;
+  dailyFatG: number | null;
+  dailyCarbsG: number | null;
+  subscription: WebExpertClientSubscription | null;
+  accessStatus: WebExpertAccessStatus;
+  connectedAt: string;
+}
+
+export interface WebExpertClientsResponse {
+  clients: WebExpertClientSummary[];
+}
+
+export interface WebExpertClientResponse {
+  ok: boolean;
+  client: WebExpertClientDetail;
+}
+
+// ─── Company cabinet ──────────────────────────────────────────────────────────
+
+export interface WebCompanyProfile {
+  id: string;
+  name: string | null;
+  city: string | null;
+  bio: string | null;
+  socialLink: string | null;
+  contactPerson: null;
+  status: string;
+  publicStatus: string;
+  slug: string | null;
+  referralCode: string | null;
+  createdAt: string;
+}
+
+export interface WebCompanyProfileResponse {
+  ok: boolean;
+  company: WebCompanyProfile;
+}
+
+export interface WebCompanyProfileUpdatePayload {
+  name?: string;
+  city?: string | null;
+  bio?: string | null;
+  socialLink?: string | null;
+}
+
+export interface WebCompanyOffer {
+  key: string;
+  offerType: string;
+  title: string;
+  description: string;
+  link: string;
+}
+
+export interface WebCompanyOffersResponse {
+  ok: boolean;
+  offers: WebCompanyOffer[];
+  expertAcquisitionLink: string | null;
+}
+
+export interface WebCompanyStats {
+  referralCode: string | null;
+  totalReferredUsers: number;
+  payingUsers: number | null;
+  activeSubscriptions: number | null;
+  expertRecruits: number;
+  rewardsTotal: number;
+  pendingRewards: number;
+}
+
+export interface WebCompanyStatsResponse {
+  ok: boolean;
+  stats: WebCompanyStats;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -360,4 +471,29 @@ export const webApi = {
       method: 'POST',
       body: JSON.stringify({ phone, code }),
     }),
+
+  // ─── Expert cabinet — client list & card ──────────────────────────────────
+
+  getExpertClients: () =>
+    request<WebExpertClientsResponse>('/api/web/expert/clients'),
+
+  getExpertClient: (linkId: string) =>
+    request<WebExpertClientResponse>(`/api/web/expert/clients/${encodeURIComponent(linkId)}`),
+
+  // ─── Company cabinet ───────────────────────────────────────────────────────
+
+  getCompanyProfile: () =>
+    request<WebCompanyProfileResponse>('/api/web/company/profile'),
+
+  updateCompanyProfile: (payload: WebCompanyProfileUpdatePayload) =>
+    request<WebCompanyProfileResponse>('/api/web/company/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  getCompanyOffers: () =>
+    request<WebCompanyOffersResponse>('/api/web/company/offers'),
+
+  getCompanyStats: () =>
+    request<WebCompanyStatsResponse>('/api/web/company/stats'),
 };
