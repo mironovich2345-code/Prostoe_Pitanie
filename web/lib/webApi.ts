@@ -464,6 +464,88 @@ export interface WebAddWeightResponse {
   entry: WebWeightEntry;
 }
 
+// ─── Web AI Food Analysis ─────────────────────────────────────────────────────
+
+export interface WebAnalyzeFoodTextPayload {
+  text: string;
+  date?: string;  // YYYY-MM-DD (passed through, not used in analysis)
+}
+
+export interface WebAiFoodAnalysis {
+  name: string;
+  mealType: string;
+  items: string[];
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
+  fiberG: number | null;
+  weightG: number | null;
+  confidence: 'high' | 'medium' | 'low';
+  needsClarification: boolean;
+  clarificationQuestion: string | null;
+}
+
+export interface WebAnalyzeFoodTextResponse {
+  ok: boolean;
+  analysis: WebAiFoodAnalysis;
+}
+
+export interface WebAddAiAnalysisMealPayload {
+  date?: string;
+  sourceType?: 'web_ai_text' | 'web_ai_photo';
+  analysis: {
+    name: string;
+    mealType: string;
+    caloriesKcal?: number | null;
+    proteinG?: number | null;
+    fatG?: number | null;
+    carbsG?: number | null;
+    fiberG?: number | null;
+    weightG?: number | null;
+    items?: string[];
+    confidence?: string;
+    needsClarification?: boolean;
+  };
+}
+
+export interface WebAnalyzeFoodPhotoPayload {
+  imageDataUrl: string;
+  date?: string;
+}
+
+export interface WebAnalyzeFoodPhotoResponse {
+  ok: boolean;
+  analysis: WebAiFoodAnalysis;
+}
+
+// ─── Web Product Search ───────────────────────────────────────────────────────
+
+export interface WebProductSearchResult {
+  id: string;
+  barcode: string | null;
+  name: string;
+  brand: string | null;
+  packageWeightG: number | null;
+  caloriesPer100g: number;
+  proteinPer100g: number;
+  fatPer100g: number;
+  carbsPer100g: number;
+  confidence: string;
+  isVerified: boolean;
+}
+
+export interface WebProductSearchResponse {
+  items: WebProductSearchResult[];
+}
+
+export interface WebAddProductMealPayload {
+  productId: string;
+  grams: number;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  date?: string;  // YYYY-MM-DD
+}
+
 // ─── Admin cabinet ────────────────────────────────────────────────────────────
 
 export interface WebAdminOverview {
@@ -784,6 +866,40 @@ export const webApi = {
 
   deleteWeightEntry: (id: number) =>
     request<{ ok: boolean }>(`/api/web/weight/${id}`, { method: 'DELETE' }),
+
+  // ─── Web AI Food Analysis ───────────────────────────────────────────────────
+
+  analyzeFoodText: (payload: WebAnalyzeFoodTextPayload) =>
+    request<WebAnalyzeFoodTextResponse>('/api/web/nutrition/analyze-text', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  addAiAnalysisMeal: (payload: WebAddAiAnalysisMealPayload) =>
+    request<WebAddMealResponse>('/api/web/nutrition/add-ai-analysis', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  analyzeFoodPhoto: (payload: WebAnalyzeFoodPhotoPayload) =>
+    request<WebAnalyzeFoodPhotoResponse>('/api/web/nutrition/analyze-photo', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // ─── Web Product Search ─────────────────────────────────────────────────────
+
+  searchWebProducts: (q: string, limit?: number) => {
+    const params = new URLSearchParams({ q });
+    if (limit) params.set('limit', String(limit));
+    return request<WebProductSearchResponse>(`/api/web/products/search?${params}`);
+  },
+
+  addProductMeal: (payload: WebAddProductMealPayload) =>
+    request<WebAddMealResponse>('/api/web/nutrition/add-product', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // ─── Admin cabinet ─────────────────────────────────────────────────────────
 

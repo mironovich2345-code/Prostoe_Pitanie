@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { requireWebAuth, WebAuthRequest } from '../middleware/webAuth';
 import prisma from '../../db';
+import { analyzeFood, analyzeFoodPhoto } from '../../ai/analyzeFood';
+import { getSubscriptionState } from '../../services/subscriptionService';
+import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
 const router = Router();
 router.use(requireWebAuth as import('express').RequestHandler);
@@ -184,6 +187,321 @@ router.post('/meals', async (req: WebAuthRequest, res) => {
     });
   } catch (err) {
     console.error('[web/nutrition/meals POST] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/add-product
+router.post('/add-product', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  const productId = typeof body.productId === 'string' ? body.productId.trim() : '';
+  if (!productId) {
+    res.status(400).json({ ok: false, error: 'product_id_required' });
+    return;
+  }
+
+  const gramsRaw = Number(body.grams);
+  if (!Number.isFinite(gramsRaw) || gramsRaw < 1 || gramsRaw > 5000) {
+    res.status(400).json({ ok: false, error: 'invalid_grams' });
+    return;
+  }
+
+  const mealType = typeof body.mealType === 'string' ? body.mealType : '';
+  if (!VALID_MEAL_TYPES.has(mealType)) {
+    res.status(400).json({ ok: false, error: 'invalid_meal_type' });
+    return;
+  }
+
+  const dateRaw = typeof body.date === 'string' ? body.date : '';
+  let createdAt: Date | undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+    const d = new Date(`${dateRaw}T12:00:00.000Z`);
+    if (!isNaN(d.getTime())) createdAt = d;
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true, name: true, brand: true,
+        caloriesPer100g: true, proteinPer100g: true, fatPer100g: true, carbsPer100g: true,
+        isHidden: true,
+      },
+    });
+
+    if (!product || product.isHidden) {
+      res.status(404).json({ ok: false, error: 'product_not_found' });
+      return;
+    }
+
+    const g = gramsRaw;
+    const text = `${product.name}${product.brand ? ', ' + product.brand : ''}, ${g} г`;
+    const caloriesKcal = Math.round(product.caloriesPer100g * g / 100);
+    const proteinG     = Math.round(product.proteinPer100g  * g / 100 * 10) / 10;
+    const fatG         = Math.round(product.fatPer100g      * g / 100 * 10) / 10;
+    const carbsG       = Math.round(product.carbsPer100g    * g / 100 * 10) / 10;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = {
+      chatId: syntheticChatId,
+      userId,
+      text,
+      mealType,
+      sourceType:  'web_product',
+      caloriesKcal,
+      proteinG,
+      fatG,
+      carbsG,
+      ...(createdAt ? { createdAt } : {}),
+    };
+
+    const meal = await prisma.mealEntry.create({
+      data,
+      select: {
+        id: true, text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      meal: {
+        id:           meal.id,
+        name:         meal.text,
+        mealType:     meal.mealType,
+        caloriesKcal: meal.caloriesKcal,
+        proteinG:     meal.proteinG,
+        fatG:         meal.fatG,
+        carbsG:       meal.carbsG,
+        fiberG:       meal.fiberG,
+        createdAt:    meal.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/add-product POST] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/analyze-photo  [premium — same policy as /api/nutrition/analyze-photo]
+router.post('/analyze-photo', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  // ── Premium check ─────────────────────────────────────────────────────────
+  try {
+    const { accessLevel } = await getSubscriptionState(userId);
+    if (accessLevel !== 'full') {
+      // Legacy bridge: check old chatId-based Subscription for still-active records
+      let legacyOk = false;
+      if (chatId) {
+        try {
+          const legacy = await prisma.subscription.findUnique({ where: { chatId } });
+          const now = new Date();
+          if (legacy) {
+            if (legacy.status === 'active' && legacy.currentPeriodEnd && legacy.currentPeriodEnd > now) legacyOk = true;
+            if (legacy.status === 'trial'  && legacy.trialEndsAt    && legacy.trialEndsAt    > now) legacyOk = true;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!legacyOk) {
+        res.status(402).json({ ok: false, error: 'subscription_required' });
+        return;
+      }
+    }
+  } catch {
+    // Fail-open on DB errors (same policy as requirePremiumAccess middleware)
+  }
+
+  // ── Validation ─────────────────────────────────────────────────────────────
+  const imageDataUrl = body.imageDataUrl;
+  if (!validateImageDataUrl(imageDataUrl, PHOTO_MAX_BYTES)) {
+    res.status(400).json({ ok: false, error: 'invalid_image' });
+    return;
+  }
+
+  try {
+    const result = await analyzeFoodPhoto(imageDataUrl as string, {
+      userId,
+      chatId: syntheticChatId,
+      scenario: 'food_photo',
+    });
+
+    res.json({
+      ok: true,
+      analysis: {
+        name:                  result.name,
+        mealType:              result.mealType,
+        items:                 result.items ?? [],
+        caloriesKcal:          result.caloriesKcal ?? null,
+        proteinG:              result.proteinG ?? null,
+        fatG:                  result.fatG ?? null,
+        carbsG:                result.carbsG ?? null,
+        fiberG:                result.fiberG ?? null,
+        weightG:               result.weightG ?? null,
+        confidence:            result.confidence ?? 'low',
+        needsClarification:    result.needsClarification ?? false,
+        clarificationQuestion: result.clarificationQuestion ?? null,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/analyze-photo] failed', err);
+    res.status(500).json({ ok: false, error: 'analysis_failed' });
+  }
+});
+
+// POST /api/web/nutrition/analyze-text  [free — same policy as /api/nutrition/analyze]
+router.post('/analyze-text', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (text.length < 2 || text.length > 1000) {
+    res.status(400).json({ ok: false, error: 'invalid_text' });
+    return;
+  }
+
+  try {
+    const result = await analyzeFood(text, {
+      userId,
+      chatId: syntheticChatId,
+      scenario: 'food_text',
+    });
+
+    res.json({
+      ok: true,
+      analysis: {
+        name:                  result.name,
+        mealType:              result.mealType,
+        items:                 result.items ?? [],
+        caloriesKcal:          result.caloriesKcal ?? null,
+        proteinG:              result.proteinG ?? null,
+        fatG:                  result.fatG ?? null,
+        carbsG:                result.carbsG ?? null,
+        fiberG:                result.fiberG ?? null,
+        weightG:               result.weightG ?? null,
+        confidence:            result.confidence ?? 'low',
+        needsClarification:    result.needsClarification ?? false,
+        clarificationQuestion: result.clarificationQuestion ?? null,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/analyze-text] failed', err);
+    res.status(500).json({ ok: false, error: 'analysis_failed' });
+  }
+});
+
+// POST /api/web/nutrition/add-ai-analysis
+router.post('/add-ai-analysis', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  const rawAnalysis = typeof body.analysis === 'object' && body.analysis !== null
+    ? body.analysis as Record<string, unknown>
+    : null;
+  if (!rawAnalysis) {
+    res.status(400).json({ ok: false, error: 'analysis_required' });
+    return;
+  }
+
+  const name = typeof rawAnalysis.name === 'string' ? rawAnalysis.name.trim() : '';
+  if (!name || name.length > 500) {
+    res.status(400).json({ ok: false, error: 'invalid_name' });
+    return;
+  }
+
+  const rawMealType = typeof rawAnalysis.mealType === 'string' ? rawAnalysis.mealType : '';
+  const mealType = rawMealType === 'unknown' ? 'other'
+    : VALID_MEAL_TYPES.has(rawMealType) ? rawMealType
+    : 'other';
+
+  const toFloat = (v: unknown): number | null => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : null;
+  };
+
+  const caloriesKcal = rawAnalysis.caloriesKcal != null ? (() => {
+    const n = Number(rawAnalysis.caloriesKcal);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+  })() : null;
+  const proteinG = toFloat(rawAnalysis.proteinG);
+  const fatG     = toFloat(rawAnalysis.fatG);
+  const carbsG   = toFloat(rawAnalysis.carbsG);
+  const fiberG   = toFloat(rawAnalysis.fiberG);
+
+  if (rawAnalysis.needsClarification === true && caloriesKcal === null) {
+    res.status(422).json({ ok: false, error: 'needs_clarification' });
+    return;
+  }
+
+  const dateRaw = typeof body.date === 'string' ? body.date : '';
+  let createdAt: Date | undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+    const d = new Date(`${dateRaw}T12:00:00.000Z`);
+    if (!isNaN(d.getTime())) createdAt = d;
+  }
+
+  const VALID_SOURCE_TYPES = new Set(['web_ai_text', 'web_ai_photo']);
+  const rawSourceType = typeof body.sourceType === 'string' ? body.sourceType : '';
+  const sourceType = VALID_SOURCE_TYPES.has(rawSourceType) ? rawSourceType : 'web_ai_text';
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = {
+    chatId: syntheticChatId,
+    userId,
+    text:         name.slice(0, 1000),
+    mealType,
+    sourceType,
+    caloriesKcal,
+    proteinG,
+    fatG,
+    carbsG,
+    fiberG,
+    ...(createdAt ? { createdAt } : {}),
+  };
+
+  try {
+    const meal = await prisma.mealEntry.create({
+      data,
+      select: {
+        id: true, text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      meal: {
+        id:           meal.id,
+        name:         meal.text,
+        mealType:     meal.mealType,
+        caloriesKcal: meal.caloriesKcal,
+        proteinG:     meal.proteinG,
+        fatG:         meal.fatG,
+        carbsG:       meal.carbsG,
+        fiberG:       meal.fiberG,
+        createdAt:    meal.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/add-ai-analysis POST] failed', err);
     res.status(500).json({ ok: false, error: 'internal_error' });
   }
 });
