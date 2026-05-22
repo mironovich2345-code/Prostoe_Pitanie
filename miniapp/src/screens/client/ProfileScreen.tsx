@@ -473,8 +473,146 @@ function ReferralSection() {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────
 
+// ─── DeleteAccountModal ────────────────────────────────────────────────────
+
+function DeleteAccountModal({ onClose }: { onClose: () => void }) {
+  const [inputValue, setInputValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: api.deleteAccount,
+    onSuccess: (data) => {
+      if (!data.ok && data.error === 'delete_account_supported_only_telegram') {
+        setError('Удаление аккаунта доступно только через Telegram.');
+        return;
+      }
+      setDone(true);
+      setTimeout(() => {
+        window.Telegram?.WebApp?.close();
+      }, 1500);
+    },
+    onError: () => {
+      setError('Не удалось удалить аккаунт. Попробуйте позже или напишите в поддержку.');
+    },
+  });
+
+  const canConfirm = inputValue === 'УДАЛИТЬ' && !mutation.isPending;
+
+  if (done) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}>
+        <div style={{
+          background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+          padding: '32px 28px', maxWidth: 360, width: '100%',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>✓</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+            Аккаунт удалён
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text-3)' }}>
+            Все данные удалены. Приложение закрывается…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.75)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--surface)', borderRadius: 'var(--r-xl)',
+        padding: '28px 24px', maxWidth: 360, width: '100%',
+        border: '1px solid rgba(255,59,48,0.3)',
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#FF3B30', marginBottom: 12 }}>
+          Удаление аккаунта
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 10, lineHeight: 1.35 }}>
+          Вы собираетесь удалить аккаунт EATLYY
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 20 }}>
+          Будут удалены: профиль, дневник питания, история веса, подписка и все связи с экспертами. Это действие нельзя отменить.
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8 }}>
+            Введите <strong style={{ color: 'var(--text-2)', fontFamily: 'monospace' }}>УДАЛИТЬ</strong> для подтверждения
+          </div>
+          <input
+            value={inputValue}
+            onChange={(e) => { setInputValue(e.target.value); setError(null); }}
+            placeholder="УДАЛИТЬ"
+            autoCorrect="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '11px 14px', borderRadius: 10,
+              background: 'var(--surface-2)', border: '1.5px solid var(--border)',
+              color: 'var(--text)', fontSize: 15, outline: 'none',
+              fontFamily: 'monospace', letterSpacing: 1,
+            }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ fontSize: 13, color: '#FF3B30', marginBottom: 14, lineHeight: 1.5 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={onClose}
+            disabled={mutation.isPending}
+            style={{
+              flex: 1, padding: '12px 0', borderRadius: 10,
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              color: 'var(--text-2)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!canConfirm}
+            style={{
+              flex: 1, padding: '12px 0', borderRadius: 10,
+              background: canConfirm ? '#FF3B30' : 'rgba(255,59,48,0.25)',
+              border: 'none',
+              color: canConfirm ? '#fff' : 'rgba(255,59,48,0.5)',
+              fontSize: 14, fontWeight: 700,
+              cursor: canConfirm ? 'pointer' : 'default',
+              transition: 'background 0.15s, color 0.15s',
+            }}
+          >
+            {mutation.isPending ? 'Удаляю…' : 'Удалить'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Screen ───────────────────────────────────────────────────────────
+
 export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAdmin }: Props) {
   const navigate = useNavigate();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const trainerStatus = bootstrap.trainerProfile?.verificationStatus;
   const isVerified = trainerStatus === 'verified' && !!onSwitchToCoach;
@@ -512,6 +650,21 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
         />
       </ListCard>
 
+      <button
+        onClick={() => setShowDeleteModal(true)}
+        style={{
+          width: '100%', marginTop: 8,
+          padding: '13px 16px', borderRadius: 'var(--r-md)',
+          background: 'rgba(255,59,48,0.08)',
+          border: '1px solid rgba(255,59,48,0.25)',
+          color: '#FF3B30', fontSize: 14, fontWeight: 600,
+          cursor: 'pointer', textAlign: 'center',
+          letterSpacing: -0.1,
+        }}
+      >
+        Удалить аккаунт
+      </button>
+
       {/* Expert status / apply (only for non-verified trainers) */}
       {!isVerified && (
         <div style={{ marginTop: 6 }}>
@@ -540,6 +693,8 @@ export default function ProfileScreen({ bootstrap, onSwitchToCoach, onSwitchToAd
           Панель администратора
         </button>
       )}
+
+      {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
 
     </div>
   );

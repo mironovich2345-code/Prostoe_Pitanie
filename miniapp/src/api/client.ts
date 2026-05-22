@@ -610,6 +610,10 @@ export const api = {
       { method: 'POST' },
     ),
 
+  // ─── Account deletion ────────────────────────────────────────────────────
+  deleteAccount: () =>
+    request<{ ok: boolean; error?: string }>('/api/account/delete', { method: 'POST' }),
+
   // ─── Events tracking ─────────────────────────────────────────────────────
   trackEvent: (eventName: string, metadata?: Record<string, unknown>) =>
     request<{ ok: boolean }>(

@@ -39,6 +39,7 @@ import webAdminRouter from './routes/webAdmin';
 import webPaymentsRouter from './routes/webPayments';
 import webMeRouter from './routes/webMe';
 import webProfileRouter from './routes/webProfile';
+import accountDeleteRouter from './routes/accountDelete';
 
 export function createApiServer() {
   const app = express();
@@ -147,6 +148,7 @@ export function createApiServer() {
   app.use('/api/events', eventsRouter);
   app.use('/api/products', productsRouter);
   app.use('/api/legal', legalConsentRouter);
+  app.use('/api/account', accountDeleteRouter);
 
   // Serve mini app static files in production
   const miniappDist = path.join(__dirname, '..', '..', 'miniapp', 'dist');
