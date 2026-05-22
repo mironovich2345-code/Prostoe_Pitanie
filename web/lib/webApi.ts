@@ -422,6 +422,48 @@ export interface WebAddMealResponse {
   meal: WebMealEntry;
 }
 
+// ─── Web Weight History ───────────────────────────────────────────────────────
+
+export interface WebWeightEntry {
+  id: number;
+  weightKg: number;
+  measuredAt: string;
+  createdAt: string;
+}
+
+export interface WebWeightProfile {
+  currentWeightKg: number | null;
+  desiredWeightKg: number | null;
+  heightCm: number | null;
+  goalType: string | null;
+}
+
+export interface WebWeightProgress {
+  startWeightKg: number;
+  currentWeightKg: number;
+  desiredWeightKg: number;
+  totalDeltaKg: number;
+  doneDeltaKg: number;
+  progressPercent: number;
+}
+
+export interface WebWeightResponse {
+  ok: boolean;
+  profile: WebWeightProfile | null;
+  entries: WebWeightEntry[];
+  progress: WebWeightProgress | null;
+}
+
+export interface WebAddWeightPayload {
+  weightKg: number;
+  measuredAt?: string;  // YYYY-MM-DD
+}
+
+export interface WebAddWeightResponse {
+  ok: boolean;
+  entry: WebWeightEntry;
+}
+
 // ─── Admin cabinet ────────────────────────────────────────────────────────────
 
 export interface WebAdminOverview {
@@ -726,6 +768,22 @@ export const webApi = {
 
   deleteMeal: (id: number) =>
     request<{ ok: boolean }>(`/api/web/nutrition/meals/${id}`, { method: 'DELETE' }),
+
+  // ─── Web Weight History ─────────────────────────────────────────────────────
+
+  getWeightHistory: (limit?: number) => {
+    const qs = limit ? `?limit=${limit}` : '';
+    return request<WebWeightResponse>(`/api/web/weight${qs}`);
+  },
+
+  addWeightEntry: (payload: WebAddWeightPayload) =>
+    request<WebAddWeightResponse>('/api/web/weight', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteWeightEntry: (id: number) =>
+    request<{ ok: boolean }>(`/api/web/weight/${id}`, { method: 'DELETE' }),
 
   // ─── Admin cabinet ─────────────────────────────────────────────────────────
 

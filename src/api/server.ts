@@ -40,6 +40,7 @@ import webPaymentsRouter from './routes/webPayments';
 import webMeRouter from './routes/webMe';
 import webProfileRouter from './routes/webProfile';
 import webNutritionRouter from './routes/webNutrition';
+import webWeightRouter from './routes/webWeight';
 import accountDeleteRouter from './routes/accountDelete';
 
 export function createApiServer() {
@@ -104,6 +105,7 @@ export function createApiServer() {
   app.use('/api/web', webMeRouter);
   app.use('/api/web', webProfileRouter);
   app.use('/api/web/nutrition', webNutritionRouter);
+  app.use('/api/web/weight', webWeightRouter);
   app.use('/api/web/expert', webExpertProfileRouter);
   app.use('/api/web/expert', webExpertClientRequestsRouter);
   app.use('/api/web/expert', webExpertClientsRouter);
