@@ -374,6 +374,54 @@ export interface WebPaymentCreateResponse {
   payment: { id: string; confirmationUrl: string };
 }
 
+// ─── Web Nutrition Diary ──────────────────────────────────────────────────────
+
+export interface WebMealEntry {
+  id: number;
+  name: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
+  fiberG: number | null;
+  createdAt: string;
+}
+
+export interface WebNutritionDayResponse {
+  ok: boolean;
+  date: string;
+  meals: WebMealEntry[];
+  totals: {
+    calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+    fiber: number;
+  };
+  target: {
+    calories: number | null;
+    protein: number | null;
+    fat: number | null;
+    carbs: number | null;
+  } | null;
+}
+
+export interface WebAddMealPayload {
+  name: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  caloriesKcal?: number;
+  proteinG?: number;
+  fatG?: number;
+  carbsG?: number;
+  fiberG?: number;
+}
+
+export interface WebAddMealResponse {
+  ok: boolean;
+  meal: WebMealEntry;
+}
+
 // ─── Admin cabinet ────────────────────────────────────────────────────────────
 
 export interface WebAdminOverview {
@@ -662,6 +710,22 @@ export const webApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  // ─── Web Nutrition Diary ────────────────────────────────────────────────────
+
+  getNutritionDay: (date?: string) => {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+    return request<WebNutritionDayResponse>(`/api/web/nutrition/day${qs}`);
+  },
+
+  addMeal: (payload: WebAddMealPayload) =>
+    request<WebAddMealResponse>('/api/web/nutrition/meals', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteMeal: (id: number) =>
+    request<{ ok: boolean }>(`/api/web/nutrition/meals/${id}`, { method: 'DELETE' }),
 
   // ─── Admin cabinet ─────────────────────────────────────────────────────────
 

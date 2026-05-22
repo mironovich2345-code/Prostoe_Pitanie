@@ -1070,6 +1070,7 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
       <Card>
         <SLabel>Быстрые действия</SLabel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <QuickLink href="/client/diary"  label="Дневник питания" />
           <QuickLink href="/trainers"      label="Каталог экспертов" />
           <QuickLink href="/client/expert" label="Мой эксперт" />
           {!expertApplication.exists && !roles.isExpert && !roles.isCompany && (
