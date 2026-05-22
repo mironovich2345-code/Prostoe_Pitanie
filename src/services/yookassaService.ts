@@ -51,8 +51,8 @@ export interface CreatePaymentParams {
   description: string;
   /** Human-readable item description for the fiscal receipt (54-ФЗ). */
   receiptDescription: string;
-  /** Customer email for the fiscal receipt. Required when the shop has receipt mode enabled. */
-  receiptEmail: string;
+  /** Customer email for the fiscal receipt. Omit to skip receipt (only valid if shop has receipts disabled). */
+  receiptEmail?: string;
   planId: string;
   userId: string;
   returnUrl: string;
@@ -105,25 +105,31 @@ function authHeader(): string {
 export async function createYooKassaPayment(p: CreatePaymentParams): Promise<CreatePaymentResult> {
   const amountValue = p.amountRub.toFixed(2);
 
+  const receiptBlock = p.receiptEmail
+    ? {
+        receipt: {
+          customer: { email: p.receiptEmail },
+          items: [
+            {
+              description: p.receiptDescription,
+              quantity: '1.00',
+              amount: { value: amountValue, currency: 'RUB' },
+              vat_code: YOOKASSA_VAT_CODE,
+              payment_mode: 'full_prepayment',
+              payment_subject: 'service',
+            },
+          ],
+        },
+      }
+    : {};
+
   const body: Record<string, unknown> = {
     amount: { value: amountValue, currency: 'RUB' },
     capture: true,
     confirmation: { type: 'redirect', return_url: p.returnUrl },
     description: p.description,
     metadata: { userId: p.userId, planId: p.planId },
-    receipt: {
-      customer: { email: p.receiptEmail },
-      items: [
-        {
-          description: p.receiptDescription,
-          quantity: '1.00',
-          amount: { value: amountValue, currency: 'RUB' },
-          vat_code: YOOKASSA_VAT_CODE,
-          payment_mode: 'full_prepayment',
-          payment_subject: 'service',
-        },
-      ],
-    },
+    ...receiptBlock,
   };
 
   if (p.savePaymentMethod) {

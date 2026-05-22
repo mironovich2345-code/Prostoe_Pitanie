@@ -26,6 +26,14 @@
   },
   "dynamicRoutes": [
     {
+      "page": "/admin/users/[userId]",
+      "regex": "^/admin/users/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPuserId": "nxtPuserId"
+      },
+      "namedRegex": "^/admin/users/(?<nxtPuserId>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/expert/clients/[linkId]",
       "regex": "^/expert/clients/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -54,6 +62,36 @@
       "regex": "^/_not\\-found(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/applications",
+      "regex": "^/admin/applications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/applications(?:/)?$"
+    },
+    {
+      "page": "/admin/experts",
+      "regex": "^/admin/experts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/experts(?:/)?$"
+    },
+    {
+      "page": "/admin/requests",
+      "regex": "^/admin/requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/requests(?:/)?$"
+    },
+    {
+      "page": "/admin/users",
+      "regex": "^/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/users(?:/)?$"
     },
     {
       "page": "/client",
@@ -140,6 +178,18 @@
       "namedRegex": "^/login(?:/)?$"
     },
     {
+      "page": "/payment/fail",
+      "regex": "^/payment/fail(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payment/fail(?:/)?$"
+    },
+    {
+      "page": "/payment/success",
+      "regex": "^/payment/success(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payment/success(?:/)?$"
+    },
+    {
       "page": "/pricing",
       "regex": "^/pricing(?:/)?$",
       "routeKeys": {},
@@ -156,6 +206,12 @@
       "regex": "^/sitemap\\.xml(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/sitemap\\.xml(?:/)?$"
+    },
+    {
+      "page": "/subscription",
+      "regex": "^/subscription(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/subscription(?:/)?$"
     },
     {
       "page": "/support",

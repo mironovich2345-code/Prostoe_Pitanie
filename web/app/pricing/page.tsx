@@ -321,14 +321,14 @@ export default function PricingPage() {
             Откройте EATLYY в Telegram и начните — бесплатно или за 1 ₽ на Pro.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-accent"
+            <Link href="/subscription" className="btn btn-accent"
               style={{ fontSize: 15, padding: '14px 32px' }}>
-              Попробовать за 1 ₽
-            </a>
-            <Link href="/trainers" className="btn btn-ghost"
-              style={{ fontSize: 15, padding: '14px 24px' }}>
-              Найти эксперта
+              Оформить подписку
             </Link>
+            <a href={TG_BOT} target="_blank" rel="noopener noreferrer" className="btn btn-ghost"
+              style={{ fontSize: 15, padding: '14px 24px' }}>
+              Открыть в Telegram
+            </a>
           </div>
         </div>
       </section>

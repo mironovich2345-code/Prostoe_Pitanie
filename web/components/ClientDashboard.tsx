@@ -829,14 +829,12 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
             {subscription.accessLevel === 'full' ? 'Полный доступ' : 'Базовый'}
           </span>
         </div>
-        {subscription.accessLevel !== 'full' && (
-          <Link href="/pricing" style={{
-            fontSize: 12, fontWeight: 600,
-            color: 'var(--accent)', textDecoration: 'none',
-          }}>
-            Расширить доступ →
-          </Link>
-        )}
+        <Link href="/subscription" style={{
+          fontSize: 12, fontWeight: 600,
+          color: 'var(--accent)', textDecoration: 'none',
+        }}>
+          {subscription.accessLevel === 'full' ? 'Управление подпиской →' : 'Оформить подписку →'}
+        </Link>
       </Card>
 
       {/* ── Auth methods card ── */}
@@ -1040,6 +1038,30 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
                 </Link>
               </>
             )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Admin link ── */}
+      {roles.isAdmin && (
+        <Card>
+          <SLabel>Администрирование</SLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { href: '/admin',              label: 'Обзор' },
+              { href: '/admin/users',        label: 'Пользователи' },
+              { href: '/admin/experts',      label: 'Эксперты и компании' },
+              { href: '/admin/applications', label: 'Заявки экспертов' },
+              { href: '/admin/requests',     label: 'Запросы клиент→эксперт' },
+            ].map((item, i, arr) => (
+              <span key={item.href}>
+                <Link href={item.href} style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{item.label}</span>
+                  <span style={{ color: 'var(--text-3)' }}>→</span>
+                </Link>
+                {i < arr.length - 1 && <div style={{ height: 1, background: 'var(--border)', marginTop: 10 }} />}
+              </span>
+            ))}
           </div>
         </Card>
       )}

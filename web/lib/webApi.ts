@@ -334,6 +334,161 @@ export interface WebCompanyStatsResponse {
   stats: WebCompanyStats;
 }
 
+// ─── Web subscription & payments ─────────────────────────────────────────────
+
+export interface WebSubscriptionInfo {
+  planId: string | null;
+  status: string | null;
+  currentPeriodEnd: string | null;
+  trialEndsAt: string | null;
+  accessLevel: 'basic' | 'full';
+  hasOptimal: boolean;
+  hasPro: boolean;
+}
+
+export interface WebSubscriptionOffers {
+  canUseProIntro: boolean;
+  proIntro: {
+    enabled: boolean;
+    priceRub: number;
+    durationDays: number;
+    thenPriceRub: number;
+  };
+}
+
+export interface WebSubscriptionResponse {
+  ok: boolean;
+  subscription: WebSubscriptionInfo;
+  offers: WebSubscriptionOffers;
+}
+
+export interface WebPaymentCreatePayload {
+  planId: 'optimal' | 'pro' | 'pro_intro';
+  acceptedSubscriptionTerms: true;
+  returnUrl?: string;
+  receiptEmail?: string;
+}
+
+export interface WebPaymentCreateResponse {
+  ok: boolean;
+  payment: { id: string; confirmationUrl: string };
+}
+
+// ─── Admin cabinet ────────────────────────────────────────────────────────────
+
+export interface WebAdminOverview {
+  usersTotal: number;
+  expertsTotal: number;
+  companiesTotal: number;
+  expertApplicationsPending: number;
+  clientExpertRequestsPending: number;
+  activeSubscriptions: number;
+  paymentsTotal: number | null;
+}
+
+export interface WebAdminUserIdentity {
+  platform: string;
+  platformId: string;
+  username: string | null;
+  firstName: string | null;
+}
+
+export interface WebAdminUserSummary {
+  id: string;
+  identities: WebAdminUserIdentity[];
+  profile: { preferredName: string | null; city: string | null; goalType: string | null } | null;
+  subscription: { planId: string; status: string; currentPeriodEnd: string | null } | null;
+  roles: { isExpert: boolean; isCompany: boolean };
+}
+
+export interface WebAdminUserDetail {
+  id: string;
+  createdAt: string;
+  identities: (WebAdminUserIdentity & { linkedAt: string })[];
+  profile: {
+    preferredName: string | null;
+    city: string | null;
+    goalType: string | null;
+    currentWeightKg: number | null;
+    desiredWeightKg: number | null;
+    heightCm: number | null;
+    dailyCaloriesKcal: number | null;
+    dailyProteinG: number | null;
+    dailyFatG: number | null;
+    dailyCarbsG: number | null;
+    referralCode: string | null;
+    referredByRole: string | null;
+    profileCreatedAt: string;
+  } | null;
+  subscription: {
+    planId: string;
+    status: string;
+    currentPeriodEnd: string | null;
+    trialEndsAt: string | null;
+    gracePeriodEnd: string | null;
+    autoRenew: boolean;
+    createdAt: string;
+  } | null;
+  roles: { isExpert: boolean; isCompany: boolean; isAdmin: boolean };
+  expert: {
+    id: number;
+    fullName: string | null;
+    specialization: string | null;
+    city: string | null;
+    publicStatus: string;
+    slug: string | null;
+    referralCode: string | null;
+    verificationStatus: string;
+    verifiedAt: string | null;
+    createdAt: string;
+  } | null;
+  activeExpertLink: { trainerId: number; trainerUserId: string | null; connectedAt: string } | null;
+  recentPayments: { id: string; planId: string; amountRub: number; status: string; createdAt: string }[];
+}
+
+export interface WebAdminExpert {
+  id: number;
+  userId: string | null;
+  chatId: string;
+  fullName: string | null;
+  city: string | null;
+  specialization: string | null;
+  verificationStatus: string;
+  publicStatus: string;
+  slug: string | null;
+  referralCode: string | null;
+  createdAt: string;
+  verifiedAt: string | null;
+}
+
+export interface WebAdminApplication {
+  id: string;
+  userId: string;
+  status: string;
+  fullName: string;
+  specialization: string;
+  city: string | null;
+  workFormat: string | null;
+  experienceYears: number | null;
+  socialLink: string | null;
+  bio: string;
+  proofLink: string | null;
+  adminComment: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebAdminRequest {
+  id: string;
+  status: string;
+  source: string;
+  createdAt: string;
+  respondedAt: string | null;
+  client: { userId: string; displayName: string | null; username: string | null };
+  expert: { id: number; fullName: string | null; specialization: string | null; slug: string | null };
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -496,4 +651,72 @@ export const webApi = {
 
   getCompanyStats: () =>
     request<WebCompanyStatsResponse>('/api/web/company/stats'),
+
+  // ─── Web subscription & payments ───────────────────────────────────────────
+
+  getWebSubscription: () =>
+    request<WebSubscriptionResponse>('/api/web/subscription'),
+
+  createWebPayment: (payload: WebPaymentCreatePayload) =>
+    request<WebPaymentCreateResponse>('/api/web/payments/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // ─── Admin cabinet ─────────────────────────────────────────────────────────
+
+  getAdminOverview: () =>
+    request<{ ok: boolean; overview: WebAdminOverview }>('/api/web/admin/overview'),
+
+  getAdminUsers: (q?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    return request<{ ok: boolean; users: WebAdminUserSummary[] }>(`/api/web/admin/users${qs ? `?${qs}` : ''}`);
+  },
+
+  getAdminUser: (userId: string) =>
+    request<{ ok: boolean; user: WebAdminUserDetail }>(`/api/web/admin/users/${encodeURIComponent(userId)}`),
+
+  adminSubscriptionAction: (userId: string, action: 'activate' | 'cancel' | 'expire', planId?: string, days?: number) =>
+    request<{ ok: boolean; subscription: { planId: string; status: string; currentPeriodEnd: string | null } }>(
+      `/api/web/admin/users/${encodeURIComponent(userId)}/subscription`,
+      { method: 'POST', body: JSON.stringify({ action, planId, days }) },
+    ),
+
+  getAdminExperts: (q?: string, status?: string, type?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (status) params.set('status', status);
+    if (type) params.set('type', type);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString();
+    return request<{ ok: boolean; experts: WebAdminExpert[] }>(`/api/web/admin/experts${qs ? `?${qs}` : ''}`);
+  },
+
+  patchAdminExpert: (id: number, data: Partial<{ fullName: string; city: string; bio: string; socialLink: string; publicStatus: string; verificationStatus: string }>) =>
+    request<{ ok: boolean; expert: WebAdminExpert }>(`/api/web/admin/experts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  getAdminApplications: (status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request<{ ok: boolean; applications: WebAdminApplication[] }>(`/api/web/admin/expert-applications${qs}`);
+  },
+
+  approveAdminApplication: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/api/web/admin/expert-applications/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+
+  rejectAdminApplication: (id: string, adminComment?: string) =>
+    request<{ ok: boolean; status: string }>(`/api/web/admin/expert-applications/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ adminComment }),
+    }),
+
+  getAdminRequests: (status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request<{ ok: boolean; requests: WebAdminRequest[] }>(`/api/web/admin/client-expert-requests${qs}`);
+  },
 };
