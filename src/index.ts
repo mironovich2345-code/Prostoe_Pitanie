@@ -7,7 +7,8 @@ import prisma from './db';
 import { message } from 'telegraf/filters';
 import { mainMenu, BUTTONS } from './keyboards/mainMenu';
 import { MEAL_BUTTONS, MEAL_TYPE_BUTTONS } from './keyboards/mealMenu';
-import { setPending, getPending, clearPending, setDraft, getDraft, clearDraft, MealDraft } from './state/pendingActions';
+import { setPending, getPending, clearPending, setDraft, getDraft, clearDraft, MealDraft, setPendingDeletion, getPendingDeletion, clearPendingDeletion } from './state/pendingActions';
+import { deleteAccountByTelegramChatId } from './services/accountDeletionService';
 import { addMeal, getTodayMeals, deleteLastTodayMeal, clearTodayMeals, updateMealNutrition, getMealsForDate } from './state/mealStore';
 import { getProfile, upsertProfile } from './state/profileStore';
 import { GOAL_BUTTONS, GOAL_TYPE_VALUES, GOAL_TYPE_LABELS, sexMenu, SEX_BUTTONS, SEX_VALUES, SEX_LABELS, activityMenu, ACTIVITY_BUTTONS, ACTIVITY_VALUES, ACTIVITY_LABELS } from './keyboards/profileMenu';
@@ -62,6 +63,11 @@ const draftActionsMenu = Markup.inlineKeyboard([
 
 const addMoreMenu = Markup.inlineKeyboard([
   [Markup.button.callback('➕ Добавить ещё', 'progress_add_more'), Markup.button.callback('🏠 В меню', 'nav_main_menu')],
+]);
+
+const deleteAccountConfirmMenu = Markup.inlineKeyboard([
+  [Markup.button.callback('Да, удалить аккаунт', 'account_delete_start')],
+  [Markup.button.callback('Отмена', 'account_delete_cancel')],
 ]);
 
 const draftEditModeMenu = Markup.inlineKeyboard([
@@ -484,6 +490,13 @@ bot.command('cancel', (ctx) => {
   return ctx.reply('Отменено.', mainMenu);
 });
 
+bot.command('delete_account', (ctx) => {
+  return ctx.reply(
+    '⚠️ Вы собираетесь удалить аккаунт EATLYY и все связанные данные: профиль, питание, вес, подписку, связи с экспертами и историю.\n\nЭто действие нельзя отменить.',
+    deleteAccountConfirmMenu,
+  );
+});
+
 bot.command('onboarding', (ctx) => {
   clearPending(ctx.message.chat.id);
   return ctx.reply(
@@ -820,6 +833,24 @@ bot.on(message('voice'), async (ctx) => {
 // Текстовый обработчик — проверяет активный сценарий
 bot.on('text', async (ctx) => {
   const chatId = ctx.message.chat.id;
+
+  // ── Подтверждение удаления аккаунта (высший приоритет) ────────────
+  const pendingDel = getPendingDeletion(chatId);
+  if (pendingDel) {
+    clearPendingDeletion(chatId);
+    if (ctx.message.text !== 'УДАЛИТЬ') {
+      return ctx.reply('Подтверждение не совпало. Удаление отменено.');
+    }
+    await ctx.reply('Удаляю аккаунт и данные...');
+    try {
+      await deleteAccountByTelegramChatId(ctx.from.id);
+      return ctx.reply('Аккаунт и данные удалены. Вы можете начать заново, отправив /start.');
+    } catch (err) {
+      console.error('[delete_account] error for chat', chatId, err instanceof Error ? err.message : err);
+      return ctx.reply('Не удалось удалить аккаунт. Попробуйте позже или напишите в поддержку.');
+    }
+  }
+
   const state = getPending(chatId);
 
   if (state?.action === 'awaiting_draft_edit') {
@@ -1508,6 +1539,22 @@ bot.action('onboarding_cancel', async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId) clearPending(chatId);
   return ctx.reply('Настройка отменена.', mainMenu);
+});
+
+// ── Удаление аккаунта ─────────────────────────────────────────────────
+bot.action('account_delete_cancel', async (ctx) => {
+  await ctx.answerCbQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId) clearPendingDeletion(chatId);
+  return ctx.reply('Удаление аккаунта отменено.');
+});
+
+bot.action('account_delete_start', async (ctx) => {
+  await ctx.answerCbQuery();
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+  setPendingDeletion(chatId);
+  return ctx.reply('Для подтверждения отправьте сообщением: УДАЛИТЬ\n\n(У вас есть 10 минут. Любой другой текст отменит удаление.)');
 });
 
 bot.command('test_meal_reminder', async (ctx) => {

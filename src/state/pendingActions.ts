@@ -51,3 +51,35 @@ export function getDraft(chatId: number): MealDraft | undefined {
 export function clearDraft(chatId: number): void {
   drafts.delete(chatId);
 }
+
+// ── Deletion pending state (separate Map with TTL) ────────────────────────────
+
+const DELETION_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+interface DeletionPendingState {
+  type: 'awaiting_deletion_confirm';
+  expiresAt: number;
+}
+
+const pendingDeletion = new Map<number, DeletionPendingState>();
+
+export function setPendingDeletion(chatId: number): void {
+  pendingDeletion.set(chatId, {
+    type: 'awaiting_deletion_confirm',
+    expiresAt: Date.now() + DELETION_TTL_MS,
+  });
+}
+
+export function getPendingDeletion(chatId: number): DeletionPendingState | undefined {
+  const entry = pendingDeletion.get(chatId);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    pendingDeletion.delete(chatId);
+    return undefined;
+  }
+  return entry;
+}
+
+export function clearPendingDeletion(chatId: number): void {
+  pendingDeletion.delete(chatId);
+}
