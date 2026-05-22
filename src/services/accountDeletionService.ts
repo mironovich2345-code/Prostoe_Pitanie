@@ -362,12 +362,9 @@ export async function deleteAccountByTelegramChatId(
         })).count;
       }
 
-      if (userId) {
-        // userLegalConsent not yet in generated client → cast
-        deleted.userLegalConsent = ((await txAny.userLegalConsent.deleteMany({
-          where: { userId },
-        })) as { count: number }).count;
-      }
+      // UserLegalConsent is deleted AFTER the transaction (see below) because the table
+      // may not exist in deployments where migration 20260520000000 hasn't run yet.
+      // Deleting it inside the transaction would abort the entire tx if the table is missing.
 
       // PayoutRequest — by trainerUserId or trainerId (chatId)
       const prOrConds = buildOr(
@@ -396,6 +393,20 @@ export async function deleteAccountByTelegramChatId(
     },
     { timeout: 30_000 },
   );
+
+  // ── Phase 4: Best-effort cleanups (outside transaction) ──────────────────────
+  // These run AFTER the main transaction to avoid aborting it if a table is missing.
+
+  if (userId) {
+    try {
+      deleted.userLegalConsent = ((await (prisma as any).userLegalConsent.deleteMany({
+        where: { userId },
+      })) as { count: number }).count;
+    } catch (err: unknown) {
+      // Table doesn't exist yet — migration 20260520000000_add_user_legal_consent not applied.
+      notes.push('UserLegalConsent: skipped — run `prisma migrate deploy` to apply pending migration');
+    }
+  }
 
   return { ok: true, userId, chatIds, deleted, notes };
 }

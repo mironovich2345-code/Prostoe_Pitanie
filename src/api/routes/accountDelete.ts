@@ -12,16 +12,24 @@ router.post('/delete', async (req: AuthRequest, res) => {
 
   const chatId = req.chatId;
   if (!chatId) {
-    res.status(401).json({ error: 'Unauthorized' });
+    console.error('[account/delete] missing chatId — platformAuthMiddleware did not set it');
+    res.status(401).json({ ok: false, error: 'missing_chat_id' });
     return;
   }
 
   try {
-    await deleteAccountByTelegramChatId(chatId);
+    const result = await deleteAccountByTelegramChatId(chatId);
+    if (result.notes.length > 0) {
+      console.info('[account/delete] completed with notes', { notes: result.notes });
+    }
     res.json({ ok: true });
-  } catch (err) {
-    console.error('[account/delete] error for chatId', chatId, err instanceof Error ? err.message : err);
-    res.status(500).json({ error: 'Failed to delete account' });
+  } catch (err: unknown) {
+    const errorName    = err instanceof Error ? err.constructor.name : typeof err;
+    const errorCode    = (err as Record<string, unknown>)?.code;
+    const errorMessage = err instanceof Error ? err.message.slice(0, 300) : String(err);
+    const errorMeta    = (err as Record<string, unknown>)?.meta;
+    console.error('[account/delete] failed', { chatId, errorName, errorCode, errorMessage, errorMeta });
+    res.status(500).json({ ok: false, error: 'deletion_failed', code: errorCode ?? 'unknown' });
   }
 });
 
