@@ -292,10 +292,10 @@ export default function ExpertProfileClient({ botUsername }: Props) {
   return (
     <div>
       {/* Section nav */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Link href="/expert/clients"   style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'none' }}>Клиенты</Link>
-        <Link href="/expert/requests"  style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'none' }}>Заявки</Link>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Профиль</span>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4, whiteSpace: 'nowrap' }}>
+        <Link href="/expert/clients"   style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>Клиенты</Link>
+        <Link href="/expert/requests"  style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'none', flexShrink: 0 }}>Заявки</Link>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>Профиль</span>
       </div>
 
       {/* Auth bar */}

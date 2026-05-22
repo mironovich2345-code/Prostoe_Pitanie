@@ -546,6 +546,11 @@ export interface WebAddProductMealPayload {
   date?: string;  // YYYY-MM-DD
 }
 
+export interface WebProductBarcodeResponse {
+  ok: boolean;
+  product: WebProductSearchResult;
+}
+
 // ─── Admin cabinet ────────────────────────────────────────────────────────────
 
 export interface WebAdminOverview {
@@ -900,6 +905,9 @@ export const webApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  getProductByBarcode: (barcode: string) =>
+    request<WebProductBarcodeResponse>(`/api/web/products/barcode/${encodeURIComponent(barcode)}`),
 
   // ─── Admin cabinet ─────────────────────────────────────────────────────────
 

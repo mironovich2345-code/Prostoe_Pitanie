@@ -12,7 +12,7 @@ const NAV_ITEMS: { key: NavKey | 'support'; label: string; href: string }[] = [
 
 export default function CompanyNav({ active }: { active: NavKey | 'support' }) {
   return (
-    <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4, whiteSpace: 'nowrap' }}>
       {NAV_ITEMS.map(item =>
         item.key === active ? (
           <span key={item.key} style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>

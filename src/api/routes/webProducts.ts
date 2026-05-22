@@ -24,6 +24,34 @@ function looksLikeBarcode(s: string): boolean {
   return /^\d{6,}$/.test(s);
 }
 
+// GET /api/web/products/barcode/:barcode
+router.get('/barcode/:barcode', async (req: WebAuthRequest, res) => {
+  const raw = String(req.params.barcode ?? '').replace(/[\s\-]/g, '');
+
+  if (!/^\d{6,32}$/.test(raw)) {
+    res.status(400).json({ ok: false, error: 'invalid_barcode' });
+    return;
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { barcode: raw },
+      select: { ...SELECT_WEB, isHidden: true },
+    });
+
+    if (!product || product.isHidden) {
+      res.status(404).json({ ok: false, error: 'product_not_found' });
+      return;
+    }
+
+    const { isHidden: _h, ...safe } = product;
+    res.json({ ok: true, product: safe });
+  } catch (err) {
+    console.error('[web/products/barcode] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
 // GET /api/web/products/search?q=&limit=
 router.get('/search', async (req: WebAuthRequest, res) => {
   const raw = req.query.q;

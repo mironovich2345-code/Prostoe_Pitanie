@@ -61,9 +61,9 @@ function SLabel({ children }: { children: React.ReactNode }) {
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 14px', borderRadius: 8,
+  width: '100%', padding: '11px 14px', borderRadius: 8,
   background: 'var(--surface-2)', border: '1px solid var(--border)',
-  color: 'var(--text)', fontSize: 13,
+  color: 'var(--text)', fontSize: 14, minHeight: 44,
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────

@@ -65,9 +65,10 @@ function SubManagePanel({ userId, onUpdated }: { userId: string; onUpdated: () =
   }
 
   const inp: React.CSSProperties = {
-    padding: '7px 10px', background: 'rgba(255,255,255,0.05)',
+    padding: '9px 10px', background: 'rgba(255,255,255,0.05)',
     border: '1px solid var(--border-2)', borderRadius: 8,
-    fontSize: 12, color: 'var(--text)', outline: 'none',
+    fontSize: 14, color: 'var(--text)', outline: 'none',
+    minHeight: 40,
   };
 
   return (
@@ -211,11 +212,11 @@ export default function AdminUserCardClient({ userId }: { userId: string }) {
       {user.recentPayments.length > 0 && (
         <Section title="Последние платежи">
           {user.recentPayments.map(p => (
-            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
-              <span style={{ color: 'var(--text-3)' }}>{new Date(p.createdAt).toLocaleDateString('ru-RU')}</span>
-              <span style={{ color: 'var(--text-2)' }}>{PLAN_LABELS[p.planId] ?? p.planId}</span>
-              <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{p.amountRub} ₽</span>
-              <span style={{ color: p.status === 'succeeded' ? '#4caf50' : 'var(--text-3)' }}>{p.status}</span>
+            <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginBottom: 8, fontSize: 12, alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-3)', flexShrink: 0 }}>{new Date(p.createdAt).toLocaleDateString('ru-RU')}</span>
+              <span style={{ color: 'var(--text-2)', flex: '1 1 auto', minWidth: 60 }}>{PLAN_LABELS[p.planId] ?? p.planId}</span>
+              <span style={{ color: 'var(--text-2)', fontWeight: 600, flexShrink: 0 }}>{p.amountRub} ₽</span>
+              <span style={{ color: p.status === 'succeeded' ? '#4caf50' : 'var(--text-3)', flexShrink: 0 }}>{p.status}</span>
             </div>
           ))}
         </Section>

@@ -109,3 +109,101 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-radius: 50%;
   background: var(--accent);
 }
+
+/* ─── Mobile safety ──────────────────────────────────────────── */
+body { overflow-x: hidden; }
+
+img, video { max-width: 100%; height: auto; }
+
+/* Prevent iOS Safari from auto-zooming on input focus (triggers when font-size < 16px) */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ─── Header responsive ──────────────────────────────────────── */
+.nav-links       { display: flex; gap: 4px; flex: 1; align-items: center; }
+.nav-tg-btn      { display: inline-flex; }
+.nav-burger      { display: none; }
+.nav-mobile-menu { display: none; }
+
+@media (max-width: 640px) {
+  .nav-links,
+  .nav-tg-btn { display: none; }
+
+  .nav-logo { margin-right: 8px !important; }
+
+  .nav-burger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-left: 6px;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1;
+  }
+
+  .nav-mobile-menu.open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: rgba(10,10,10,0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 16px 16px;
+    z-index: 99;
+  }
+
+  .nav-mobile-link {
+    display: block;
+    padding: 14px 4px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-2);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.15s;
+  }
+
+  .nav-mobile-link.active {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .nav-mobile-cta {
+    display: block;
+    margin-top: 12px;
+    padding: 13px 16px;
+    text-align: center;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    border-radius: 8px;
+    font-size: 15px;
+    text-decoration: none;
+  }
+}
+
+/* ─── Section padding: tighter on small mobile ───────────────── */
+@media (max-width: 480px) {
+  .section    { padding: 48px 0; }
+  .section-sm { padding: 36px 0; }
+}
+
+/* ─── Utility: long text / links ────────────────────────────────*/
+.break-all { word-break: break-all; overflow-wrap: break-word; }

@@ -236,12 +236,13 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
 
   const inp: React.CSSProperties = {
     display: 'block', width: '100%', boxSizing: 'border-box',
-    padding: '9px 12px',
+    padding: '11px 12px',
     background: 'rgba(255,255,255,0.05)',
     border: '1px solid var(--border-2)',
     borderRadius: 8,
-    fontSize: 13, color: 'var(--text)',
+    fontSize: 14, color: 'var(--text)',
     outline: 'none',
+    minHeight: 44,
   };
 
   const lbl: React.CSSProperties = {
@@ -307,7 +308,7 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 8, marginBottom: 10 }}>
         <div>
           <label style={lbl}>Рост, см</label>
           <input style={inp} type="number" value={height} onChange={e => setHeight(e.target.value)} min={100} max={250} placeholder="170" disabled={saving} />
@@ -336,20 +337,20 @@ function EditProfileForm({ profile, onSaved, onCancel }: EditFormProps) {
 
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="submit" disabled={saving} style={{
-          flex: 1, padding: '10px 0',
+          flex: 1, padding: '12px 0', minHeight: 44,
           background: 'var(--accent)', border: 'none',
-          borderRadius: 8, fontSize: 13, fontWeight: 700,
+          borderRadius: 8, fontSize: 14, fontWeight: 700,
           color: '#000', cursor: saving ? 'default' : 'pointer',
           opacity: saving ? 0.6 : 1,
         }}>
           {saving ? 'Сохранение…' : 'Сохранить'}
         </button>
         <button type="button" onClick={onCancel} disabled={saving} style={{
-          padding: '10px 18px',
+          padding: '12px 18px', minHeight: 44,
           background: 'none',
           border: '1px solid var(--border-2)',
           borderRadius: 8,
-          fontSize: 13, color: 'var(--text-3)',
+          fontSize: 14, color: 'var(--text-3)',
           cursor: 'pointer',
         }}>
           Отмена
@@ -449,9 +450,10 @@ function PhoneLinkForm({ onSuccess }: PhoneLinkFormProps) {
   }
 
   const inp: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box', padding: '9px 12px',
+    width: '100%', boxSizing: 'border-box', padding: '11px 12px',
     background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-2)',
-    borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none', display: 'block',
+    borderRadius: 8, fontSize: 14, color: 'var(--text)', outline: 'none', display: 'block',
+    minHeight: 44,
   };
 
   if (stage === 'phone') {

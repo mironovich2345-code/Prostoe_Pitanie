@@ -61,9 +61,10 @@ export default function AdminUsersClient() {
 
   const inp: React.CSSProperties = {
     display: 'block', width: '100%', boxSizing: 'border-box',
-    padding: '9px 12px', background: 'rgba(255,255,255,0.05)',
+    padding: '11px 12px', background: 'rgba(255,255,255,0.05)',
     border: '1px solid var(--border-2)', borderRadius: 8,
-    fontSize: 13, color: 'var(--text)', outline: 'none', marginBottom: 16,
+    fontSize: 14, color: 'var(--text)', outline: 'none', marginBottom: 16,
+    minHeight: 44,
   };
 
   return (

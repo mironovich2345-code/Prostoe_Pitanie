@@ -96,9 +96,9 @@ function MacroChip({
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 14px', borderRadius: 8,
+  width: '100%', padding: '11px 14px', borderRadius: 8,
   background: 'var(--surface-2)', border: '1px solid var(--border)',
-  color: 'var(--text)', fontSize: 13,
+  color: 'var(--text)', fontSize: 14, minHeight: 44,
 };
 
 const CONFIDENCE_COLOR: Record<'high' | 'medium' | 'low', string> = {
@@ -286,6 +286,12 @@ export default function DiaryClient() {
   const [productError, setProductError]                 = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // barcode search
+  const [productSubMode, setProductSubMode]         = useState<'name' | 'barcode'>('name');
+  const [barcodeQuery, setBarcodeQuery]             = useState('');
+  const [barcodeLoading, setBarcodeLoading]         = useState(false);
+  const [barcodeError, setBarcodeError]             = useState<string | null>(null);
+
   // AI text analysis
   const [aiText, setAiText]                       = useState('');
   const [aiResult, setAiResult]                   = useState<WebAiFoodAnalysis | null>(null);
@@ -369,6 +375,30 @@ export default function DiaryClient() {
         setProductResults(res.items);
       } catch { setProductResults([]); } finally { setProductSearchLoading(false); }
     }, 400);
+  }
+
+  async function handleBarcodeSearch() {
+    setBarcodeError(null);
+    const raw = barcodeQuery.replace(/[\s\-]/g, '');
+    if (!/^\d{6,32}$/.test(raw)) {
+      setBarcodeError('Введите числовой штрихкод (6–32 цифры)');
+      return;
+    }
+    setBarcodeLoading(true);
+    try {
+      const res = await webApi.getProductByBarcode(raw);
+      setSelectedProduct(res.product);
+      setProductGrams(res.product.packageWeightG != null ? String(res.product.packageWeightG) : '100');
+      setProductError(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setBarcodeError('Продукт не найден в базе. Попробуйте поиск по названию.');
+      } else {
+        setBarcodeError('Ошибка при поиске. Попробуйте ещё раз.');
+      }
+    } finally {
+      setBarcodeLoading(false);
+    }
   }
 
   async function handleAddProduct() {
@@ -518,6 +548,9 @@ export default function DiaryClient() {
     setProductGrams('');
     setProductMealType('breakfast');
     setProductError(null);
+    setProductSubMode('name');
+    setBarcodeQuery('');
+    setBarcodeError(null);
     setAiText('');
     setAiResult(null);
     setAiAnalyzeError(null);
@@ -707,7 +740,8 @@ export default function DiaryClient() {
                     setPhotoResult(null); setPhotoAnalyzeError(null); setPhotoAddError(null);
                   }}
                   style={{
-                    padding: '8px 0', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    padding: '10px 0', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                    minHeight: 44,
                     background: addMode === mode ? 'var(--surface)' : 'var(--surface-2)',
                     color: addMode === mode ? 'var(--text)' : 'var(--text-3)',
                     border: addMode === mode ? '1px solid var(--border)' : '1px solid transparent',
@@ -760,32 +794,78 @@ export default function DiaryClient() {
               <div>
                 {!selectedProduct ? (
                   <>
-                    <div style={{ marginBottom: 8 }}>
-                      <input
-                        type="text" placeholder="Название продукта или бренд…"
-                        value={productQuery} onChange={e => onProductQueryChange(e.target.value)}
-                        autoFocus style={inputStyle}
-                      />
+                    {/* Sub-mode: name search vs barcode */}
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                      {(['name', 'barcode'] as const).map(m => (
+                        <button
+                          key={m}
+                          onClick={() => { setProductSubMode(m); setBarcodeError(null); }}
+                          style={{
+                            flex: 1, padding: '7px 0', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                            background: productSubMode === m ? 'var(--surface)' : 'var(--surface-2)',
+                            color: productSubMode === m ? 'var(--text)' : 'var(--text-3)',
+                            border: productSubMode === m ? '1px solid var(--border)' : '1px solid transparent',
+                          }}
+                        >{m === 'name' ? 'По названию' : 'По штрихкоду'}</button>
+                      ))}
                     </div>
-                    {productSearchLoading && <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>Поиск…</div>}
-                    {!productSearchLoading && productResults.length > 0 && (
-                      <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
-                        {productResults.map((p, i) => (
-                          <button key={p.id}
-                            onClick={() => { setSelectedProduct(p); setProductGrams(''); setProductError(null); }}
-                            style={{ width: '100%', textAlign: 'left', padding: '10px 14px', display: 'block', borderBottom: i < productResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--surface-2)' }}
-                          >
-                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-                              {[p.brand, `${p.caloriesPer100g} ккал/100г`, `Б ${p.proteinPer100g}г  Ж ${p.fatPer100g}г  У ${p.carbsPer100g}г`].filter(Boolean).join(' · ')}
-                            </div>
-                          </button>
-                        ))}
+
+                    {productSubMode === 'name' ? (
+                      <>
+                        <div style={{ marginBottom: 8 }}>
+                          <input
+                            type="text" placeholder="Название продукта или бренд…"
+                            value={productQuery} onChange={e => onProductQueryChange(e.target.value)}
+                            autoFocus style={inputStyle}
+                          />
+                        </div>
+                        {productSearchLoading && <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>Поиск…</div>}
+                        {!productSearchLoading && productResults.length > 0 && (
+                          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+                            {productResults.map((p, i) => (
+                              <button key={p.id}
+                                onClick={() => { setSelectedProduct(p); setProductGrams(''); setProductError(null); }}
+                                style={{ width: '100%', textAlign: 'left', padding: '10px 14px', display: 'block', borderBottom: i < productResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--surface-2)' }}
+                              >
+                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                                  {[p.brand, `${p.caloriesPer100g} ккал/100г`, `Б ${p.proteinPer100g}г  Ж ${p.fatPer100g}г  У ${p.carbsPer100g}г`].filter(Boolean).join(' · ')}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {!productSearchLoading && productQuery.trim().length >= 2 && productResults.length === 0 && (
+                          <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>Ничего не найдено</div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ marginBottom: 4 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                          <input
+                            type="text" inputMode="numeric" placeholder="Введите штрихкод…"
+                            value={barcodeQuery}
+                            onChange={e => setBarcodeQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') void handleBarcodeSearch(); }}
+                            autoFocus style={{ ...inputStyle, flex: 1 }}
+                          />
+                          <button
+                            onClick={() => void handleBarcodeSearch()}
+                            disabled={barcodeLoading}
+                            style={{
+                              padding: '10px 14px', borderRadius: 8,
+                              background: 'var(--accent)', color: '#000',
+                              fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                              flexShrink: 0, opacity: barcodeLoading ? 0.6 : 1,
+                            }}
+                          >{barcodeLoading ? '…' : 'Найти'}</button>
+                        </div>
+                        {barcodeError && (
+                          <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8 }}>{barcodeError}</div>
+                        )}
                       </div>
                     )}
-                    {!productSearchLoading && productQuery.trim().length >= 2 && productResults.length === 0 && (
-                      <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>Ничего не найдено</div>
-                    )}
+
                     <button onClick={handleCloseAddForm} style={{ marginTop: 4, padding: '10px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 13 }}>Отмена</button>
                   </>
                 ) : (

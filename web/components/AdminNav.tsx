@@ -15,7 +15,7 @@ export default function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 4 }}>
       {NAV_ITEMS.map(item => {
         const active = item.href === '/admin'
           ? pathname === '/admin'
