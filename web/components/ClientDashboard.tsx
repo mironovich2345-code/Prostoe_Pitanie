@@ -1073,6 +1073,7 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
         <SLabel>Быстрые действия</SLabel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <QuickLink href="/client/diary"   label="Дневник питания" />
+          <QuickLink href="/client/stats"  label="Статистика питания" />
           <QuickLink href="/client/weight" label="История веса" />
           <QuickLink href="/trainers"      label="Каталог экспертов" />
           <QuickLink href="/client/expert" label="Мой эксперт" />

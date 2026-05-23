@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireWebAuth, WebAuthRequest } from '../middleware/webAuth';
 import prisma from '../../db';
 import { analyzeFood, analyzeFoodPhoto } from '../../ai/analyzeFood';
+import { generateWeeklyInsight, type WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { getSubscriptionState } from '../../services/subscriptionService';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
 
@@ -502,6 +503,280 @@ router.post('/add-ai-analysis', async (req: WebAuthRequest, res) => {
     });
   } catch (err) {
     console.error('[web/nutrition/add-ai-analysis POST] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/insight/week
+router.post('/insight/week', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+
+  // ── Subscription check ────────────────────────────────────────────────────
+  try {
+    const { accessLevel } = await getSubscriptionState(userId);
+    if (accessLevel !== 'full') {
+      // Legacy bridge: check old chatId-based Subscription for still-active records
+      let legacyOk = false;
+      if (chatId) {
+        try {
+          const legacy = await prisma.subscription.findUnique({ where: { chatId } });
+          const now = new Date();
+          if (legacy) {
+            if (legacy.status === 'active' && legacy.currentPeriodEnd && legacy.currentPeriodEnd > now) legacyOk = true;
+            if (legacy.status === 'trial'  && legacy.trialEndsAt    && legacy.trialEndsAt    > now) legacyOk = true;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!legacyOk) {
+        res.status(402).json({ ok: false, error: 'subscription_required' });
+        return;
+      }
+    }
+  } catch {
+    // Fail-open on DB errors (same policy as analyze-photo)
+  }
+
+  // ── Parse endDate from body ───────────────────────────────────────────────
+  const body = req.body as Record<string, unknown>;
+  const rawEnd = typeof body.endDate === 'string' ? body.endDate : '';
+  let endDateStr: string;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawEnd)) {
+    const d = new Date(`${rawEnd}T00:00:00.000Z`);
+    if (isNaN(d.getTime())) {
+      res.status(400).json({ ok: false, error: 'invalid_date' });
+      return;
+    }
+    endDateStr = rawEnd;
+  } else {
+    endDateStr = new Date().toISOString().slice(0, 10);
+  }
+
+  const startDateStr = (() => {
+    const d = new Date(`${endDateStr}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+  const rangeStart = new Date(`${startDateStr}T00:00:00.000Z`);
+  const rangeEnd   = new Date(`${endDateStr}T23:59:59.999Z`);
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { ...ownerFilter(userId, chatIds), createdAt: { gte: rangeStart, lte: rangeEnd } };
+
+    const meals = await prisma.mealEntry.findMany({
+      where,
+      select: { caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, createdAt: true },
+    }) as Array<{ caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; createdAt: Date }>;
+
+    // Group into 7-day buckets
+    type DayAcc = { kcal: number; protein: number; fat: number; carbs: number; count: number };
+    const dayMap = new Map<string, DayAcc>();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(`${startDateStr}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      dayMap.set(d.toISOString().slice(0, 10), { kcal: 0, protein: 0, fat: 0, carbs: 0, count: 0 });
+    }
+    for (const m of meals) {
+      const key = (m.createdAt as Date).toISOString().slice(0, 10);
+      const acc = dayMap.get(key);
+      if (!acc) continue;
+      acc.kcal    += m.caloriesKcal ?? 0;
+      acc.protein += m.proteinG    ?? 0;
+      acc.fat     += m.fatG        ?? 0;
+      acc.carbs   += m.carbsG      ?? 0;
+      acc.count++;
+    }
+
+    const profile = await prisma.userProfile.findFirst({
+      where: { userId },
+      select: {
+        dailyCaloriesKcal: true, dailyProteinG: true, dailyFatG: true, dailyCarbsG: true,
+        currentWeightKg: true, desiredWeightKg: true,
+      },
+    });
+
+    let totalCal = 0, totalProt = 0, totalFat = 0, totalCarbs = 0, activeDays = 0;
+    const days: WeeklyInsightInput['days'] = [];
+    for (const [date, acc] of dayMap) {
+      days.push({ date, kcal: acc.kcal, protein: acc.protein, fat: acc.fat, carbs: acc.carbs, mealCount: acc.count });
+      if (acc.count > 0) {
+        activeDays++;
+        totalCal   += acc.kcal;
+        totalProt  += acc.protein;
+        totalFat   += acc.fat;
+        totalCarbs += acc.carbs;
+      }
+    }
+    days.sort((a, b) => a.date.localeCompare(b.date));
+
+    const insightInput: WeeklyInsightInput = {
+      currentWeight:  profile?.currentWeightKg  ?? null,
+      targetWeight:   profile?.desiredWeightKg  ?? null,
+      normCal:        profile?.dailyCaloriesKcal ?? null,
+      normProtein:    profile?.dailyProteinG     ?? null,
+      normFat:        profile?.dailyFatG         ?? null,
+      normCarbs:      profile?.dailyCarbsG       ?? null,
+      weekFrom:       startDateStr,
+      weekTo:         endDateStr,
+      activeDays,
+      totalDays:      7,
+      totalCal,
+      avgCal:     activeDays > 0 ? totalCal   / activeDays : 0,
+      avgProtein: activeDays > 0 ? totalProt  / activeDays : 0,
+      avgFat:     activeDays > 0 ? totalFat   / activeDays : 0,
+      avgCarbs:   activeDays > 0 ? totalCarbs / activeDays : 0,
+      days,
+    };
+
+    const result = await generateWeeklyInsight(insightInput, {
+      userId,
+      chatId: chatId ?? `web_${userId}`,
+      scenario: 'nutrition_insight_weekly',
+    });
+
+    res.json({
+      ok: true,
+      insight: {
+        bannerTitle:        result.bannerTitle,
+        bannerText:         result.bannerText,
+        severity:           result.severity,
+        nextMealSuggestion: result.nextMealSuggestion,
+        mealAdvice:         result.mealAdvice,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/insight/week] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// GET /api/web/nutrition/stats/week?endDate=YYYY-MM-DD
+router.get('/stats/week', async (req: WebAuthRequest, res) => {
+  const { userId } = req.webUser!;
+
+  const rawEnd = typeof req.query.endDate === 'string' ? req.query.endDate : '';
+  let endDateStr: string;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawEnd)) {
+    const d = new Date(`${rawEnd}T00:00:00.000Z`);
+    if (isNaN(d.getTime())) {
+      res.status(400).json({ ok: false, error: 'invalid_date' });
+      return;
+    }
+    endDateStr = rawEnd;
+  } else {
+    endDateStr = new Date().toISOString().slice(0, 10);
+  }
+
+  const startDateStr = (() => {
+    const d = new Date(`${endDateStr}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const rangeStart = new Date(`${startDateStr}T00:00:00.000Z`);
+  const rangeEnd   = new Date(`${endDateStr}T23:59:59.999Z`);
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { ...ownerFilter(userId, chatIds), createdAt: { gte: rangeStart, lte: rangeEnd } };
+
+    const meals = await prisma.mealEntry.findMany({
+      where,
+      select: { caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, createdAt: true },
+    }) as Array<{ caloriesKcal: number | null; proteinG: number | null; fatG: number | null; carbsG: number | null; createdAt: Date }>;
+
+    // Build a map for all 7 days initialised to zero
+    type DayAccum = { cal: number; prot: number; fat: number; carbs: number; count: number };
+    const dayMap = new Map<string, DayAccum>();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(`${startDateStr}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      dayMap.set(d.toISOString().slice(0, 10), { cal: 0, prot: 0, fat: 0, carbs: 0, count: 0 });
+    }
+
+    for (const m of meals) {
+      const key = (m.createdAt as Date).toISOString().slice(0, 10);
+      const acc = dayMap.get(key);
+      if (!acc) continue;
+      acc.cal   += m.caloriesKcal ?? 0;
+      acc.prot  += m.proteinG    ?? 0;
+      acc.fat   += m.fatG        ?? 0;
+      acc.carbs += m.carbsG      ?? 0;
+      acc.count++;
+    }
+
+    const profile = await prisma.userProfile.findFirst({
+      where: { userId },
+      select: { dailyCaloriesKcal: true, dailyProteinG: true, dailyFatG: true, dailyCarbsG: true },
+    });
+    const target = profile ? {
+      dailyCaloriesKcal: profile.dailyCaloriesKcal,
+      dailyProteinG:     profile.dailyProteinG,
+      dailyFatG:         profile.dailyFatG,
+      dailyCarbsG:       profile.dailyCarbsG,
+    } : null;
+
+    const calTarget = target?.dailyCaloriesKcal;
+    type CalStatus = 'no_data' | 'no_target' | 'under' | 'ok' | 'over';
+    function calStatus(cal: number, count: number): CalStatus {
+      if (count === 0) return 'no_data';
+      if (!calTarget) return 'no_target';
+      const r = cal / calTarget;
+      if (r < 0.9) return 'under';
+      if (r > 1.1) return 'over';
+      return 'ok';
+    }
+
+    const days = [];
+    let sumCal = 0, sumProt = 0, sumFat = 0, sumCarbs = 0;
+    let daysWithData = 0, daysUnder = 0, daysOk = 0, daysOver = 0;
+
+    for (const [date, acc] of dayMap) {
+      const status = calStatus(acc.cal, acc.count);
+      days.push({
+        date,
+        totals: {
+          caloriesKcal: Math.round(acc.cal),
+          proteinG:     Math.round(acc.prot  * 10) / 10,
+          fatG:         Math.round(acc.fat   * 10) / 10,
+          carbsG:       Math.round(acc.carbs * 10) / 10,
+        },
+        mealCount:     acc.count,
+        calorieStatus: status,
+      });
+      if (acc.count > 0) {
+        daysWithData++;
+        sumCal   += acc.cal;
+        sumProt  += acc.prot;
+        sumFat   += acc.fat;
+        sumCarbs += acc.carbs;
+      }
+      if (status === 'under') daysUnder++;
+      else if (status === 'ok') daysOk++;
+      else if (status === 'over') daysOver++;
+    }
+
+    days.sort((a, b) => a.date.localeCompare(b.date));
+
+    const averages = daysWithData > 0 ? {
+      caloriesKcal: Math.round(sumCal   / daysWithData),
+      proteinG:     Math.round(sumProt  / daysWithData * 10) / 10,
+      fatG:         Math.round(sumFat   / daysWithData * 10) / 10,
+      carbsG:       Math.round(sumCarbs / daysWithData * 10) / 10,
+    } : { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 };
+
+    res.json({
+      ok: true,
+      period: { startDate: startDateStr, endDate: endDateStr },
+      target,
+      days,
+      averages,
+      summary: { daysWithData, daysUnderTarget: daysUnder, daysOk, daysOverTarget: daysOver },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/stats/week] failed', err);
     res.status(500).json({ ok: false, error: 'internal_error' });
   }
 });

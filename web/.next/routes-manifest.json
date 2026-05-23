@@ -112,6 +112,12 @@
       "namedRegex": "^/client/expert(?:/)?$"
     },
     {
+      "page": "/client/stats",
+      "regex": "^/client/stats(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/stats(?:/)?$"
+    },
+    {
       "page": "/client/weight",
       "regex": "^/client/weight(?:/)?$",
       "routeKeys": {},

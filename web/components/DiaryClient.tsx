@@ -261,9 +261,9 @@ function calcMacros(p: WebProductSearchResult, g: number) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function DiaryClient() {
+export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   const [authState, setAuthState]             = useState<AuthState>('loading');
-  const [date, setDate]                       = useState(todayStr());
+  const [date, setDate]                       = useState(initialDate ?? todayStr());
   const [data, setData]                       = useState<WebNutritionDayResponse | null>(null);
   const [dataLoading, setDataLoading]         = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);

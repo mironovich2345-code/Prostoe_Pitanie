@@ -551,6 +551,54 @@ export interface WebProductBarcodeResponse {
   product: WebProductSearchResult;
 }
 
+// ─── Web Nutrition Week Stats ─────────────────────────────────────────────────
+
+export interface WebNutritionStatsTotals {
+  caloriesKcal: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+}
+
+export interface WebNutritionStatsDay {
+  date: string;
+  totals: WebNutritionStatsTotals;
+  mealCount: number;
+  calorieStatus: 'no_data' | 'no_target' | 'under' | 'ok' | 'over';
+}
+
+export interface WebWeeklyInsight {
+  bannerTitle: string;
+  bannerText: string;
+  severity: 'neutral' | 'good' | 'warning';
+  nextMealSuggestion: string;
+  mealAdvice: string[];
+}
+
+export interface WebWeeklyInsightResponse {
+  ok: boolean;
+  insight: WebWeeklyInsight;
+}
+
+export interface WebNutritionWeekStatsResponse {
+  ok: boolean;
+  period: { startDate: string; endDate: string };
+  target: {
+    dailyCaloriesKcal: number | null;
+    dailyProteinG: number | null;
+    dailyFatG: number | null;
+    dailyCarbsG: number | null;
+  } | null;
+  days: WebNutritionStatsDay[];
+  averages: WebNutritionStatsTotals;
+  summary: {
+    daysWithData: number;
+    daysUnderTarget: number;
+    daysOk: number;
+    daysOverTarget: number;
+  };
+}
+
 // ─── Admin cabinet ────────────────────────────────────────────────────────────
 
 export interface WebAdminOverview {
@@ -908,6 +956,17 @@ export const webApi = {
 
   getProductByBarcode: (barcode: string) =>
     request<WebProductBarcodeResponse>(`/api/web/products/barcode/${encodeURIComponent(barcode)}`),
+
+  getNutritionWeekStats: (endDate?: string) => {
+    const qs = endDate ? `?endDate=${encodeURIComponent(endDate)}` : '';
+    return request<WebNutritionWeekStatsResponse>(`/api/web/nutrition/stats/week${qs}`);
+  },
+
+  getWeeklyNutritionInsight: (endDate?: string) =>
+    request<WebWeeklyInsightResponse>('/api/web/nutrition/insight/week', {
+      method: 'POST',
+      body: JSON.stringify({ endDate }),
+    }),
 
   // ─── Admin cabinet ─────────────────────────────────────────────────────────
 
