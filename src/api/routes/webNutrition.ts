@@ -1095,4 +1095,323 @@ router.delete('/meals/:id', async (req: WebAuthRequest, res) => {
   }
 });
 
+// ── Saved Meals ────────────────────────────────────────────────────────────────
+
+// GET /api/web/nutrition/saved-meals
+router.get('/saved-meals', async (req: WebAuthRequest, res) => {
+  const { userId } = req.webUser!;
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = ownerFilter(userId, chatIds);
+    const items = await prisma.savedMeal.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, title: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as Array<{
+      id: number; title: string; mealType: string | null;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    }>;
+    res.json({
+      ok: true,
+      items: items.map(m => ({
+        id:           m.id,
+        name:         m.title,
+        mealType:     m.mealType,
+        caloriesKcal: m.caloriesKcal,
+        proteinG:     m.proteinG,
+        fatG:         m.fatG,
+        carbsG:       m.carbsG,
+        fiberG:       m.fiberG,
+        createdAt:    m.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error('[web/nutrition/saved-meals GET] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/saved-meals/:id/add  (more specific — defined before DELETE /:id)
+router.post('/saved-meals/:id/add', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+
+  const savedId = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(savedId) || savedId <= 0) {
+    res.status(400).json({ ok: false, error: 'invalid_id' });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const dateRaw = typeof body.date === 'string' ? body.date : '';
+  let createdAt: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+    const d = new Date(`${dateRaw}T12:00:00.000Z`);
+    if (isNaN(d.getTime())) {
+      res.status(400).json({ ok: false, error: 'invalid_date' });
+      return;
+    }
+    createdAt = d;
+  } else {
+    const now = new Date();
+    createdAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+  }
+
+  const bodyMealType = typeof body.mealType === 'string' ? body.mealType : '';
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savedWhere: any = { id: savedId, ...ownerFilter(userId, chatIds) };
+    const saved = await prisma.savedMeal.findFirst({
+      where: savedWhere,
+      select: {
+        title: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+      },
+    }) as {
+      title: string; mealType: string | null;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null;
+    } | null;
+
+    if (!saved) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    const resolvedMealType = VALID_MEAL_TYPES.has(bodyMealType)
+      ? bodyMealType
+      : (saved.mealType && VALID_MEAL_TYPES.has(saved.mealType) ? saved.mealType : 'other');
+
+    const meal = await prisma.mealEntry.create({
+      data: {
+        chatId:       syntheticChatId,
+        userId,
+        text:         saved.title,
+        mealType:     resolvedMealType,
+        sourceType:   'web_saved_meal',
+        caloriesKcal: saved.caloriesKcal,
+        proteinG:     saved.proteinG,
+        fatG:         saved.fatG,
+        carbsG:       saved.carbsG,
+        fiberG:       saved.fiberG,
+        createdAt,
+      },
+      select: {
+        id: true, text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      meal: {
+        id:           meal.id,
+        name:         meal.text,
+        mealType:     meal.mealType,
+        caloriesKcal: meal.caloriesKcal,
+        proteinG:     meal.proteinG,
+        fatG:         meal.fatG,
+        carbsG:       meal.carbsG,
+        fiberG:       meal.fiberG,
+        createdAt:    meal.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/saved-meals/:id/add POST] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// DELETE /api/web/nutrition/saved-meals/:id
+router.delete('/saved-meals/:id', async (req: WebAuthRequest, res) => {
+  const { userId } = req.webUser!;
+
+  const savedId = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(savedId) || savedId <= 0) {
+    res.status(400).json({ ok: false, error: 'invalid_id' });
+    return;
+  }
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { id: savedId, ...ownerFilter(userId, chatIds) };
+    const existing = await prisma.savedMeal.findFirst({
+      where,
+      select: { id: true },
+    }) as { id: number } | null;
+
+    if (!existing) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    await prisma.savedMeal.delete({ where: { id: savedId } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[web/nutrition/saved-meals/:id DELETE] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/saved-meals
+router.post('/saved-meals', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  // Variant A: save from existing MealEntry
+  if (body.mealId !== undefined) {
+    const mealId = parseInt(String(body.mealId), 10);
+    if (!Number.isFinite(mealId) || mealId <= 0) {
+      res.status(400).json({ ok: false, error: 'invalid_meal_id' });
+      return;
+    }
+    try {
+      const chatIds = await collectChatIds(userId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mealWhere: any = { id: mealId, ...ownerFilter(userId, chatIds) };
+      const meal = await prisma.mealEntry.findFirst({
+        where: mealWhere,
+        select: {
+          text: true, mealType: true,
+          caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        },
+      }) as {
+        text: string; mealType: string;
+        caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+        carbsG: number | null; fiberG: number | null;
+      } | null;
+
+      if (!meal) {
+        res.status(404).json({ ok: false, error: 'meal_not_found' });
+        return;
+      }
+
+      const saved = await prisma.savedMeal.create({
+        data: {
+          chatId:       syntheticChatId,
+          userId,
+          title:        meal.text.slice(0, 120),
+          mealType:     VALID_MEAL_TYPES.has(meal.mealType) ? meal.mealType : null,
+          caloriesKcal: meal.caloriesKcal,
+          proteinG:     meal.proteinG,
+          fatG:         meal.fatG,
+          carbsG:       meal.carbsG,
+          fiberG:       meal.fiberG,
+        },
+        select: {
+          id: true, title: true, mealType: true,
+          caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+          createdAt: true,
+        },
+      }) as {
+        id: number; title: string; mealType: string | null;
+        caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+        carbsG: number | null; fiberG: number | null; createdAt: Date;
+      };
+
+      res.json({
+        ok: true,
+        item: {
+          id:           saved.id,
+          name:         saved.title,
+          mealType:     saved.mealType,
+          caloriesKcal: saved.caloriesKcal,
+          proteinG:     saved.proteinG,
+          fatG:         saved.fatG,
+          carbsG:       saved.carbsG,
+          fiberG:       saved.fiberG,
+          createdAt:    saved.createdAt,
+        },
+      });
+    } catch (err) {
+      console.error('[web/nutrition/saved-meals POST mealId] failed', err);
+      res.status(500).json({ ok: false, error: 'internal_error' });
+    }
+    return;
+  }
+
+  // Variant B: manual creation
+  const title = typeof body.name === 'string' ? body.name.trim() : '';
+  if (!title || title.length > 120) {
+    res.status(400).json({ ok: false, error: 'invalid_name' });
+    return;
+  }
+  const mealType = typeof body.mealType === 'string' ? body.mealType : '';
+  if (!VALID_MEAL_TYPES.has(mealType)) {
+    res.status(400).json({ ok: false, error: 'invalid_meal_type' });
+    return;
+  }
+
+  const toFloat = (v: unknown, max: number): number | null => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 && n <= max ? Math.round(n * 10) / 10 : null;
+  };
+
+  const caloriesKcalRaw = body.caloriesKcal;
+  let caloriesKcal: number | null = null;
+  if (caloriesKcalRaw !== undefined && caloriesKcalRaw !== null && caloriesKcalRaw !== '') {
+    const n = Number(caloriesKcalRaw);
+    caloriesKcal = Number.isFinite(n) && n >= 0 && n <= 10000 ? Math.round(n) : null;
+  }
+
+  try {
+    const saved = await prisma.savedMeal.create({
+      data: {
+        chatId:       syntheticChatId,
+        userId,
+        title,
+        mealType,
+        caloriesKcal,
+        proteinG:  toFloat(body.proteinG, 1000),
+        fatG:      toFloat(body.fatG,     1000),
+        carbsG:    toFloat(body.carbsG,   1000),
+        fiberG:    toFloat(body.fiberG,   1000),
+      },
+      select: {
+        id: true, title: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; title: string; mealType: string | null;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      item: {
+        id:           saved.id,
+        name:         saved.title,
+        mealType:     saved.mealType,
+        caloriesKcal: saved.caloriesKcal,
+        proteinG:     saved.proteinG,
+        fatG:         saved.fatG,
+        carbsG:       saved.carbsG,
+        fiberG:       saved.fiberG,
+        createdAt:    saved.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/saved-meals POST manual] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
 export default router;

@@ -450,6 +450,41 @@ export interface WebCopyDayResponse {
   copied: number;
 }
 
+// ─── Web Saved Meals ──────────────────────────────────────────────────────────
+
+export interface WebSavedMeal {
+  id: number;
+  name: string;
+  mealType: string | null;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbsG: number | null;
+  fiberG: number | null;
+  createdAt: string;
+}
+
+export interface WebSavedMealsResponse {
+  ok: boolean;
+  items: WebSavedMeal[];
+}
+
+export interface WebCreateSavedMealPayload {
+  mealId?: number;
+  name?: string;
+  mealType?: string;
+  caloriesKcal?: number | null;
+  proteinG?: number | null;
+  fatG?: number | null;
+  carbsG?: number | null;
+  fiberG?: number | null;
+}
+
+export interface WebAddSavedMealPayload {
+  date?: string;    // YYYY-MM-DD
+  mealType?: string;
+}
+
 // ─── Web Weight History ───────────────────────────────────────────────────────
 
 export interface WebWeightEntry {
@@ -946,6 +981,24 @@ export const webApi = {
 
   copyNutritionDay: (payload: WebCopyDayPayload) =>
     request<WebCopyDayResponse>('/api/web/nutrition/day/copy', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getSavedMeals: () =>
+    request<WebSavedMealsResponse>('/api/web/nutrition/saved-meals'),
+
+  createSavedMeal: (payload: WebCreateSavedMealPayload) =>
+    request<{ ok: boolean; item: WebSavedMeal }>('/api/web/nutrition/saved-meals', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSavedMeal: (id: number) =>
+    request<{ ok: boolean }>(`/api/web/nutrition/saved-meals/${id}`, { method: 'DELETE' }),
+
+  addSavedMealToDiary: (id: number, payload: WebAddSavedMealPayload) =>
+    request<WebAddMealResponse>(`/api/web/nutrition/saved-meals/${id}/add`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

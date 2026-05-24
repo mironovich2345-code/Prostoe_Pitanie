@@ -7,13 +7,13 @@ import {
   webApi, ApiError,
   type WebMealEntry, type WebNutritionDayResponse, type WebAddMealPayload,
   type WebUpdateMealPayload, type WebCopyMealPayload, type WebCopyDayPayload,
-  type WebProductSearchResult, type WebAiFoodAnalysis,
+  type WebProductSearchResult, type WebAiFoodAnalysis, type WebSavedMeal,
 } from '@/lib/webApi';
 
 const BarcodeScannerModal = dynamic(() => import('./BarcodeScannerModal'), { ssr: false });
 
 type AuthState = 'loading' | 'unauthenticated' | 'authenticated';
-type AddMode = 'manual' | 'product' | 'ai' | 'photo';
+type AddMode = 'manual' | 'product' | 'ai' | 'photo' | 'saved';
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'other'] as const;
 type MealType = typeof MEAL_TYPES[number];
@@ -334,6 +334,18 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   const [photoAdding, setPhotoAdding]             = useState(false);
   const [photoAddError, setPhotoAddError]         = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // saved meals
+  const [savedMeals, setSavedMeals]               = useState<WebSavedMeal[]>([]);
+  const [savedMealsLoading, setSavedMealsLoading] = useState(false);
+  const [savedMealsError, setSavedMealsError]     = useState<string | null>(null);
+  const [addingFromSavedId, setAddingFromSavedId] = useState<number | null>(null);
+  const [addFromSavedError, setAddFromSavedError] = useState<string | null>(null);
+  const [deletingSavedId, setDeletingSavedId]     = useState<number | null>(null);
+
+  // save-as-template per-meal feedback
+  const [savingTemplateId, setSavingTemplateId]             = useState<number | null>(null);
+  const [savedTemplateSuccessId, setSavedTemplateSuccessId] = useState<number | null>(null);
 
   async function loadData(d: string) {
     setDataLoading(true);
@@ -667,6 +679,57 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     } finally { setPhotoAdding(false); }
   }
 
+  async function loadSavedMeals() {
+    setSavedMealsLoading(true);
+    setSavedMealsError(null);
+    try {
+      const res = await webApi.getSavedMeals();
+      setSavedMeals(res.items);
+    } catch {
+      setSavedMealsError('Не удалось загрузить сохранённые блюда');
+    } finally {
+      setSavedMealsLoading(false);
+    }
+  }
+
+  async function handleSaveAsTemplate(meal: WebMealEntry) {
+    setSavingTemplateId(meal.id);
+    try {
+      await webApi.createSavedMeal({ mealId: meal.id });
+      setSavedTemplateSuccessId(meal.id);
+      setTimeout(
+        () => setSavedTemplateSuccessId(prev => (prev === meal.id ? null : prev)),
+        2000,
+      );
+    } catch { /* silent */ } finally {
+      setSavingTemplateId(null);
+    }
+  }
+
+  async function handleAddFromSaved(id: number) {
+    setAddingFromSavedId(id);
+    setAddFromSavedError(null);
+    try {
+      await webApi.addSavedMealToDiary(id, { date });
+      handleCloseAddForm();
+      await loadData(date);
+    } catch (err) {
+      setAddFromSavedError(err instanceof ApiError ? err.code : 'Ошибка при добавлении');
+    } finally {
+      setAddingFromSavedId(null);
+    }
+  }
+
+  async function handleDeleteSavedMeal(id: number) {
+    setDeletingSavedId(id);
+    try {
+      await webApi.deleteSavedMeal(id);
+      setSavedMeals(prev => prev.filter(m => m.id !== id));
+    } catch { /* silent */ } finally {
+      setDeletingSavedId(null);
+    }
+  }
+
   function handleCloseAddForm() {
     setShowAddForm(false);
     setAddMode('manual');
@@ -693,6 +756,10 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     setPhotoAddError(null);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (photoInputRef.current) photoInputRef.current.value = '';
+    setSavedMeals([]);
+    setSavedMealsError(null);
+    setAddingFromSavedId(null);
+    setAddFromSavedError(null);
   }
 
   // ── Loading / Unauthenticated ─────────────────────────────────────────────
@@ -737,7 +804,7 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   const photoCanSave = photoResult !== null && (!photoResult.needsClarification || photoResult.caloriesKcal !== null);
 
   const MODE_LABELS: Record<AddMode, string> = {
-    manual: 'Вручную', product: 'По продукту', ai: 'AI текст', photo: 'AI фото',
+    manual: 'Вручную', product: 'Продукт', ai: 'AI текст', photo: 'AI фото', saved: 'Шаблоны',
   };
 
   return (
@@ -792,11 +859,12 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
                 setShowDayCopy(true);
               }}
               style={{
-                width: '100%', padding: '9px 14px', borderRadius: 8,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
-                color: 'var(--text-2)', fontSize: 13, fontWeight: 600, textAlign: 'left',
+                padding: '6px 0', background: 'none', border: 'none',
+                color: 'var(--text-3)', fontSize: 12, fontWeight: 500, textAlign: 'left',
+                textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.15)',
+                textUnderlineOffset: 3,
               }}
-            >+ Скопировать записи из другого дня</button>
+            >Скопировать записи из другого дня</button>
           </div>
         ) : (
           <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
@@ -889,22 +957,33 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
                       >Отмена</button>
                     </div>
                   ) : editingMealId === meal.id || copyConfirmId === meal.id ? null : (
-                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
                       <button
                         onClick={() => handleEditStart(meal)}
                         aria-label="Редактировать запись"
-                        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontWeight: 600 }}
+                        style={{ fontSize: 11, padding: '4px 9px', borderRadius: 6, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
                       >Ред.</button>
                       <button
                         onClick={() => handleCopyStart(meal)}
                         aria-label="Повторить запись"
-                        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontWeight: 600 }}
+                        style={{ fontSize: 11, padding: '4px 9px', borderRadius: 6, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }}
                       >Повт.</button>
+                      <button
+                        onClick={() => void handleSaveAsTemplate(meal)}
+                        disabled={savingTemplateId === meal.id}
+                        aria-label="Сохранить как шаблон"
+                        style={{
+                          fontSize: 11, padding: '4px 9px', borderRadius: 6, fontWeight: 600,
+                          background: savedTemplateSuccessId === meal.id ? 'rgba(76,175,80,0.10)' : 'var(--surface-2)',
+                          color: savedTemplateSuccessId === meal.id ? '#4caf50' : 'var(--text-2)',
+                          border: savedTemplateSuccessId === meal.id ? '1px solid rgba(76,175,80,0.22)' : '1px solid var(--border)',
+                        }}
+                      >{savingTemplateId === meal.id ? '…' : savedTemplateSuccessId === meal.id ? 'Сохр.' : 'Шаблон'}</button>
                       <button
                         onClick={() => setConfirmDeleteId(meal.id)}
                         aria-label="Удалить запись"
-                        style={{ fontSize: 18, color: 'var(--text-3)', lineHeight: 1, padding: '0 4px' }}
-                      >&#215;</button>
+                        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, fontWeight: 600, background: 'rgba(239,83,80,0.07)', color: 'rgba(239,83,80,0.65)', border: '1px solid rgba(239,83,80,0.14)' }}
+                      >×</button>
                     </div>
                   )}
                 </div>
@@ -1026,23 +1105,28 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
           >+ Добавить приём пищи</button>
         ) : (
           <div>
-            {/* Mode tabs — 2×2 grid on small screens */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 14 }}>
-              {(['manual', 'product', 'ai', 'photo'] as const).map(mode => (
+            {/* Mode tabs — segmented control */}
+            <div style={{
+              display: 'flex', gap: 2, marginBottom: 14,
+              background: 'var(--surface-2)', borderRadius: 8, padding: 3,
+              overflowX: 'auto', scrollbarWidth: 'none',
+            }}>
+              {(['manual', 'product', 'ai', 'photo', 'saved'] as const).map(mode => (
                 <button
                   key={mode}
                   onClick={() => {
                     setAddMode(mode);
                     setAiResult(null); setAiAnalyzeError(null); setAiAddError(null);
                     setPhotoResult(null); setPhotoAnalyzeError(null); setPhotoAddError(null);
+                    if (mode === 'saved') void loadSavedMeals();
                   }}
                   style={{
-                    padding: '10px 0', borderRadius: 6, fontSize: 13, fontWeight: 600,
-                    minHeight: 44,
-                    background: addMode === mode ? 'var(--surface)' : 'var(--surface-2)',
+                    padding: '7px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    minHeight: 36, flexShrink: 0, whiteSpace: 'nowrap',
+                    background: addMode === mode ? 'var(--surface)' : 'transparent',
                     color: addMode === mode ? 'var(--text)' : 'var(--text-3)',
-                    border: addMode === mode ? '1px solid var(--border)' : '1px solid transparent',
-                    transition: 'all 0.15s',
+                    border: 'none',
+                    transition: 'background 0.15s, color 0.15s',
                   }}
                 >
                   {MODE_LABELS[mode]}
@@ -1302,7 +1386,10 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         }}
                       >
-                        <span style={{ fontSize: 22 }}>&#128247;</span>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                          <path d="M6.5 3h5l1.5 2H15a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.5L6 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="9" cy="9.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+                        </svg>
                         Выбрать фото
                       </button>
                     )}
@@ -1336,6 +1423,80 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
                     onCancel={handleCloseAddForm}
                   />
                 )}
+              </div>
+            )}
+
+            {/* ── Saved / template meals ───────────────────────────────────── */}
+            {addMode === 'saved' && (
+              <div>
+                {savedMealsLoading ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '16px 0', textAlign: 'center' }}>
+                    Загрузка…
+                  </div>
+                ) : savedMealsError ? (
+                  <div>
+                    <div style={{ fontSize: 13, color: '#ef5350', marginBottom: 10 }}>{savedMealsError}</div>
+                    <button
+                      onClick={() => void loadSavedMeals()}
+                      style={{ padding: '10px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 13 }}
+                    >Повторить</button>
+                  </div>
+                ) : savedMeals.length === 0 ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '12px 0', lineHeight: 1.65 }}>
+                    Пока нет сохранённых шаблонов.<br />
+                    Нажмите «Шаблон» у любого приёма пищи в дневнике.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                    {savedMeals.map(item => (
+                      <div key={item.id} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                        padding: '10px 12px', borderRadius: 10,
+                        background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                            {[
+                              item.mealType ? (MEAL_LABELS[item.mealType as MealType] ?? item.mealType) : null,
+                              item.caloriesKcal !== null && `${item.caloriesKcal} ккал`,
+                              item.proteinG     !== null && `Б ${item.proteinG}г`,
+                              item.fatG         !== null && `Ж ${item.fatG}г`,
+                              item.carbsG       !== null && `У ${item.carbsG}г`,
+                            ].filter(Boolean).join(' · ')}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                          <button
+                            onClick={() => void handleAddFromSaved(item.id)}
+                            disabled={addingFromSavedId === item.id}
+                            style={{
+                              fontSize: 12, padding: '6px 12px', borderRadius: 6,
+                              background: 'var(--accent)', color: '#000', fontWeight: 700,
+                              opacity: addingFromSavedId === item.id ? 0.6 : 1,
+                            }}
+                          >{addingFromSavedId === item.id ? '…' : 'Добавить'}</button>
+                          <button
+                            onClick={() => void handleDeleteSavedMeal(item.id)}
+                            disabled={deletingSavedId === item.id}
+                            aria-label="Удалить шаблон"
+                            style={{
+                              fontSize: 18, color: 'var(--text-3)', padding: '2px 6px',
+                              opacity: deletingSavedId === item.id ? 0.4 : 1,
+                            }}
+                          >&#215;</button>
+                        </div>
+                      </div>
+                    ))}
+                    {addFromSavedError && (
+                      <div style={{ fontSize: 12, color: '#ef5350' }}>{addFromSavedError}</div>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={handleCloseAddForm}
+                  style={{ marginTop: 4, padding: '10px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 13 }}
+                >Отмена</button>
               </div>
             )}
           </div>
