@@ -42,12 +42,71 @@ const HOW_IT_WORKS = [
 ];
 
 const BENEFITS = [
-  { icon: '📸', title: 'Фото и голос', desc: 'Сфотографируйте блюдо или скажите, что съели — КБЖУ посчитается автоматически.' },
-  { icon: '📊', title: 'Полная статистика', desc: 'История питания, динамика веса, баланс макронутриентов — всё в одном месте.' },
-  { icon: '🎯', title: 'Персональная цель', desc: 'Укажите желаемый вес и получите расчёт суточных калорий под ваш метаболизм.' },
-  { icon: '🔔', title: 'Умные напоминания', desc: 'Настройте время напоминаний о приёмах пищи, чтобы не пропускать.' },
-  { icon: '👨‍⚕️', title: 'Эксперт рядом', desc: 'Нутрициолог видит ваш дневник, оценивает приёмы и пишет комментарии.' },
-  { icon: '📱', title: 'Всё в Telegram', desc: 'Не нужно отдельное приложение — EATLYY работает прямо в мессенджере.' },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="5.5" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <circle cx="10" cy="11" r="3" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M7.5 5.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.5" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+    title: 'Фото и голос',
+    desc: 'Сфотографируйте блюдо или скажите, что съели — КБЖУ посчитается автоматически.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="12" width="3" height="5" rx="1" fill="currentColor"/>
+        <rect x="8.5" y="8" width="3" height="9" rx="1" fill="currentColor"/>
+        <rect x="14" y="4" width="3" height="13" rx="1" fill="currentColor"/>
+      </svg>
+    ),
+    title: 'Полная статистика',
+    desc: 'История питания, динамика веса, баланс макронутриентов — всё в одном месте.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/>
+        <circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5"/>
+        <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+      </svg>
+    ),
+    title: 'Персональная цель',
+    desc: 'Укажите желаемый вес и получите расчёт суточных калорий под ваш метаболизм.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 3a5 5 0 0 0-5 5v5.5H15V8a5 5 0 0 0-5-5z" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M7.5 13.5v.5a2.5 2.5 0 0 0 5 0v-.5" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M10 3V2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Умные напоминания',
+    desc: 'Настройте время напоминаний о приёмах пищи, чтобы не пропускать.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="8" cy="6.5" r="3" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M2.5 17c0-3.038 2.462-5.5 5.5-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M12 13.5l1.5 1.5 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    title: 'Эксперт рядом',
+    desc: 'Нутрициолог видит ваш дневник, оценивает приёмы и пишет комментарии.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7.5L3 17V4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+        <path d="M7 8.5h6M7 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Всё в Telegram',
+    desc: 'Не нужно отдельное приложение — EATLYY работает прямо в мессенджере.',
+  },
 ];
 
 export default function ClientsPage() {
@@ -98,15 +157,11 @@ export default function ClientsPage() {
         <div className="container">
           <h2 style={{
             fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
-            letterSpacing: -0.8, marginBottom: 48, textAlign: 'center',
+            letterSpacing: -0.8, marginBottom: 40, textAlign: 'center',
           }}>
             Как это работает
           </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 12,
-          }}>
+          <div className="grid-4">
             {HOW_IT_WORKS.map(({ step, title, desc }) => (
               <div key={step} style={{
                 background: 'var(--surface-2)',
@@ -120,7 +175,7 @@ export default function ClientsPage() {
                 }}>
                   {step}
                 </div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
+                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, lineHeight: 1.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>{desc}</p>
               </div>
             ))}
@@ -133,24 +188,29 @@ export default function ClientsPage() {
         <div className="container">
           <h2 style={{
             fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
-            letterSpacing: -0.8, marginBottom: 48, textAlign: 'center',
+            letterSpacing: -0.8, marginBottom: 40, textAlign: 'center',
           }}>
             Что вы получаете
           </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 12,
-          }}>
+          <div className="grid-6">
             {BENEFITS.map(({ icon, title, desc }) => (
               <div key={title} style={{
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--r-xl)',
-                padding: '22px 20px',
+                padding: '24px 20px',
                 background: 'var(--surface)',
               }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h3>
+                <div style={{
+                  width: 40, height: 40,
+                  background: 'var(--accent-dim)',
+                  border: '1px solid rgba(215,255,63,0.12)',
+                  borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--accent)', marginBottom: 16,
+                }}>
+                  {icon}
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, lineHeight: 1.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>{desc}</p>
               </div>
             ))}
@@ -159,7 +219,7 @@ export default function ClientsPage() {
       </section>
 
       {/* Pricing */}
-      <section className="section">
+      <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="container">
           <h2 style={{
             fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
@@ -184,7 +244,7 @@ export default function ClientsPage() {
               { name: 'Pro', price: '499 ₽', period: 'в месяц', features: ['Всё из Опт.', 'Персональный эксперт', 'Комментарии к приёмам'], accent: true },
             ].map(({ name, price, period, features, accent }) => (
               <div key={name} style={{
-                background: accent ? 'var(--accent)' : 'var(--surface)',
+                background: accent ? 'var(--accent)' : 'var(--surface-2)',
                 border: accent ? '2px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: 'var(--r-xl)',
                 padding: '24px 22px',
@@ -239,7 +299,7 @@ export default function ClientsPage() {
       </section>
 
       {/* CTA */}
-      <section className="section-sm" style={{ background: 'var(--surface)', textAlign: 'center' }}>
+      <section className="section-sm" style={{ textAlign: 'center' }}>
         <div className="container" style={{ maxWidth: 520 }}>
           <h2 style={{ fontSize: 32, fontWeight: 800, letterSpacing: -0.8, marginBottom: 14 }}>
             Начните прямо сейчас

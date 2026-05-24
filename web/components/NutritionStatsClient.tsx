@@ -185,15 +185,6 @@ function InsightBlock({
   const [state, setState] = useState<'idle' | 'loading' | 'paywall' | 'error' | 'done'>('idle');
   const [insight, setInsight] = useState<WebWeeklyInsight | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeEnd, setActiveEnd] = useState(endDate);
-
-  // Reset when week changes
-  if (endDate !== activeEnd) {
-    setActiveEnd(endDate);
-    setState('idle');
-    setInsight(null);
-    setErrorMsg(null);
-  }
 
   async function handleGenerate() {
     setState('loading');
@@ -206,6 +197,9 @@ function InsightBlock({
     } catch (err) {
       if (err instanceof ApiError && err.status === 402) {
         setState('paywall');
+      } else if (err instanceof ApiError && err.status === 429) {
+        setErrorMsg('Слишком много запросов к AI-разбору. Попробуйте позже.');
+        setState('error');
       } else {
         setErrorMsg('Не удалось сгенерировать разбор. Попробуйте позже.');
         setState('error');
@@ -557,7 +551,7 @@ export default function NutritionStatsClient() {
           </div>
 
           {/* ── AI Insight ── */}
-          <InsightBlock endDate={endDate} />
+          <InsightBlock key={endDate} endDate={endDate} />
         </>
       )}
     </div>

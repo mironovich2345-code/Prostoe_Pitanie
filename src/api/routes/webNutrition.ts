@@ -5,6 +5,7 @@ import { analyzeFood, analyzeFoodPhoto } from '../../ai/analyzeFood';
 import { generateWeeklyInsight, type WeeklyInsightInput } from '../../ai/nutritionInsight';
 import { getSubscriptionState } from '../../services/subscriptionService';
 import { validateImageDataUrl, PHOTO_MAX_BYTES } from '../utils/validateImage';
+import { webAiTextRateLimit, webAiPhotoRateLimit, webAiInsightRateLimit } from '../middleware/rateLimit';
 
 const router = Router();
 router.use(requireWebAuth as import('express').RequestHandler);
@@ -293,7 +294,7 @@ router.post('/add-product', async (req: WebAuthRequest, res) => {
 });
 
 // POST /api/web/nutrition/analyze-photo  [premium — same policy as /api/nutrition/analyze-photo]
-router.post('/analyze-photo', async (req: WebAuthRequest, res) => {
+router.post('/analyze-photo', webAiPhotoRateLimit as import('express').RequestHandler, async (req: WebAuthRequest, res) => {
   const { userId, chatId } = req.webUser!;
   const syntheticChatId = chatId ?? `web_${userId}`;
   const body = req.body as Record<string, unknown>;
@@ -361,7 +362,7 @@ router.post('/analyze-photo', async (req: WebAuthRequest, res) => {
 });
 
 // POST /api/web/nutrition/analyze-text  [free — same policy as /api/nutrition/analyze]
-router.post('/analyze-text', async (req: WebAuthRequest, res) => {
+router.post('/analyze-text', webAiTextRateLimit as import('express').RequestHandler, async (req: WebAuthRequest, res) => {
   const { userId, chatId } = req.webUser!;
   const syntheticChatId = chatId ?? `web_${userId}`;
   const body = req.body as Record<string, unknown>;
@@ -508,7 +509,7 @@ router.post('/add-ai-analysis', async (req: WebAuthRequest, res) => {
 });
 
 // POST /api/web/nutrition/insight/week
-router.post('/insight/week', async (req: WebAuthRequest, res) => {
+router.post('/insight/week', webAiInsightRateLimit as import('express').RequestHandler, async (req: WebAuthRequest, res) => {
   const { userId, chatId } = req.webUser!;
 
   // ── Subscription check ────────────────────────────────────────────────────

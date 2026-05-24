@@ -261,12 +261,48 @@ export default function PricingPage() {
             gap: 24,
           }}>
             {[
-              { icon: '🔄', title: 'Отмена в любой момент', desc: 'Без скрытых условий — отключите автопродление одной кнопкой.' },
-              { icon: '💳', title: 'Безопасная онлайн-оплата', desc: 'Данные карты защищены — платёжный провайдер не передаёт их третьим лицам.' },
-              { icon: '📂', title: 'Данные остаются', desc: 'При отмене подписки ваш дневник и история никуда не пропадут.' },
+              {
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M15 7A7 7 0 1 0 10 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M13 4l2 3 2.5-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ),
+                title: 'Отмена в любой момент',
+                desc: 'Без скрытых условий — отключите автопродление одной кнопкой.',
+              },
+              {
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M3 9.5h14" stroke="currentColor" strokeWidth="1.5"/>
+                    <rect x="5.5" y="12.5" width="4" height="1.5" rx="0.75" fill="currentColor"/>
+                  </svg>
+                ),
+                title: 'Безопасная онлайн-оплата',
+                desc: 'Данные карты защищены — платёжный провайдер не передаёт их третьим лицам.',
+              },
+              {
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M4 5a2 2 0 0 1 2-2h3.5l2 2H16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                ),
+                title: 'Данные остаются',
+                desc: 'При отмене подписки ваш дневник и история никуда не пропадут.',
+              },
             ].map(({ icon, title, desc }) => (
               <div key={title} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 22, flexShrink: 0, marginTop: 2 }}>{icon}</span>
+                <div style={{
+                  width: 38, height: 38,
+                  background: 'var(--accent-dim)',
+                  border: '1px solid rgba(215,255,63,0.12)',
+                  borderRadius: 10, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--accent)',
+                }}>
+                  {icon}
+                </div>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{title}</div>
                   <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>{desc}</div>

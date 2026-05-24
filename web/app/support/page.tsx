@@ -80,7 +80,19 @@ export default function SupportPage() {
             textDecoration: 'none', color: 'inherit',
             transition: 'border-color 0.2s',
           }}>
-            <div style={{ fontSize: 24, marginBottom: 10 }}>💬</div>
+            <div style={{
+              width: 40, height: 40,
+              background: 'rgba(215,255,63,0.15)',
+              border: '1px solid rgba(215,255,63,0.2)',
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--accent)', marginBottom: 14,
+            }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7.5L3 17V4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M7 8.5h6M7 11h3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
               Написать в поддержку
             </div>
@@ -98,7 +110,19 @@ export default function SupportPage() {
             textDecoration: 'none', color: 'inherit',
             transition: 'border-color 0.2s, background 0.2s',
           }}>
-            <div style={{ fontSize: 24, marginBottom: 10 }}>🤖</div>
+            <div style={{
+              width: 40, height: 40,
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-2)',
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-2)', marginBottom: 14,
+            }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M7 10h6M10 7l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
               Открыть EATLYY
             </div>

@@ -18,19 +18,115 @@ export const metadata: Metadata = {
 };
 
 const FOR_WHOM = [
-  { icon: '🥗', title: 'Нутрициологам', desc: 'Ведите клиентов через дневник питания, следите за рационом и корректируйте его онлайн.' },
-  { icon: '🏋️', title: 'Фитнес-тренерам', desc: 'Дополните тренировочный план контролем питания — клиенты растут быстрее.' },
-  { icon: '🩺', title: 'Диетологам', desc: 'Отслеживайте питание пациентов в реальном времени, без таблиц и скриншотов.' },
-  { icon: '💻', title: 'Онлайн-экспертам', desc: 'Работайте с клиентами из любого города — дневник доступен всегда и везде.' },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="2.5" width="14" height="15" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M6.5 7h7M6.5 10h7M6.5 13h4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Нутрициологам',
+    desc: 'Ведите клиентов через дневник питания, следите за рационом и корректируйте его онлайн.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M4 17.5c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M14.5 4l1.5 1.5 2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    title: 'Фитнес-тренерам',
+    desc: 'Дополните тренировочный план контролем питания — клиенты растут быстрее.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 3a6 6 0 0 1 6 6c0 2.5-1 4.5-2.5 6H6.5C5 15.5 4 13.5 4 9a6 6 0 0 1 6-6z" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M7.5 16.5h5M10 16.5V18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Диетологам',
+    desc: 'Отслеживайте питание пациентов в реальном времени, без таблиц и скриншотов.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="4" width="14" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M3 7.5h14" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M7 11.5h2M11 11.5h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Онлайн-экспертам',
+    desc: 'Работайте с клиентами из любого города — дневник доступен всегда и везде.',
+  },
 ];
 
 const EXPERT_GETS = [
-  { icon: '🏆', title: 'Публичная карточка в каталоге', desc: 'Ваш профиль, специализация, опыт и отзывы клиентов видны всем на сайте.' },
-  { icon: '👥', title: 'Клиенты из Telegram и сайта', desc: 'Клиенты находят вас через каталог и подключаются напрямую.' },
-  { icon: '📊', title: 'Дневник питания клиента на Pro', desc: 'Полный доступ к приёмам пищи, КБЖУ и статистике клиента с Pro-подпиской.' },
-  { icon: '📈', title: 'Удобный просмотр статистики', desc: 'История, динамика и баланс нутриентов — в одном интерфейсе.' },
-  { icon: '💰', title: 'Реферальный доход', desc: 'Приводите клиентов — получайте процент с их подписки, пока они активны.' },
-  { icon: '🚀', title: 'Масштабирование практики', desc: 'Ведите больше клиентов без роста нагрузки — платформа берёт рутину на себя.' },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M10 6v4l2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M6.5 4.5l1 1M13.5 4.5l-1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Публичная карточка в каталоге',
+    desc: 'Ваш профиль, специализация, опыт и отзывы клиентов видны всем на сайте.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="7.5" cy="6.5" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M2 17c0-3.038 2.462-5.5 5.5-5.5S13 13.962 13 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="14.5" cy="6" r="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M14.5 11c2.2.4 3.5 2 3.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Клиенты из Telegram и сайта',
+    desc: 'Клиенты находят вас через каталог и подключаются напрямую.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="2.5" width="14" height="15" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M6.5 7h7M6.5 10h7M6.5 13h4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Дневник питания клиента на Pro',
+    desc: 'Полный доступ к приёмам пищи, КБЖУ и статистике клиента с Pro-подпиской.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="12" width="3" height="5" rx="1" fill="currentColor"/>
+        <rect x="8.5" y="8" width="3" height="9" rx="1" fill="currentColor"/>
+        <rect x="14" y="4" width="3" height="13" rx="1" fill="currentColor"/>
+      </svg>
+    ),
+    title: 'Удобный просмотр статистики',
+    desc: 'История, динамика и баланс нутриентов — в одном интерфейсе.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5"/>
+        <path d="M10 5.5v1.75m0 5.5v1.75M7.5 12.2c.35.9 1.2 1.5 2.5 1.5s2.3-.65 2.3-1.9c0-1.1-.9-1.5-2.3-2s-2.3-.75-2.3-2c0-1.1.9-1.8 2.3-1.8s2.15.6 2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Реферальный доход',
+    desc: 'Приводите клиентов — получайте процент с их подписки, пока они активны.',
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 3v3M10 14v3M3 10h3M14 10h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5"/>
+      </svg>
+    ),
+    title: 'Масштабирование практики',
+    desc: 'Ведите больше клиентов без роста нагрузки — платформа берёт рутину на себя.',
+  },
 ];
 
 const STEPS = [
@@ -99,11 +195,7 @@ export default function ExpertApplyPage() {
           }}>
             Платформа открыта для специалистов, которые помогают людям с питанием и здоровьем.
           </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 12,
-          }}>
+          <div className="grid-4">
             {FOR_WHOM.map(({ icon, title, desc }) => (
               <div key={title} style={{
                 background: 'var(--surface-2)',
@@ -111,8 +203,17 @@ export default function ExpertApplyPage() {
                 borderRadius: 'var(--r-xl)',
                 padding: '24px 22px',
               }}>
-                <div style={{ fontSize: 28, marginBottom: 12 }}>{icon}</div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>{title}</h3>
+                <div style={{
+                  width: 40, height: 40,
+                  background: 'var(--accent-dim)',
+                  border: '1px solid rgba(215,255,63,0.12)',
+                  borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--accent)', marginBottom: 16,
+                }}>
+                  {icon}
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, lineHeight: 1.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>{desc}</p>
               </div>
             ))}
@@ -125,15 +226,11 @@ export default function ExpertApplyPage() {
         <div className="container">
           <h2 style={{
             fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
-            letterSpacing: -0.8, marginBottom: 48, textAlign: 'center',
+            letterSpacing: -0.8, marginBottom: 40, textAlign: 'center',
           }}>
             Что получает эксперт
           </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 12,
-          }}>
+          <div className="grid-6" style={{ gap: 12 }}>
             {EXPERT_GETS.map(({ icon, title, desc }) => (
               <div key={title} style={{
                 background: 'var(--surface)',
@@ -141,8 +238,17 @@ export default function ExpertApplyPage() {
                 borderRadius: 'var(--r-xl)',
                 padding: '24px 22px',
               }}>
-                <div style={{ fontSize: 26, marginBottom: 12 }}>{icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h3>
+                <div style={{
+                  width: 40, height: 40,
+                  background: 'var(--accent-dim)',
+                  border: '1px solid rgba(215,255,63,0.12)',
+                  borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--accent)', marginBottom: 16,
+                }}>
+                  {icon}
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, lineHeight: 1.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>{desc}</p>
               </div>
             ))}
@@ -155,15 +261,11 @@ export default function ExpertApplyPage() {
         <div className="container">
           <h2 style={{
             fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 800,
-            letterSpacing: -0.8, marginBottom: 48, textAlign: 'center',
+            letterSpacing: -0.8, marginBottom: 40, textAlign: 'center',
           }}>
             Как проходит подключение
           </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 12,
-          }}>
+          <div className="grid-4">
             {STEPS.map(({ step, title, desc }) => (
               <div key={step} style={{
                 background: 'var(--surface-2)',
@@ -177,7 +279,7 @@ export default function ExpertApplyPage() {
                 }}>
                   {step}
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
+                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, lineHeight: 1.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65 }}>{desc}</p>
               </div>
             ))}

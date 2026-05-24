@@ -16,9 +16,12 @@ export default function ExpertCard({ expert }: { expert: PublicTrainer }) {
           background: 'var(--surface-2)',
           border: '1px solid var(--border-2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 24, flexShrink: 0,
+          flexShrink: 0,
         }}>
-          🥗
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="8.5" r="4" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
+            <path d="M4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
         </div>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2, marginBottom: 3 }}>
@@ -32,8 +35,8 @@ export default function ExpertCard({ expert }: { expert: PublicTrainer }) {
 
       {/* Meta */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {expert.city && <MetaItem icon="📍" label={expert.city} />}
-        {expert.experienceYears != null && <MetaItem icon="⏱" label={`${expert.experienceYears} лет опыта`} />}
+        {expert.city && <MetaItem type="pin" label={expert.city} />}
+        {expert.experienceYears != null && <MetaItem type="clock" label={`${expert.experienceYears} лет опыта`} />}
       </div>
 
       {/* Short bio */}
@@ -74,10 +77,20 @@ export default function ExpertCard({ expert }: { expert: PublicTrainer }) {
   );
 }
 
-function MetaItem({ icon, label }: { icon: string; label: string }) {
+function MetaItem({ type, label }: { type: 'pin' | 'clock'; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontSize: 13 }}>{icon}</span>
+      {type === 'pin' ? (
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M6.5 1a3.5 3.5 0 0 0-3.5 3.5c0 3.25 3.5 7.5 3.5 7.5S10 7.75 10 4.5A3.5 3.5 0 0 0 6.5 1z" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+          <circle cx="6.5" cy="4.5" r="1.25" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+          <circle cx="6.5" cy="6.5" r="5.25" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+          <path d="M6.5 4V6.5L8 8" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
+      )}
       <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</span>
     </div>
   );

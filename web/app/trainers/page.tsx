@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import ExpertCard from '@/components/ExpertCard';
 import { getExperts } from '@/lib/api';
 
@@ -24,6 +25,7 @@ export const metadata: Metadata = {
 
 export default async function TrainersPage() {
   const experts = await getExperts();
+  const few = experts.length > 0 && experts.length <= 3;
 
   return (
     <>
@@ -71,35 +73,94 @@ export default async function TrainersPage() {
             ))}
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: 16,
-          }}>
-            {experts.map((expert) => (
-              <ExpertCard key={expert.slug} expert={expert} />
-            ))}
-          </div>
-
           {experts.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <p style={{ color: 'var(--text-2)', fontSize: 16, marginBottom: 16 }}>
-                Эксперты скоро появятся. Сейчас можно подать заявку или открыть EATLYY в Telegram.
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-xl)',
+              padding: '56px 32px',
+              textAlign: 'center',
+              maxWidth: 560, margin: '0 auto',
+            }}>
+              <div style={{
+                width: 60, height: 60, borderRadius: '50%',
+                background: 'var(--accent-dim)',
+                border: '1px solid rgba(215,255,63,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 20px', color: 'var(--accent)',
+              }}>
+                <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                  <circle cx="10" cy="9" r="4.5" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M3 23c0-3.866 3.134-7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  <circle cx="19" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8"/>
+                  <path d="M19 14c2.76.5 4.5 2.5 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10, letterSpacing: -0.4 }}>
+                Каталог пополняется
+              </h2>
+              <p style={{ color: 'var(--text-2)', fontSize: 15, lineHeight: 1.65, marginBottom: 28 }}>
+                Все эксперты проходят ручную верификацию команды EATLYY.
+                Скоро здесь появятся специалисты.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <a href="/experts/apply" className="btn btn-outline" style={{ fontSize: 14, padding: '10px 22px' }}>
+                <Link href="/experts/apply" className="btn btn-accent" style={{ fontSize: 14, padding: '12px 24px' }}>
                   Стать экспертом
-                </a>
+                </Link>
                 <a
                   href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME || 'EATLYY_bot'}`}
                   target="_blank" rel="noopener noreferrer"
                   className="btn btn-ghost"
-                  style={{ fontSize: 14, padding: '10px 22px' }}
+                  style={{ fontSize: 14, padding: '12px 22px' }}
                 >
                   Открыть EATLYY
                 </a>
               </div>
             </div>
+          )}
+
+          {experts.length > 0 && (
+            <>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: few
+                  ? `repeat(${Math.min(experts.length, 2)}, minmax(0, 380px))`
+                  : 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: 16,
+                justifyContent: few ? 'center' : undefined,
+              }}>
+                {experts.map((expert) => (
+                  <ExpertCard key={expert.slug} expert={expert} />
+                ))}
+              </div>
+
+              {few && (
+                <div style={{
+                  maxWidth: 560, margin: '32px auto 0',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--r-xl)',
+                  padding: '24px 28px',
+                  display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+                }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                      letterSpacing: 0.8, color: 'var(--accent)', marginBottom: 6,
+                    }}>
+                      Каталог пополняется
+                    </div>
+                    <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                      Все эксперты проходят ручную проверку. Хотите войти в каталог?
+                    </p>
+                  </div>
+                  <Link href="/experts/apply" className="btn btn-outline"
+                    style={{ fontSize: 13, padding: '10px 20px', flexShrink: 0 }}>
+                    Стать экспертом
+                  </Link>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -430,6 +430,8 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     } catch (err) {
       if (err instanceof ApiError && (err.code === 'subscription_required' || err.status === 402)) {
         setAiAnalyzeError('__paywall__');
+      } else if (err instanceof ApiError && err.status === 429) {
+        setAiAnalyzeError('Слишком много AI-запросов подряд. Попробуйте чуть позже.');
       } else {
         setAiAnalyzeError('Не удалось проанализировать еду. Попробуйте описать подробнее.');
       }
@@ -501,6 +503,8 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     } catch (err) {
       if (err instanceof ApiError && (err.code === 'subscription_required' || err.status === 402)) {
         setPhotoAnalyzeError('__paywall__');
+      } else if (err instanceof ApiError && err.status === 429) {
+        setPhotoAnalyzeError('Слишком много AI-запросов подряд. Попробуйте чуть позже.');
       } else if (err instanceof ApiError && err.code === 'invalid_image') {
         setPhotoAnalyzeError('Не удалось прочитать фото. Попробуйте другое изображение.');
       } else {

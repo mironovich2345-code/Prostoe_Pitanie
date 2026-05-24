@@ -71,9 +71,12 @@ export default async function TrainerPage({ params }: Props) {
               background: 'var(--surface)',
               border: '1px solid var(--border-2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 40, flexShrink: 0,
+              flexShrink: 0,
             }}>
-              🥗
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <circle cx="18" cy="14" r="7" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+                <path d="M5 35c0-7.18 5.82-13 13-13s13 5.82 13 13" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
             </div>
             <div>
               <h1 style={{
@@ -100,9 +103,9 @@ export default async function TrainerPage({ params }: Props) {
               border: '1px solid var(--border)',
               marginBottom: 32,
             }}>
-              {expert.city && <MetaChip icon="📍" label={expert.city} />}
+              {expert.city && <MetaChip type="pin" label={expert.city} />}
               {expert.experienceYears != null && (
-                <MetaChip icon="⏱" label={`${expert.experienceYears} лет опыта`} />
+                <MetaChip type="clock" label={`${expert.experienceYears} лет опыта`} />
               )}
             </div>
           )}
@@ -180,10 +183,20 @@ export default async function TrainerPage({ params }: Props) {
   );
 }
 
-function MetaChip({ icon, label }: { icon: string; label: string }) {
+function MetaChip({ type, label }: { type: 'pin' | 'clock'; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: 15 }}>{icon}</span>
+      {type === 'pin' ? (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+          <path d="M7 1a4 4 0 0 0-4 4c0 3.5 4 8 4 8s4-4.5 4-8a4 4 0 0 0-4-4z" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+          <circle cx="7" cy="5" r="1.5" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+          <circle cx="7" cy="7" r="5.5" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2"/>
+          <path d="M7 4.5V7L8.5 8.5" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
+      )}
       <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>{label}</span>
     </div>
   );

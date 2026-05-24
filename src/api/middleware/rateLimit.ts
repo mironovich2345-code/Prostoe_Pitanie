@@ -80,3 +80,38 @@ export const preAuthRateLimit = makeLimitMiddleware(preAuthLimiter, getIpIdentif
 export const generalRateLimit = makeLimitMiddleware(generalLimiter);
 export const authRateLimit    = makeLimitMiddleware(authLimiter);
 export const aiRateLimit      = makeLimitMiddleware(aiLimiter);
+
+// ─── Web AI limiters (keyed on webUser.userId, not chatId) ───────────────────
+
+// E. Web AI text — 10 req / 10 min per userId
+const webAiTextLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '10 m'),
+  prefix: 'rl:web_ai_text',
+});
+
+// F. Web AI photo — 5 req / 10 min per userId
+const webAiPhotoLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '10 m'),
+  prefix: 'rl:web_ai_photo',
+});
+
+// G. Web AI weekly insight — 3 req / 10 min per userId
+const webAiInsightLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '10 m'),
+  prefix: 'rl:web_ai_insight',
+});
+
+// Web identifier: prefers req.webUser.userId (set by requireWebAuth), falls back to IP.
+// Cast is intentional — webAuth is not imported here to avoid circular deps.
+function getWebIdentifier(req: AuthRequest): string {
+  const webUser = (req as unknown as { webUser?: { userId?: string } }).webUser;
+  if (webUser?.userId) return `web:${webUser.userId}`;
+  return getIpIdentifier(req);
+}
+
+export const webAiTextRateLimit    = makeLimitMiddleware(webAiTextLimiter,    getWebIdentifier);
+export const webAiPhotoRateLimit   = makeLimitMiddleware(webAiPhotoLimiter,   getWebIdentifier);
+export const webAiInsightRateLimit = makeLimitMiddleware(webAiInsightLimiter, getWebIdentifier);
