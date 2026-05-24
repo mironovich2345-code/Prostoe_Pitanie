@@ -422,6 +422,34 @@ export interface WebAddMealResponse {
   meal: WebMealEntry;
 }
 
+export interface WebUpdateMealPayload {
+  name: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+  caloriesKcal?: number | null;
+  proteinG?: number | null;
+  fatG?: number | null;
+  carbsG?: number | null;
+}
+
+export interface WebCopyMealPayload {
+  date?: string;  // YYYY-MM-DD; defaults to today on backend if omitted
+}
+
+export interface WebCopyMealResponse {
+  ok: boolean;
+  meal: WebMealEntry;
+}
+
+export interface WebCopyDayPayload {
+  fromDate: string;  // YYYY-MM-DD
+  toDate: string;    // YYYY-MM-DD
+}
+
+export interface WebCopyDayResponse {
+  ok: boolean;
+  copied: number;
+}
+
 // ─── Web Weight History ───────────────────────────────────────────────────────
 
 export interface WebWeightEntry {
@@ -903,6 +931,24 @@ export const webApi = {
 
   deleteMeal: (id: number) =>
     request<{ ok: boolean }>(`/api/web/nutrition/meals/${id}`, { method: 'DELETE' }),
+
+  updateMeal: (id: number, payload: WebUpdateMealPayload) =>
+    request<WebAddMealResponse>(`/api/web/nutrition/meals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  copyMeal: (id: number, payload?: WebCopyMealPayload) =>
+    request<WebCopyMealResponse>(`/api/web/nutrition/meals/${id}/copy`, {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    }),
+
+  copyNutritionDay: (payload: WebCopyDayPayload) =>
+    request<WebCopyDayResponse>('/api/web/nutrition/day/copy', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // ─── Web Weight History ─────────────────────────────────────────────────────
 

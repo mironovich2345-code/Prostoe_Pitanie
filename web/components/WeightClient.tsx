@@ -66,6 +66,116 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)', fontSize: 14, minHeight: 44,
 };
 
+// ─── Weight line chart (SVG, no deps) ────────────────────────────────────────
+
+function WeightLineChart({
+  entries,
+  desiredWeightKg,
+}: {
+  entries: WebWeightEntry[];
+  desiredWeightKg: number | null;
+}) {
+  if (entries.length < 2) {
+    return (
+      <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+        Добавьте минимум 2 замера для графика
+      </div>
+    );
+  }
+
+  const sorted = [...entries].sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime());
+  const weights = sorted.map(e => e.weightKg);
+  const allVals = [...weights, ...(desiredWeightKg != null ? [desiredWeightKg] : [])];
+  const minW = Math.min(...allVals);
+  const maxW = Math.max(...allVals);
+  const span = maxW - minW;
+  const padKg = span < 0.5 ? 2 : span * 0.18;
+  const lo = minW - padKg;
+  const hi = maxW + padKg;
+
+  const W = 300, H = 168;
+  const padL = 44, padR = 8, padT = 20, padB = 22;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = sorted.length;
+
+  const toX = (i: number) => padL + (n <= 1 ? chartW / 2 : (i / (n - 1)) * chartW);
+  const toY = (w: number) => padT + chartH - ((w - lo) / (hi - lo)) * chartH;
+
+  const points = sorted.map((e, i) => `${toX(i)},${toY(e.weightKg)}`).join(' ');
+  const goalY = desiredWeightKg != null ? toY(desiredWeightKg) : null;
+  const rDot = n <= 20 ? 3 : 2;
+
+  const fmtLabel = (iso: string) =>
+    new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+
+  const midVal = Math.round(((lo + hi) / 2) * 10) / 10;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}
+      aria-label="График веса">
+      {/* Grid lines + Y labels */}
+      {([lo, (lo + hi) / 2, hi] as number[]).map((v, idx) => {
+        const y = toY(v);
+        const label = idx === 1 ? String(midVal) : `${Math.round(v * 10) / 10}`;
+        return (
+          <g key={idx}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y}
+              stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            <text x={padL - 3} y={y + 3.5} textAnchor="end" fontSize="8"
+              fill="rgba(255,255,255,0.25)">{label}</text>
+          </g>
+        );
+      })}
+
+      {/* Goal line */}
+      {goalY !== null && (
+        <g>
+          <line x1={padL} y1={goalY} x2={W - padR} y2={goalY}
+            stroke="rgba(76,175,80,0.45)" strokeWidth="1" strokeDasharray="3 3" />
+          <text x={padL + 3} y={goalY - 3} fontSize="8" fill="rgba(76,175,80,0.65)">
+            Цель {desiredWeightKg} кг
+          </text>
+        </g>
+      )}
+
+      {/* Line */}
+      <polyline points={points} fill="none"
+        stroke="rgba(215,255,63,0.65)" strokeWidth="1.8" strokeLinejoin="round" />
+
+      {/* Dots */}
+      {sorted.map((e, i) => (
+        <circle key={i} cx={toX(i)} cy={toY(e.weightKg)} r={rDot}
+          fill="rgba(215,255,63,0.85)" />
+      ))}
+
+      {/* Weight labels: first + last */}
+      <text x={toX(0)} y={toY(sorted[0].weightKg) - 7}
+        textAnchor="start" fontSize="9" fontWeight="700" fill="rgba(255,255,255,0.75)">
+        {sorted[0].weightKg} кг
+      </text>
+      {n > 1 && (
+        <text x={toX(n - 1)} y={toY(sorted[n - 1].weightKg) - 7}
+          textAnchor="end" fontSize="9" fontWeight="700" fill="rgba(255,255,255,0.75)">
+          {sorted[n - 1].weightKg} кг
+        </text>
+      )}
+
+      {/* Date labels: first + last */}
+      <text x={toX(0)} y={H - 4} textAnchor="start" fontSize="9"
+        fill="rgba(255,255,255,0.30)">
+        {fmtLabel(sorted[0].measuredAt)}
+      </text>
+      {n > 1 && (
+        <text x={toX(n - 1)} y={H - 4} textAnchor="end" fontSize="9"
+          fill="rgba(255,255,255,0.30)">
+          {fmtLabel(sorted[n - 1].measuredAt)}
+        </text>
+      )}
+    </svg>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function WeightClient() {
@@ -272,6 +382,14 @@ export default function WeightClient() {
               {progress.progressPercent}%
             </span>
           </div>
+        </Card>
+      )}
+
+      {/* Weight line chart */}
+      {entries.length >= 2 && (
+        <Card>
+          <SLabel>График веса</SLabel>
+          <WeightLineChart entries={entries} desiredWeightKg={profile?.desiredWeightKg ?? null} />
         </Card>
       )}
 

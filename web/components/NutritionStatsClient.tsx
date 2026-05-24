@@ -115,6 +115,143 @@ function MacroItem({
   );
 }
 
+// ─── Bar fill colours by calorie status ──────────────────────────────────────
+
+const BAR_STATUS_FILL: Record<string, string> = {
+  no_data:   'rgba(255,255,255,0.08)',
+  no_target: 'rgba(255,255,255,0.20)',
+  under:     'rgba(255,152,0,0.50)',
+  ok:        'rgba(215,255,63,0.60)',
+  over:      'rgba(239,83,80,0.55)',
+};
+
+// ─── Calories bar chart (SVG, no deps) ───────────────────────────────────────
+
+function CaloriesBarChart({
+  days, targetCal,
+}: {
+  days: WebNutritionStatsDay[];
+  targetCal: number | null;
+}) {
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
+  const anyData = sorted.some(d => d.mealCount > 0);
+
+  if (!anyData) {
+    return (
+      <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+        Нет данных за эту неделю
+      </div>
+    );
+  }
+
+  const maxCal = Math.max(...sorted.map(d => d.totals.caloriesKcal), targetCal ?? 0, 1);
+  const niceMax = Math.max(Math.ceil(maxCal / 200) * 200, 200);
+  const mid = Math.round(niceMax / 2);
+
+  const W = 300, H = 178;
+  const padL = 36, padR = 6, padT = 14, padB = 26;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const slotW = chartW / 7;
+  const barW = Math.min(Math.floor(slotW * 0.55), 26);
+
+  const toY = (v: number) => padT + chartH - Math.min(1, v / niceMax) * chartH;
+  const targetY = targetCal !== null ? toY(targetCal) : null;
+  const targetLabelY = targetY !== null ? Math.max(padT + 9, targetY - 3) : null;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}
+      aria-label="График калорий за неделю">
+      {/* Grid lines */}
+      {([0, mid, niceMax] as number[]).map(v => {
+        const y = toY(v);
+        return (
+          <g key={v}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y}
+              stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            {v > 0 && (
+              <text x={padL - 3} y={y + 3.5} textAnchor="end" fontSize="8"
+                fill="rgba(255,255,255,0.25)">
+                {niceMax >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Target / norm line */}
+      {targetY !== null && (
+        <g>
+          <line x1={padL} y1={targetY} x2={W - padR} y2={targetY}
+            stroke="rgba(215,255,63,0.40)" strokeWidth="1" strokeDasharray="3 3" />
+          <text x={padL + 3} y={targetLabelY!}
+            fontSize="8" fill="rgba(215,255,63,0.55)">Норма</text>
+        </g>
+      )}
+
+      {/* Bars + day labels */}
+      {sorted.map((day, i) => {
+        const cal = day.totals.caloriesKcal;
+        const barH = cal > 0 ? Math.max(3, (cal / niceMax) * chartH) : 3;
+        const cx = padL + i * slotW + slotW / 2;
+        const barX = cx - barW / 2;
+        const barY = cal > 0 ? toY(cal) : padT + chartH - 3;
+        const fill = BAR_STATUS_FILL[day.calorieStatus] ?? BAR_STATUS_FILL.no_data;
+        const dayLabel = new Date(`${day.date}T12:00:00.000Z`)
+          .toLocaleDateString('ru-RU', { weekday: 'short', timeZone: 'UTC' })
+          .replace('.', '').slice(0, 2);
+        return (
+          <g key={day.date}>
+            <rect x={barX} y={barY} width={barW} height={barH} rx="3" fill={fill} />
+            <text x={cx} y={H - 4} textAnchor="middle" fontSize="9"
+              fill="rgba(255,255,255,0.35)">{dayLabel}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── Macro average progress bars ─────────────────────────────────────────────
+
+function MacroProgressBars({
+  averages, target,
+}: {
+  averages: WebNutritionWeekStatsResponse['averages'];
+  target: WebNutritionWeekStatsResponse['target'];
+}) {
+  const rows = [
+    { label: 'Белки',  val: averages.proteinG, norm: target?.dailyProteinG ?? null, color: 'rgba(130,190,255,0.70)' },
+    { label: 'Жиры',   val: averages.fatG,     norm: target?.dailyFatG     ?? null, color: 'rgba(255,160,80,0.65)'  },
+    { label: 'Углев.', val: averages.carbsG,   norm: target?.dailyCarbsG   ?? null, color: 'rgba(215,255,63,0.60)' },
+  ];
+  const maxVal = Math.max(...rows.map(r => r.val), ...rows.map(r => r.norm ?? 0), 1);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rows.map(({ label, val, norm, color }) => {
+        const base = norm ?? maxVal;
+        const pct = base > 0 ? Math.min(100, Math.round((val / base) * 100)) : 0;
+        return (
+          <div key={label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>{label}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                {Math.round(val)}г{norm != null ? ` / ${norm}г` : ''}
+              </span>
+            </div>
+            <div style={{ width: '100%', height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)' }}>
+              <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: color }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Day card ─────────────────────────────────────────────────────────────────
+
 function DayCard({
   day, target,
 }: {
@@ -491,6 +628,17 @@ export default function NutritionStatsClient() {
 
       {data && !loading && (
         <>
+          {/* ── Calories bar chart ── */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r-xl)', padding: '16px 18px', marginBottom: 14,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 10 }}>
+              Калории за неделю
+            </div>
+            <CaloriesBarChart days={data.days} targetCal={data.target?.dailyCaloriesKcal ?? null} />
+          </div>
+
           {/* ── Averages card ── */}
           <div style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
@@ -508,6 +656,17 @@ export default function NutritionStatsClient() {
               <SummaryTile label="Жиры"     value={data.averages.fatG}         unit="г"    target={data.target?.dailyFatG         ?? null} />
               <SummaryTile label="Углеводы" value={data.averages.carbsG}       unit="г"    target={data.target?.dailyCarbsG       ?? null} />
             </div>
+          </div>
+
+          {/* ── Macro progress bars ── */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--r-xl)', padding: '18px 20px', marginBottom: 14,
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 14 }}>
+              Среднее БЖУ
+            </div>
+            <MacroProgressBars averages={data.averages} target={data.target} />
           </div>
 
           {/* ── Status chips ── */}

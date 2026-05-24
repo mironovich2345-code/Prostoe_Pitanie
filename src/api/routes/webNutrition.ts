@@ -32,6 +32,87 @@ function ownerFilter(userId: string, chatIds: string[]): any {
   return { OR: [{ userId }, { chatId: { in: chatIds }, userId: null }] };
 }
 
+// POST /api/web/nutrition/day/copy
+router.post('/day/copy', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+  const body = req.body as Record<string, unknown>;
+
+  const fromDateRaw = typeof body.fromDate === 'string' ? body.fromDate : '';
+  const toDateRaw   = typeof body.toDate   === 'string' ? body.toDate   : '';
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDateRaw) || !/^\d{4}-\d{2}-\d{2}$/.test(toDateRaw)) {
+    res.status(400).json({ ok: false, error: 'invalid_date' });
+    return;
+  }
+  if (fromDateRaw === toDateRaw) {
+    res.status(400).json({ ok: false, error: 'same_date' });
+    return;
+  }
+
+  const fromStart = new Date(`${fromDateRaw}T00:00:00.000Z`);
+  const fromEnd   = new Date(`${fromDateRaw}T23:59:59.999Z`);
+  const toDate    = new Date(`${toDateRaw}T00:00:00.000Z`);
+  if (isNaN(fromStart.getTime()) || isNaN(toDate.getTime())) {
+    res.status(400).json({ ok: false, error: 'invalid_date' });
+    return;
+  }
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { ...ownerFilter(userId, chatIds), createdAt: { gte: fromStart, lte: fromEnd } };
+
+    const sources = await prisma.mealEntry.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+      select: {
+        text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as Array<{
+      text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    }>;
+
+    if (sources.length === 0) {
+      res.status(404).json({ ok: false, error: 'source_day_empty' });
+      return;
+    }
+
+    // Preserve time-of-day from source entries, shift the date to toDate.
+    const copies = sources.map(s => {
+      const src = s.createdAt as Date;
+      const shifted = new Date(Date.UTC(
+        toDate.getUTCFullYear(), toDate.getUTCMonth(), toDate.getUTCDate(),
+        src.getUTCHours(), src.getUTCMinutes(), src.getUTCSeconds(),
+      ));
+      return {
+        chatId:       syntheticChatId,
+        userId,
+        text:         s.text,
+        mealType:     s.mealType,
+        sourceType:   'web_day_copy',
+        caloriesKcal: s.caloriesKcal,
+        proteinG:     s.proteinG,
+        fatG:         s.fatG,
+        carbsG:       s.carbsG,
+        fiberG:       s.fiberG,
+        createdAt:    shifted,
+      };
+    });
+
+    await prisma.mealEntry.createMany({ data: copies });
+
+    res.json({ ok: true, copied: copies.length });
+  } catch (err) {
+    console.error('[web/nutrition/day/copy POST] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
 // GET /api/web/nutrition/day?date=YYYY-MM-DD
 router.get('/day', async (req: WebAuthRequest, res) => {
   const { userId } = req.webUser!;
@@ -778,6 +859,205 @@ router.get('/stats/week', async (req: WebAuthRequest, res) => {
     });
   } catch (err) {
     console.error('[web/nutrition/stats/week] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// PATCH /api/web/nutrition/meals/:id
+router.patch('/meals/:id', async (req: WebAuthRequest, res) => {
+  const { userId } = req.webUser!;
+
+  const mealId = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(mealId) || mealId <= 0) {
+    res.status(400).json({ ok: false, error: 'invalid_id' });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  if (!name || name.length > 120) {
+    res.status(400).json({ ok: false, error: 'invalid_name' });
+    return;
+  }
+
+  const mealType = typeof body.mealType === 'string' ? body.mealType : '';
+  if (!VALID_MEAL_TYPES.has(mealType)) {
+    res.status(400).json({ ok: false, error: 'invalid_meal_type' });
+    return;
+  }
+
+  function parseOptionalFloat(v: unknown, min: number, max: number): { ok: true; val: number | null } | { ok: false } {
+    if (v === undefined || v === null || v === '') return { ok: true, val: null };
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < min || n > max) return { ok: false };
+    return { ok: true, val: Math.round(n * 10) / 10 };
+  }
+
+  const calRaw = body.caloriesKcal;
+  let caloriesKcal: number | null = null;
+  if (calRaw !== undefined && calRaw !== null && calRaw !== '') {
+    const n = Number(calRaw);
+    if (!Number.isFinite(n) || n < 0 || n > 10000) {
+      res.status(400).json({ ok: false, error: 'invalid_caloriesKcal' });
+      return;
+    }
+    caloriesKcal = Math.round(n);
+  }
+
+  const protRes  = parseOptionalFloat(body.proteinG, 0, 1000);
+  const fatRes   = parseOptionalFloat(body.fatG,     0, 1000);
+  const carbsRes = parseOptionalFloat(body.carbsG,   0, 1000);
+
+  if (!protRes.ok)  { res.status(400).json({ ok: false, error: 'invalid_proteinG'  }); return; }
+  if (!fatRes.ok)   { res.status(400).json({ ok: false, error: 'invalid_fatG'      }); return; }
+  if (!carbsRes.ok) { res.status(400).json({ ok: false, error: 'invalid_carbsG'    }); return; }
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { id: mealId, ...ownerFilter(userId, chatIds) };
+
+    const existing = await prisma.mealEntry.findFirst({
+      where,
+      select: { id: true },
+    }) as { id: number } | null;
+
+    if (!existing) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    const meal = await prisma.mealEntry.update({
+      where: { id: mealId },
+      data: {
+        text:         name.slice(0, 1000),
+        mealType,
+        caloriesKcal,
+        proteinG:     protRes.val,
+        fatG:         fatRes.val,
+        carbsG:       carbsRes.val,
+      },
+      select: {
+        id: true, text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      meal: {
+        id:           meal.id,
+        name:         meal.text,
+        mealType:     meal.mealType,
+        caloriesKcal: meal.caloriesKcal,
+        proteinG:     meal.proteinG,
+        fatG:         meal.fatG,
+        carbsG:       meal.carbsG,
+        fiberG:       meal.fiberG,
+        createdAt:    meal.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/meals PATCH] failed', err);
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
+});
+
+// POST /api/web/nutrition/meals/:id/copy
+router.post('/meals/:id/copy', async (req: WebAuthRequest, res) => {
+  const { userId, chatId } = req.webUser!;
+  const syntheticChatId = chatId ?? `web_${userId}`;
+
+  const mealId = parseInt(String(req.params.id), 10);
+  if (!Number.isFinite(mealId) || mealId <= 0) {
+    res.status(400).json({ ok: false, error: 'invalid_id' });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const dateRaw = typeof body.date === 'string' ? body.date : '';
+  let createdAt: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
+    const d = new Date(`${dateRaw}T12:00:00.000Z`);
+    if (isNaN(d.getTime())) {
+      res.status(400).json({ ok: false, error: 'invalid_date' });
+      return;
+    }
+    createdAt = d;
+  } else {
+    const now = new Date();
+    createdAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+  }
+
+  try {
+    const chatIds = await collectChatIds(userId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { id: mealId, ...ownerFilter(userId, chatIds) };
+
+    const source = await prisma.mealEntry.findFirst({
+      where,
+      select: {
+        text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+      },
+    }) as {
+      text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null;
+    } | null;
+
+    if (!source) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    const meal = await prisma.mealEntry.create({
+      data: {
+        chatId:       syntheticChatId,
+        userId,
+        text:         source.text,
+        mealType:     source.mealType,
+        sourceType:   'web_copy',
+        caloriesKcal: source.caloriesKcal,
+        proteinG:     source.proteinG,
+        fatG:         source.fatG,
+        carbsG:       source.carbsG,
+        fiberG:       source.fiberG,
+        createdAt,
+      },
+      select: {
+        id: true, text: true, mealType: true,
+        caloriesKcal: true, proteinG: true, fatG: true, carbsG: true, fiberG: true,
+        createdAt: true,
+      },
+    }) as {
+      id: number; text: string; mealType: string;
+      caloriesKcal: number | null; proteinG: number | null; fatG: number | null;
+      carbsG: number | null; fiberG: number | null; createdAt: Date;
+    };
+
+    res.json({
+      ok: true,
+      meal: {
+        id:           meal.id,
+        name:         meal.text,
+        mealType:     meal.mealType,
+        caloriesKcal: meal.caloriesKcal,
+        proteinG:     meal.proteinG,
+        fatG:         meal.fatG,
+        carbsG:       meal.carbsG,
+        fiberG:       meal.fiberG,
+        createdAt:    meal.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[web/nutrition/meals/:id/copy POST] failed', err);
     res.status(500).json({ ok: false, error: 'internal_error' });
   }
 });

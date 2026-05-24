@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   webApi, ApiError,
   type WebMealEntry, type WebNutritionDayResponse, type WebAddMealPayload,
+  type WebUpdateMealPayload, type WebCopyMealPayload, type WebCopyDayPayload,
   type WebProductSearchResult, type WebAiFoodAnalysis,
 } from '@/lib/webApi';
+
+const BarcodeScannerModal = dynamic(() => import('./BarcodeScannerModal'), { ssr: false });
 
 type AuthState = 'loading' | 'unauthenticated' | 'authenticated';
 type AddMode = 'manual' | 'product' | 'ai' | 'photo';
@@ -267,6 +271,26 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   const [data, setData]                       = useState<WebNutritionDayResponse | null>(null);
   const [dataLoading, setDataLoading]         = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  // edit
+  const [editingMealId, setEditingMealId] = useState<number | null>(null);
+  const [editForm, setEditForm]           = useState({ name: '', mealType: 'other' as MealType, caloriesKcal: '', proteinG: '', fatG: '', carbsG: '' });
+  const [editSaving, setEditSaving]       = useState(false);
+  const [editError, setEditError]         = useState<string | null>(null);
+
+  // copy single meal
+  const [copyConfirmId, setCopyConfirmId] = useState<number | null>(null);
+  const [copyTargetDate, setCopyTargetDate] = useState('');
+  const [copyingId, setCopyingId]         = useState<number | null>(null);
+  const [copyError, setCopyError]         = useState<string | null>(null);
+
+  // copy whole day
+  const [showDayCopy, setShowDayCopy]       = useState(false);
+  const [dayCopyFromDate, setDayCopyFromDate] = useState('');
+  const [dayCopying, setDayCopying]         = useState(false);
+  const [dayCopyError, setDayCopyError]     = useState<string | null>(null);
+  const [dayCopySuccess, setDayCopySuccess] = useState<number | null>(null);
+
   const [showAddForm, setShowAddForm]         = useState(false);
   const [addMode, setAddMode]                 = useState<AddMode>('manual');
 
@@ -291,6 +315,7 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   const [barcodeQuery, setBarcodeQuery]             = useState('');
   const [barcodeLoading, setBarcodeLoading]         = useState(false);
   const [barcodeError, setBarcodeError]             = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen]               = useState(false);
 
   // AI text analysis
   const [aiText, setAiText]                       = useState('');
@@ -330,6 +355,11 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
   function onDateChange(newDate: string) {
     setDate(newDate);
     setConfirmDeleteId(null);
+    setEditingMealId(null);
+    setCopyConfirmId(null);
+    setShowDayCopy(false);
+    setDayCopyError(null);
+    setDayCopySuccess(null);
     loadData(newDate);
   }
 
@@ -340,6 +370,102 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
       setConfirmDeleteId(null);
       await loadData(date);
     } catch { setConfirmDeleteId(null); }
+  }
+
+  function handleEditStart(meal: WebMealEntry) {
+    setConfirmDeleteId(null);
+    setEditingMealId(meal.id);
+    setEditError(null);
+    setEditForm({
+      name:         meal.name,
+      mealType:     meal.mealType as MealType,
+      caloriesKcal: meal.caloriesKcal !== null ? String(meal.caloriesKcal) : '',
+      proteinG:     meal.proteinG     !== null ? String(meal.proteinG)     : '',
+      fatG:         meal.fatG         !== null ? String(meal.fatG)         : '',
+      carbsG:       meal.carbsG       !== null ? String(meal.carbsG)       : '',
+    });
+  }
+
+  function handleEditCancel() {
+    setEditingMealId(null);
+    setEditError(null);
+  }
+
+  async function handleEditSave() {
+    if (!editingMealId) return;
+    setEditError(null);
+    const name = editForm.name.trim();
+    if (!name) { setEditError('Введите название'); return; }
+    const payload: WebUpdateMealPayload = {
+      name,
+      mealType: editForm.mealType,
+      caloriesKcal: editForm.caloriesKcal !== '' ? Number(editForm.caloriesKcal) : null,
+      proteinG:     editForm.proteinG     !== '' ? Number(editForm.proteinG)     : null,
+      fatG:         editForm.fatG         !== '' ? Number(editForm.fatG)         : null,
+      carbsG:       editForm.carbsG       !== '' ? Number(editForm.carbsG)       : null,
+    };
+    setEditSaving(true);
+    try {
+      await webApi.updateMeal(editingMealId, payload);
+      setEditingMealId(null);
+      await loadData(date);
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.code : 'Ошибка при сохранении');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function handleCopyStart(meal: WebMealEntry) {
+    setConfirmDeleteId(null);
+    setEditingMealId(null);
+    setCopyError(null);
+    setCopyTargetDate(date);
+    setCopyConfirmId(meal.id);
+  }
+
+  function handleCopyCancel() {
+    setCopyConfirmId(null);
+    setCopyError(null);
+  }
+
+  async function handleCopyConfirm() {
+    if (!copyConfirmId) return;
+    setCopyError(null);
+    setCopyingId(copyConfirmId);
+    const payload: WebCopyMealPayload = copyTargetDate ? { date: copyTargetDate } : {};
+    try {
+      await webApi.copyMeal(copyConfirmId, payload);
+      setCopyConfirmId(null);
+      await loadData(date);
+    } catch (err) {
+      setCopyError(err instanceof ApiError ? err.code : 'Ошибка при копировании');
+    } finally {
+      setCopyingId(null);
+    }
+  }
+
+  async function handleCopyDay() {
+    if (!dayCopyFromDate) { setDayCopyError('Выберите дату'); return; }
+    if (dayCopyFromDate === date) { setDayCopyError('Выберите другую дату — не текущий день'); return; }
+    setDayCopyError(null);
+    setDayCopySuccess(null);
+    setDayCopying(true);
+    const payload: WebCopyDayPayload = { fromDate: dayCopyFromDate, toDate: date };
+    try {
+      const res = await webApi.copyNutritionDay(payload);
+      setDayCopySuccess(res.copied);
+      setShowDayCopy(false);
+      await loadData(date);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'source_day_empty') {
+        setDayCopyError('В выбранный день нет записей.');
+      } else {
+        setDayCopyError(err instanceof ApiError ? err.code : 'Ошибка при копировании');
+      }
+    } finally {
+      setDayCopying(false);
+    }
   }
 
   async function handleAddMeal(e: React.FormEvent) {
@@ -377,9 +503,9 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     }, 400);
   }
 
-  async function handleBarcodeSearch() {
+  async function handleBarcodeSearch(barcodeOverride?: string) {
     setBarcodeError(null);
-    const raw = barcodeQuery.replace(/[\s\-]/g, '');
+    const raw = (barcodeOverride ?? barcodeQuery).replace(/[\s\-]/g, '');
     if (!/^\d{6,32}$/.test(raw)) {
       setBarcodeError('Введите числовой штрихкод (6–32 цифры)');
       return;
@@ -555,6 +681,7 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
     setProductSubMode('name');
     setBarcodeQuery('');
     setBarcodeError(null);
+    setScannerOpen(false);
     setAiText('');
     setAiResult(null);
     setAiAnalyzeError(null);
@@ -648,6 +775,60 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
             >Сегодня</button>
           )}
         </div>
+
+        {/* Copy day button / form */}
+        {!showDayCopy ? (
+          <div style={{ marginTop: 10 }}>
+            {dayCopySuccess !== null && (
+              <div style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 6 }}>
+                Скопировано записей: {dayCopySuccess}
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setDayCopySuccess(null);
+                setDayCopyError(null);
+                setDayCopyFromDate(shiftDate(date, -1));
+                setShowDayCopy(true);
+              }}
+              style={{
+                width: '100%', padding: '9px 14px', borderRadius: 8,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
+                color: 'var(--text-2)', fontSize: 13, fontWeight: 600, textAlign: 'left',
+              }}
+            >+ Скопировать записи из другого дня</button>
+          </div>
+        ) : (
+          <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 4 }}>
+              Откуда скопировать записи:
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10 }}>
+              Записи будут добавлены к текущему дню. Существующие записи не удалятся.
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <input
+                type="date" value={dayCopyFromDate}
+                onChange={e => e.target.value && setDayCopyFromDate(e.target.value)}
+                style={{ ...inputStyle, fontSize: 16 }}
+              />
+            </div>
+            {dayCopyError && (
+              <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8 }}>{dayCopyError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => void handleCopyDay()}
+                disabled={dayCopying}
+                style={{ flex: 1, padding: '11px 0', borderRadius: 8, background: 'var(--accent)', color: '#000', fontSize: 14, fontWeight: 700, minHeight: 44, opacity: dayCopying ? 0.6 : 1 }}
+              >{dayCopying ? 'Копируем…' : 'Скопировать'}</button>
+              <button
+                onClick={() => { setShowDayCopy(false); setDayCopyError(null); }}
+                style={{ padding: '11px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 14, minHeight: 44 }}
+              >Отмена</button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Totals */}
@@ -679,39 +860,151 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
             <SLabel>{MEAL_LABELS[type]}</SLabel>
             {meals.map((meal, i) => (
               <div key={meal.id} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
                 paddingBottom: i < meals.length - 1 ? 12 : 0,
                 marginBottom: i < meals.length - 1 ? 12 : 0,
                 borderBottom: i < meals.length - 1 ? '1px solid var(--border)' : undefined,
               }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{meal.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                    {[
-                      meal.caloriesKcal !== null && `${meal.caloriesKcal} ккал`,
-                      meal.proteinG     !== null && `Б ${meal.proteinG}г`,
-                      meal.fatG         !== null && `Ж ${meal.fatG}г`,
-                      meal.carbsG       !== null && `У ${meal.carbsG}г`,
-                    ].filter(Boolean).join(' · ')}
+                {/* Row: name + macro + action buttons */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>{meal.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                      {[
+                        meal.caloriesKcal !== null && `${meal.caloriesKcal} ккал`,
+                        meal.proteinG     !== null && `Б ${meal.proteinG}г`,
+                        meal.fatG         !== null && `Ж ${meal.fatG}г`,
+                        meal.carbsG       !== null && `У ${meal.carbsG}г`,
+                      ].filter(Boolean).join(' · ')}
+                    </div>
                   </div>
+                  {confirmDeleteId === meal.id ? (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleDelete(meal.id)}
+                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: '#ef5350', color: '#fff', fontWeight: 700 }}
+                      >Удалить</button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: 'var(--text-2)' }}
+                      >Отмена</button>
+                    </div>
+                  ) : editingMealId === meal.id || copyConfirmId === meal.id ? null : (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleEditStart(meal)}
+                        aria-label="Редактировать запись"
+                        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontWeight: 600 }}
+                      >Ред.</button>
+                      <button
+                        onClick={() => handleCopyStart(meal)}
+                        aria-label="Повторить запись"
+                        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontWeight: 600 }}
+                      >Повт.</button>
+                      <button
+                        onClick={() => setConfirmDeleteId(meal.id)}
+                        aria-label="Удалить запись"
+                        style={{ fontSize: 18, color: 'var(--text-3)', lineHeight: 1, padding: '0 4px' }}
+                      >&#215;</button>
+                    </div>
+                  )}
                 </div>
-                {confirmDeleteId === meal.id ? (
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button
-                      onClick={() => handleDelete(meal.id)}
-                      style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: '#ef5350', color: '#fff', fontWeight: 700 }}
-                    >Удалить</button>
-                    <button
-                      onClick={() => setConfirmDeleteId(null)}
-                      style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: 'var(--text-2)' }}
-                    >Отмена</button>
+
+                {/* Inline edit form */}
+                {editingMealId === meal.id && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: '14px 14px 10px',
+                    borderRadius: 10,
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="Название *"
+                        value={editForm.name}
+                        onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                        style={{ ...inputStyle, fontSize: 16 }}
+                        autoFocus
+                      />
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <select
+                        value={editForm.mealType}
+                        onChange={e => setEditForm(f => ({ ...f, mealType: e.target.value as MealType }))}
+                        style={{ ...inputStyle, fontSize: 16 }}
+                      >
+                        {MEAL_TYPES.map(t => <option key={t} value={t}>{MEAL_LABELS[t]}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                      {([
+                        { key: 'caloriesKcal', label: 'Ккал' },
+                        { key: 'proteinG',     label: 'Белки, г' },
+                        { key: 'fatG',         label: 'Жиры, г' },
+                        { key: 'carbsG',       label: 'Углев., г' },
+                      ] as const).map(({ key, label }) => (
+                        <input
+                          key={key}
+                          type="number" min="0" placeholder={label}
+                          value={editForm[key]}
+                          onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
+                          style={{ ...inputStyle, fontSize: 16 }}
+                        />
+                      ))}
+                    </div>
+                    {editError && (
+                      <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8 }}>{editError}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => void handleEditSave()}
+                        disabled={editSaving}
+                        style={{ flex: 1, padding: '11px 0', borderRadius: 8, background: 'var(--accent)', color: '#000', fontSize: 14, fontWeight: 700, minHeight: 44, opacity: editSaving ? 0.6 : 1 }}
+                      >{editSaving ? 'Сохраняем…' : 'Сохранить'}</button>
+                      <button
+                        onClick={handleEditCancel}
+                        style={{ padding: '11px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 14, minHeight: 44 }}
+                      >Отмена</button>
+                    </div>
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(meal.id)}
-                    aria-label="Удалить запись"
-                    style={{ fontSize: 18, color: 'var(--text-3)', lineHeight: 1, flexShrink: 0, padding: '0 4px' }}
-                  >&#215;</button>
+                )}
+
+                {/* Inline copy confirm */}
+                {copyConfirmId === meal.id && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: '14px 14px 10px',
+                    borderRadius: 10,
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+                      Повторить приём пищи на дату:
+                    </div>
+                    <div style={{ marginBottom: 10 }}>
+                      <input
+                        type="date"
+                        value={copyTargetDate}
+                        onChange={e => e.target.value && setCopyTargetDate(e.target.value)}
+                        style={{ ...inputStyle, fontSize: 16 }}
+                      />
+                    </div>
+                    {copyError && (
+                      <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8 }}>{copyError}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => void handleCopyConfirm()}
+                        disabled={copyingId === meal.id}
+                        style={{ flex: 1, padding: '11px 0', borderRadius: 8, background: 'var(--accent)', color: '#000', fontSize: 14, fontWeight: 700, minHeight: 44, opacity: copyingId === meal.id ? 0.6 : 1 }}
+                      >{copyingId === meal.id ? 'Копируем…' : 'Повторить'}</button>
+                      <button
+                        onClick={handleCopyCancel}
+                        style={{ padding: '11px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'var(--text-2)', fontSize: 14, minHeight: 44 }}
+                      >Отмена</button>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
@@ -864,6 +1157,24 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
                             }}
                           >{barcodeLoading ? '…' : 'Найти'}</button>
                         </div>
+                        <button
+                          onClick={() => setScannerOpen(true)}
+                          style={{
+                            width: '100%', padding: '10px 14px', borderRadius: 8,
+                            background: 'var(--surface-2)', border: '1px solid var(--border)',
+                            color: 'var(--text-2)', fontSize: 13, fontWeight: 600,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect x="1" y="1" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+                            <rect x="11" y="1" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+                            <rect x="1" y="11" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+                            <path d="M11 11h4M11 15h4M15 11v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                          </svg>
+                          Сканировать камерой
+                        </button>
                         {barcodeError && (
                           <div style={{ fontSize: 12, color: '#ef5350', marginBottom: 8 }}>{barcodeError}</div>
                         )}
@@ -1030,6 +1341,17 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
           </div>
         )}
       </Card>
+
+      {scannerOpen && (
+        <BarcodeScannerModal
+          onDetected={(barcode) => {
+            setScannerOpen(false);
+            setBarcodeQuery(barcode);
+            void handleBarcodeSearch(barcode);
+          }}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </div>
   );
 }
