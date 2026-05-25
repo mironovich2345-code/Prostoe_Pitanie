@@ -379,15 +379,18 @@ function InsightBlock({
 
       {state === 'paywall' && (
         <div>
-          <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 16 }}>
-            AI-разбор недели доступен в подписке Оптимальный или Pro.
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 8, letterSpacing: -0.3 }}>
+            AI-разбор недели доступен в подписке
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 16 }}>
+            Получите короткий вывод по рациону: где перебор, где недобор и что улучшить на следующей неделе.
           </p>
           <Link
             href="/subscription"
             style={{
-              display: 'inline-block', padding: '12px 22px', borderRadius: 10,
+              display: 'block', padding: '12px 0', borderRadius: 10, textAlign: 'center',
               background: 'var(--accent)', color: '#000', fontWeight: 700,
-              fontSize: 14, textDecoration: 'none',
+              fontSize: 14, textDecoration: 'none', marginBottom: 8,
             }}
           >
             Оформить подписку
@@ -395,8 +398,9 @@ function InsightBlock({
           <button
             onClick={() => setState('idle')}
             style={{
-              display: 'block', marginTop: 12, background: 'none', border: 'none',
-              padding: 0, fontSize: 12, color: 'var(--text-3)', cursor: 'pointer',
+              display: 'block', width: '100%', padding: '10px 0', borderRadius: 10,
+              background: 'none', border: 'none',
+              fontSize: 12, color: 'var(--text-3)', cursor: 'pointer',
               textDecoration: 'underline',
             }}
           >
@@ -562,7 +566,12 @@ export default function NutritionStatsClient() {
   if (authState === 'unauthenticated') {
     return (
       <div style={{ textAlign: 'center', paddingTop: 40 }}>
-        <div style={{ fontSize: 36, marginBottom: 18 }}>🔒</div>
+        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: 'var(--text-3)' }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="9" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M7 9V6a3 3 0 0 1 6 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
         <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.65, maxWidth: 320, margin: '0 auto 24px' }}>
           Войдите в кабинет клиента для просмотра статистики.
         </p>

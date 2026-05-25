@@ -10,11 +10,20 @@ export default function PaymentFailPage() {
   return (
     <section style={{ padding: '64px 0 96px' }}>
       <div className="container" style={{ maxWidth: 480, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 20 }}>✗</div>
+        <div style={{
+          width: 52, height: 52, borderRadius: 16,
+          background: 'rgba(239,83,80,0.10)', border: '1px solid rgba(239,83,80,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 20px', color: '#ef5350',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M6 6l10 10M16 6L6 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
         <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 10 }}>
           Оплата не завершена
         </h1>
-        <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 32, maxWidth: 360, margin: '0 auto 32px' }}>
+        <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 32, maxWidth: 360, margin: '0 auto 32px' }}>
           Платёж не прошёл или был отменён. Попробуйте снова или выберите другой способ оплаты.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>

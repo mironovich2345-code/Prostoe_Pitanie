@@ -30,13 +30,21 @@ export default function PaymentSuccessClient() {
 
   return (
     <div style={{ textAlign: 'center', paddingTop: 32 }}>
-      <div style={{ fontSize: 48, marginBottom: 20 }}>✓</div>
+      <div style={{
+        width: 52, height: 52, borderRadius: 16,
+        background: 'rgba(76,175,80,0.12)', border: '1px solid rgba(76,175,80,0.25)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        margin: '0 auto 20px', color: '#4caf50',
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12l5 5 9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
       <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 10 }}>
-        Платёж принят
+        Платёж обрабатывается
       </h1>
-      <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 28, maxWidth: 380, margin: '0 auto 28px' }}>
-        Оплата обрабатывается. Подписка активируется автоматически после подтверждения платежа.
-        Обычно это занимает несколько секунд.
+      <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 28, maxWidth: 380, margin: '0 auto 28px' }}>
+        Мы обновим подписку после подтверждения оплаты. Обычно это занимает несколько секунд.
       </p>
 
       {checkState === 'done' && sub && (
@@ -78,7 +86,7 @@ export default function PaymentSuccessClient() {
               opacity: checkState === 'loading' ? 0.6 : 1,
             }}
           >
-            {checkState === 'loading' ? 'Проверка…' : 'Проверить подписку'}
+            {checkState === 'loading' ? 'Проверка…' : 'Проверить статус'}
           </button>
         )}
         <Link href="/client" style={{

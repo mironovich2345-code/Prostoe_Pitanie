@@ -97,7 +97,12 @@ export default function ClientExpertClient({ botUsername }: Props) {
   if (authState === 'unauthenticated') {
     return (
       <div style={{ textAlign: 'center', paddingTop: 24 }}>
-        <div style={{ fontSize: 36, marginBottom: 18 }}>🔒</div>
+        <div style={{ width: 48, height: 48, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: 'var(--text-3)' }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="9" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M7 9V6a3 3 0 0 1 6 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
         <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Войдите через Telegram</h3>
         <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.65, maxWidth: 360, margin: '0 auto 28px' }}>
           Войдите, чтобы увидеть своего эксперта и статус заявок.
@@ -123,7 +128,12 @@ export default function ClientExpertClient({ botUsername }: Props) {
       <div>
         <AuthBar onLogout={handleLogout} />
         <div style={{ textAlign: 'center', paddingTop: 24 }}>
-          <div style={{ fontSize: 44, marginBottom: 20 }}>🥗</div>
+          <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--text-3)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M4 20c0-4.42 3.58-8 8-8s8 3.58 8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
           <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginBottom: 12 }}>
             У вас пока нет эксперта
           </h2>
@@ -198,9 +208,12 @@ function ExpertMiniCard({ expert }: { expert: NonNullable<ClientExpertRequest['e
       <div style={{
         width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
         background: 'var(--surface)', border: '1px solid var(--border-2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)',
       }}>
-        🥗
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="6" r="3" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M3 15c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+        </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

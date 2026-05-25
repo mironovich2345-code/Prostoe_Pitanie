@@ -18,6 +18,8 @@ interface PlanCard {
   period: string;
   badge: string | null;
   desc: string;
+  features: string[];
+  cta: string;
   accent: boolean;
 }
 
@@ -82,10 +84,16 @@ function CurrentSubCard({ sub }: { sub: WebSubscriptionInfo }) {
   const statusLabel = sub.status ? (STATUS_LABELS[sub.status] ?? sub.status) : null;
   const endDate = formatDate(sub.trialEndsAt ?? sub.currentPeriodEnd);
 
+  const description = sub.hasPro
+    ? 'Pro активен — AI-функции и работа с личным экспертом открыты.'
+    : sub.hasOptimal
+    ? 'AI-анализ питания активен. Для работы с экспертом нужен Pro.'
+    : 'Базовый дневник питания без ограничений.';
+
   return (
     <Card>
       <SLabel>Текущая подписка</SLabel>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>
             {planName}
@@ -98,14 +106,15 @@ function CurrentSubCard({ sub }: { sub: WebSubscriptionInfo }) {
           )}
         </div>
         <span style={{
-          padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+          padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, flexShrink: 0,
           background: sub.accessLevel === 'full' ? 'rgba(76,175,80,0.12)' : 'rgba(255,255,255,0.05)',
           color: sub.accessLevel === 'full' ? '#4caf50' : 'var(--text-3)',
           border: `1px solid ${sub.accessLevel === 'full' ? 'rgba(76,175,80,0.25)' : 'var(--border)'}`,
         }}>
-          {sub.accessLevel === 'full' ? 'Полный доступ' : 'Базовый'}
+          {sub.accessLevel === 'full' ? 'Активна' : 'Базовый'}
         </span>
       </div>
+      <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>{description}</div>
     </Card>
   );
 }
@@ -255,7 +264,7 @@ function CheckoutPanel({ selected, sub, onSelectPlan }: CheckoutPanelProps) {
           opacity: (!termsAccepted || payState === 'creating') ? 0.5 : 1,
         }}
       >
-        {payState === 'creating' ? 'Создание платежа…' : `Перейти к оплате — ${display.price}`}
+        {payState === 'creating' ? 'Создание платежа…' : `Оплатить — ${display.price}`}
       </button>
 
       <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10, lineHeight: 1.5 }}>
@@ -277,19 +286,25 @@ interface PlanGridProps {
 function PlanGrid({ sub, offers, selected, onSelect }: PlanGridProps) {
   const plans: PlanCard[] = [
     {
-      key: 'optimal', name: 'Оптимальный', price: '399 ₽', period: 'в месяц', badge: null, accent: false,
-      desc: 'Анализ фото и голоса, полная история питания.',
+      key: 'optimal', name: 'Оптимальный', price: '399 ₽', period: 'в месяц',
+      badge: null, accent: false, cta: 'Оформить Оптимальный',
+      desc: 'AI-анализ питания, полная история, расширенная статистика.',
+      features: ['AI-анализ еды по фото', 'AI-разбор рациона за неделю', 'Расширенная статистика', 'История веса и прогресс'],
     },
     {
-      key: 'pro', name: 'Pro', price: '499 ₽', period: 'в месяц', badge: null, accent: true,
-      desc: 'Всё из Оптимального + подключение личного эксперта.',
+      key: 'pro', name: 'Pro', price: '499 ₽', period: 'в месяц',
+      badge: null, accent: true, cta: 'Оформить Pro',
+      desc: 'Всё из Оптимального + личный эксперт видит ваш дневник.',
+      features: ['Всё из Оптимального', 'Подключение личного эксперта', 'Эксперт видит дневник и прогресс', 'Приоритетная поддержка'],
     },
   ];
 
   if (offers.canUseProIntro) {
     plans.push({
-      key: 'pro_intro', name: 'Pro Intro', price: '1 ₽', period: '3 дня', badge: 'Первая покупка', accent: false,
-      desc: `Пробный доступ Pro на 3 дня за 1 ₽. Затем ${offers.proIntro.thenPriceRub} ₽/мес.`,
+      key: 'pro_intro', name: 'Pro Intro', price: '1 ₽', period: '3 дня',
+      badge: 'Специальное предложение', accent: false, cta: 'Попробовать Pro за 1 ₽',
+      desc: `Полный доступ Pro на 3 дня за 1 ₽. Далее ${offers.proIntro.thenPriceRub} ₽/мес, отмена в любой момент.`,
+      features: ['Полный доступ Pro на 3 дня', `Далее ${offers.proIntro.thenPriceRub} ₽/мес`, 'Только для первой покупки'],
     });
   }
 
@@ -299,17 +314,26 @@ function PlanGrid({ sub, offers, selected, onSelect }: PlanGridProps) {
       <div style={{
         background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
         borderRadius: 'var(--r-xl)', padding: '16px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-3)', marginBottom: 2 }}>Free</div>
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Базовый дневник питания · 0 ₽</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-3)', marginBottom: 2 }}>Free</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>0 ₽ навсегда</div>
+          </div>
+          {!sub.planId && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', background: 'rgba(255,255,255,0.05)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' }}>
+              Текущий
+            </span>
+          )}
         </div>
-        {!sub.planId && (
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', background: 'rgba(255,255,255,0.05)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' }}>
-            Текущий
-          </span>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {['Дневник питания', 'Ручной ввод КБЖУ', 'Базовая статистика'].map(f => (
+            <div key={f} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>—</span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{f}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {plans.map(plan => {
@@ -318,31 +342,36 @@ function PlanGrid({ sub, offers, selected, onSelect }: PlanGridProps) {
           (plan.key === 'pro' && sub.hasPro) ||
           (plan.key === 'pro_intro' && sub.hasPro);
         const isSelected = selected === plan.key;
+        const isProIntro = plan.key === 'pro_intro';
 
         return (
           <div key={plan.key} style={{
             position: 'relative',
-            background: plan.accent ? 'var(--accent)' : 'var(--surface)',
+            background: plan.accent ? 'var(--accent)' : isProIntro ? 'var(--surface-2)' : 'var(--surface)',
             border: isSelected
-              ? '2px solid #4caf50'
-              : plan.accent ? '2px solid var(--accent)' : '1px solid var(--border)',
+              ? '2px solid rgba(215,255,63,0.6)'
+              : plan.accent ? '2px solid var(--accent)'
+              : isProIntro ? '1px solid rgba(215,255,63,0.2)'
+              : '1px solid var(--border)',
             borderRadius: 'var(--r-xl)', padding: '18px 20px',
             color: plan.accent ? '#0A0A0A' : 'inherit',
+            marginTop: isProIntro ? 4 : 0,
           }}>
             {plan.badge && (
               <div style={{
                 position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
-                background: '#0A0A0A', color: 'var(--accent)',
+                background: isProIntro ? 'var(--accent)' : '#0A0A0A',
+                color: isProIntro ? '#0A0A0A' : 'var(--accent)',
                 fontSize: 11, fontWeight: 800, padding: '3px 14px', borderRadius: 20,
-                whiteSpace: 'nowrap', border: '1px solid var(--accent)',
+                whiteSpace: 'nowrap', border: isProIntro ? 'none' : '1px solid var(--accent)',
               }}>
                 {plan.badge}
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2, color: plan.accent ? 'rgba(10,10,10,0.6)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, color: plan.accent ? 'rgba(10,10,10,0.6)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {plan.name}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
@@ -355,28 +384,53 @@ function PlanGrid({ sub, offers, selected, onSelect }: PlanGridProps) {
                 </div>
               </div>
               {isCurrent ? (
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#4caf50', background: 'rgba(76,175,80,0.12)', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(76,175,80,0.25)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#4caf50', background: 'rgba(76,175,80,0.12)', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(76,175,80,0.25)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   Текущий
                 </span>
               ) : (
                 <button
                   onClick={() => onSelect(plan.key)}
                   style={{
-                    padding: '7px 16px',
-                    background: plan.accent ? '#0A0A0A' : isSelected ? '#4caf50' : 'transparent',
-                    color: plan.accent ? 'var(--accent)' : isSelected ? '#fff' : 'var(--text)',
-                    border: plan.accent ? 'none' : `1.5px solid ${isSelected ? '#4caf50' : 'var(--border-2)'}`,
-                    borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    padding: '7px 14px', flexShrink: 0,
+                    background: plan.accent ? '#0A0A0A' : isSelected ? 'rgba(215,255,63,0.12)' : 'rgba(255,255,255,0.05)',
+                    color: plan.accent ? 'var(--accent)' : isSelected ? 'var(--accent)' : 'var(--text-2)',
+                    border: plan.accent ? 'none' : isSelected ? '1px solid rgba(215,255,63,0.35)' : '1px solid var(--border)',
+                    borderRadius: 8, fontSize: 12, fontWeight: 700,
                     cursor: 'pointer', whiteSpace: 'nowrap',
                   }}
                 >
-                  {isSelected ? 'Выбрано ✓' : 'Выбрать'}
+                  {isSelected ? 'Выбрано' : (isProIntro ? 'За 1 ₽' : 'Выбрать')}
                 </button>
               )}
             </div>
-            <p style={{ fontSize: 13, color: plan.accent ? 'rgba(10,10,10,0.7)' : 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+
+            <p style={{ fontSize: 12, color: plan.accent ? 'rgba(10,10,10,0.65)' : 'var(--text-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
               {plan.desc}
             </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderTop: `1px solid ${plan.accent ? 'rgba(10,10,10,0.12)' : 'var(--border)'}`, paddingTop: 10 }}>
+              {plan.features.map(f => (
+                <div key={f} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: plan.accent ? '#0A0A0A' : 'var(--accent)', flexShrink: 0 }}>+</span>
+                  <span style={{ fontSize: 12, color: plan.accent ? 'rgba(10,10,10,0.8)' : 'var(--text-2)' }}>{f}</span>
+                </div>
+              ))}
+            </div>
+
+            {!isCurrent && (
+              <button
+                onClick={() => onSelect(plan.key)}
+                style={{
+                  marginTop: 14, width: '100%', padding: '11px 0',
+                  background: plan.accent ? '#0A0A0A' : isSelected ? 'var(--accent)' : 'transparent',
+                  color: plan.accent ? 'var(--accent)' : isSelected ? '#000' : 'var(--text-2)',
+                  border: plan.accent ? 'none' : `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--border-2)'}`,
+                  borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {isSelected ? `Выбрано — ${plan.cta}` : plan.cta}
+              </button>
+            )}
           </div>
         );
       })}
@@ -408,7 +462,12 @@ export default function SubscriptionPageClient() {
   if (authState === 'unauthenticated') {
     return (
       <div style={{ textAlign: 'center', paddingTop: 32 }}>
-        <div style={{ fontSize: 36, marginBottom: 16 }}>🔒</div>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: 'var(--text-3)' }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="9" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
         <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
           Войдите, чтобы оформить подписку
         </p>
@@ -436,12 +495,16 @@ export default function SubscriptionPageClient() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
+      {/* Hero */}
+      <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'var(--text-3)', marginBottom: 6 }}>
-          Подписка
+          Подписка EATLYY
         </div>
-        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)' }}>
+        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 8 }}>
           Управление подпиской
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6 }}>
+          Выберите доступ под свой сценарий: самостоятельный контроль питания или работа с личным экспертом.
         </div>
       </div>
 

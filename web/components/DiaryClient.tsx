@@ -219,26 +219,31 @@ function AiResultCard({
 function PaywallBlock({ onCancel }: { onCancel: () => void }) {
   return (
     <div style={{
-      padding: '18px 16px', borderRadius: 12,
+      padding: '20px 18px', borderRadius: 16,
       background: 'var(--surface-2)', border: '1px solid var(--border)',
-      textAlign: 'center',
     }}>
-      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
-        AI-анализ по фото доступен в подписке
+      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8, letterSpacing: -0.3 }}>
+        AI-анализ фото доступен в подписке
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 16 }}>
-        Оформите подписку Optimal или Pro, чтобы анализировать питание по фотографиям.
+      <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65, marginBottom: 18 }}>
+        Загрузите фото еды — EATLYY рассчитает КБЖУ и добавит приём в дневник.
       </div>
       <Link
         href="/subscription"
         style={{
-          display: 'inline-block', padding: '10px 24px', borderRadius: 10,
-          background: 'var(--accent)', color: '#000', fontWeight: 700, fontSize: 14,
+          display: 'block', padding: '12px 0', borderRadius: 10, textAlign: 'center',
+          background: 'var(--accent)', color: '#000', fontWeight: 700,
+          fontSize: 14, textDecoration: 'none', marginBottom: 8,
         }}
       >Оформить подписку</Link>
-      <div style={{ marginTop: 12 }}>
-        <button onClick={onCancel} style={{ fontSize: 13, color: 'var(--text-3)' }}>Отмена</button>
-      </div>
+      <button
+        onClick={onCancel}
+        style={{
+          display: 'block', width: '100%', padding: '10px 0', borderRadius: 10,
+          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+          fontSize: 13, color: 'var(--text-2)', cursor: 'pointer',
+        }}
+      >Продолжить вручную</button>
     </div>
   );
 }
@@ -1307,7 +1312,7 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
             {addMode === 'ai' && (
               <div>
                 {aiAnalyzeError === '__paywall__' ? (
-                  <PaywallBlock onCancel={handleCloseAddForm} />
+                  <PaywallBlock onCancel={() => { setAddMode('manual'); setAiAnalyzeError(null); }} />
                 ) : !aiResult ? (
                   <>
                     <div style={{ marginBottom: 8 }}>
@@ -1341,7 +1346,13 @@ export default function DiaryClient({ initialDate }: { initialDate?: string }) {
             {addMode === 'photo' && (
               <div>
                 {photoAnalyzeError === '__paywall__' ? (
-                  <PaywallBlock onCancel={handleCloseAddForm} />
+                  <PaywallBlock onCancel={() => {
+                    setAddMode('manual');
+                    setPhotoAnalyzeError(null);
+                    setPhotoDataUrl(null);
+                    setPhotoPreviewUrl(null);
+                    if (photoInputRef.current) photoInputRef.current.value = '';
+                  }} />
                 ) : !photoResult ? (
                   <>
                     {/* Hidden file input */}

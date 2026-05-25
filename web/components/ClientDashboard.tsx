@@ -134,22 +134,35 @@ function MacroTile({ label, value, unit }: { label: string; value: number | null
   );
 }
 
-function QuickLink({ href, label, external }: { href: string; label: string; external?: boolean }) {
-  const style: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '12px 8px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
-    fontSize: 12, fontWeight: 600,
-    color: 'var(--text-2)',
-    textDecoration: 'none',
-    textAlign: 'center',
-    lineHeight: 1.3,
-  };
+function QuickActionCard({
+  href, icon, title, subtitle, external,
+}: {
+  href: string; icon: React.ReactNode; title: string; subtitle: string; external?: boolean;
+}) {
+  const inner = (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--r-xl)', padding: '16px 18px',
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 10,
+        background: 'var(--accent-dim)', border: '1px solid rgba(215,255,63,0.12)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--accent)', flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3, color: 'var(--text)' }}>{title}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.4 }}>{subtitle}</div>
+      </div>
+    </div>
+  );
+  const linkStyle: React.CSSProperties = { textDecoration: 'none', display: 'block' };
   return external
-    ? <a href={href} target="_blank" rel="noopener noreferrer" style={style}>{label}</a>
-    : <Link href={href} style={style}>{label}</Link>;
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={linkStyle}>{inner}</a>
+    : <Link href={href} style={linkStyle}>{inner}</Link>;
 }
 
 // ─── Edit Profile Form ────────────────────────────────────────────────────────
@@ -596,7 +609,12 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
   if (authState === 'unauthenticated') {
     return (
       <div style={{ textAlign: 'center', paddingTop: 24 }}>
-        <div style={{ fontSize: 36, marginBottom: 18 }}>🔒</div>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: 'var(--text-3)' }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="9" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
         <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
           Войдите, чтобы открыть кабинет
         </p>
@@ -647,36 +665,117 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
   return (
     <div>
 
-      {/* ── A: Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <div style={{
-            fontSize: 11, fontWeight: 700, color: 'var(--text-3)',
-            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6,
+      {/* ── A: Hero card ── */}
+      <Card style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
+              Личный кабинет
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1.15 }}>
+              {displayName}
+            </div>
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap' }}>
+              <Badge label="Клиент" />
+              {roles.isExpert  && <Badge label="Эксперт" />}
+              {roles.isCompany && <Badge label="Компания" />}
+              {roles.isAdmin   && <Badge label="Администратор" />}
+            </div>
+          </div>
+          <button onClick={handleLogout} style={{
+            marginTop: 2, background: 'none', border: 'none', padding: 0,
+            color: 'var(--text-3)', fontSize: 12, cursor: 'pointer',
+            textDecoration: 'underline', whiteSpace: 'nowrap',
           }}>
-            Личный кабинет
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: 'var(--text)', lineHeight: 1.1 }}>
-            {displayName}
-          </div>
-          <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 0 }}>
-            <Badge label="Клиент" />
-            {roles.isExpert  && <Badge label="Эксперт" />}
-            {roles.isCompany && <Badge label="Компания" />}
-            {roles.isAdmin   && <Badge label="Администратор" />}
-          </div>
+            Выйти
+          </button>
         </div>
-        <button onClick={handleLogout} style={{
-          marginTop: 4,
-          background: 'none', border: 'none', padding: 0,
-          color: 'var(--text-3)', fontSize: 12, cursor: 'pointer',
-          textDecoration: 'underline', whiteSpace: 'nowrap',
-        }}>
-          Выйти
-        </button>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          {hasMacros ? (
+            <>
+              <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                Норма:{' '}
+                <strong style={{ color: 'var(--text)' }}>{Math.round(profile?.dailyCaloriesKcal ?? 0)} ккал</strong>
+                {profile?.goalType && (
+                  <span style={{ color: 'var(--text-3)' }}> · {GOAL_LABELS[profile.goalType] ?? profile.goalType}</span>
+                )}
+              </div>
+              <Link href="/client/diary" style={{
+                padding: '8px 16px', borderRadius: 8, flexShrink: 0,
+                background: 'var(--accent)', color: '#000',
+                fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
+              }}>
+                Открыть дневник
+              </Link>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                Заполните анкету — EATLYY рассчитает дневную норму питания
+              </div>
+              <button onClick={() => setEditing(true)} style={{
+                padding: '8px 16px', borderRadius: 8, flexShrink: 0, border: 'none', cursor: 'pointer',
+                background: 'var(--accent)', color: '#000', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+              }}>
+                Заполнить
+              </button>
+            </>
+          )}
+        </div>
+      </Card>
+
+      {/* ── B: Feature cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <QuickActionCard
+          href="/client/diary"
+          title="Дневник питания"
+          subtitle="Добавить приём пищи"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M6 6h6M6 9h6M6 12h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          }
+        />
+        <QuickActionCard
+          href="/client/stats"
+          title="Статистика"
+          subtitle="Питание за неделю"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M3 15V10M7 15V7M11 15V4M15 15V9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          }
+        />
+        <QuickActionCard
+          href="/client/weight"
+          title="История веса"
+          subtitle="Прогресс и динамика"
+          icon={
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 12l4-4 3 3 4-5 3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 3v12h14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          }
+        />
+        <QuickActionCard
+          href="/subscription"
+          title="Подписка"
+          subtitle={
+            subscription.accessLevel === 'full'
+              ? (PLAN_LABELS[subscription.planId ?? ''] ?? 'Активна')
+              : 'Оформить доступ'
+          }
+          icon={
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 2l1.8 4.9H16l-4.1 3 1.6 4.9L9 12l-4.5 2.8 1.6-4.9L2 7h5.2z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          }
+        />
       </div>
 
-      {/* ── B: Profile card ── */}
+      {/* ── C: Profile card ── */}
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <SLabel>Мои данные</SLabel>
@@ -763,44 +862,20 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
           </>
         ) : (
           <div>
-            <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 10 }}>
-              КБЖУ пока не рассчитано.
+            <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.65, marginBottom: 14 }}>
+              Заполните анкету — EATLYY рассчитает дневную норму питания на основе ваших данных.
             </p>
-            {missingForMacros.length > 0 ? (
-              <>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
-                  Для расчёта нужно указать: <strong style={{ color: 'var(--text-2)' }}>{missingForMacros.join(', ')}</strong>.
-                </p>
-                <button
-                  onClick={() => setEditing(true)}
-                  style={{
-                    padding: '9px 20px',
-                    background: 'var(--accent)', border: 'none',
-                    borderRadius: 8, fontSize: 13, fontWeight: 700,
-                    color: '#000', cursor: 'pointer',
-                  }}
-                >
-                  Заполнить анкету
-                </button>
-              </>
-            ) : (
-              <>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
-                  Все данные есть — обновите профиль, чтобы пересчитать норму.
-                </p>
-                <button
-                  onClick={() => setEditing(true)}
-                  style={{
-                    padding: '9px 20px',
-                    background: 'none', border: '1px solid var(--border-2)',
-                    borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    color: 'var(--text-2)', cursor: 'pointer',
-                  }}
-                >
-                  Обновить профиль
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setEditing(true)}
+              style={{
+                padding: '10px 20px', minHeight: 44,
+                background: 'var(--accent)', border: 'none',
+                borderRadius: 8, fontSize: 13, fontWeight: 700,
+                color: '#000', cursor: 'pointer',
+              }}
+            >
+              Заполнить анкету
+            </button>
           </div>
         )}
       </Card>
@@ -808,7 +883,7 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
       {/* ── D: Subscription card ── */}
       <Card>
         <SLabel>Подписка</SLabel>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: subscription.accessLevel !== 'full' ? 12 : 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>
               {subscription.planId ? (PLAN_LABELS[subscription.planId] ?? subscription.planId) : 'Free'}
@@ -822,82 +897,103 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
             )}
           </div>
           <span style={{
-            padding: '4px 12px', borderRadius: 20,
+            padding: '4px 12px', borderRadius: 20, flexShrink: 0,
             fontSize: 11, fontWeight: 700,
             background: subscription.accessLevel === 'full' ? 'rgba(76,175,80,0.12)' : 'rgba(255,255,255,0.05)',
             color:      subscription.accessLevel === 'full' ? '#4caf50' : 'var(--text-3)',
             border: `1px solid ${subscription.accessLevel === 'full' ? 'rgba(76,175,80,0.25)' : 'var(--border)'}`,
           }}>
-            {subscription.accessLevel === 'full' ? 'Полный доступ' : 'Базовый'}
+            {subscription.accessLevel === 'full' ? 'Активна' : 'Базовый'}
           </span>
         </div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: 14 }}>
+          {subscription.hasPro
+            ? 'Pro активен — AI-функции и доступ к эксперту открыты.'
+            : subscription.hasOptimal
+            ? 'AI-функции активны. Для работы с экспертом нужен Pro.'
+            : 'Откройте AI-анализ питания и работу с персональным экспертом.'}
+        </div>
         <Link href="/subscription" style={{
-          fontSize: 12, fontWeight: 600,
-          color: 'var(--accent)', textDecoration: 'none',
+          display: 'block', padding: '11px 0', borderRadius: 10, textAlign: 'center',
+          background: subscription.accessLevel === 'full' ? 'rgba(255,255,255,0.05)' : 'var(--accent)',
+          color: subscription.accessLevel === 'full' ? 'var(--text-2)' : '#000',
+          border: subscription.accessLevel === 'full' ? '1px solid var(--border)' : 'none',
+          fontSize: 13, fontWeight: 700, textDecoration: 'none',
         }}>
-          {subscription.accessLevel === 'full' ? 'Управление подпиской →' : 'Оформить подписку →'}
+          {subscription.accessLevel === 'full' ? 'Управлять подпиской' : 'Оформить подписку'}
         </Link>
       </Card>
 
       {/* ── Auth methods card ── */}
       <Card>
         <SLabel>Способы входа</SLabel>
-
-        {/* Telegram */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Telegram</span>
-          {auth.identities.telegram.connected ? (
-            <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
-              ✓{auth.identities.telegram.username ? ` @${auth.identities.telegram.username}` : ' подключён'}
-            </span>
-          ) : (
-            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>не подключён</span>
-          )}
-        </div>
-
-        {/* MAX */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>MAX</span>
-          {auth.identities.max.connected ? (
-            <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
-              ✓{auth.identities.max.username ? ` @${auth.identities.max.username}` : ' подключён'}
-            </span>
-          ) : (
-            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>не подключён</span>
-          )}
-        </div>
-
-        {/* Phone */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Телефон</span>
-            {auth.identities.phone.connected ? (
-              <span style={{ fontSize: 12, color: '#4caf50', fontWeight: 600 }}>
-                ✓ {auth.identities.phone.phoneMasked}
+        {[
+          {
+            label: 'Telegram',
+            connected: auth.identities.telegram.connected,
+            detail: auth.identities.telegram.username ? `@${auth.identities.telegram.username}` : null,
+          },
+          {
+            label: 'MAX',
+            connected: auth.identities.max.connected,
+            detail: auth.identities.max.username ? `@${auth.identities.max.username}` : null,
+          },
+        ].map(({ label, connected, detail }, i) => (
+          <div key={label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            paddingBottom: 10, marginBottom: 10,
+            borderBottom: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{label}</span>
+            {connected ? (
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: '#4caf50',
+                background: 'rgba(76,175,80,0.10)', padding: '3px 10px',
+                borderRadius: 20, border: '1px solid rgba(76,175,80,0.20)',
+              }}>
+                {detail ?? 'Подключён'}
               </span>
             ) : (
-              <button
-                onClick={() => setShowPhoneLink(v => !v)}
-                style={{
-                  background: 'none', border: 'none', padding: 0,
-                  fontSize: 12, color: 'var(--accent)', cursor: 'pointer',
-                  fontWeight: 600, textDecoration: 'underline',
-                }}
-              >
-                {showPhoneLink ? 'Отмена' : 'Привязать телефон'}
-              </button>
+              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>не подключён</span>
             )}
           </div>
+        ))}
 
-          {!auth.identities.phone.connected && showPhoneLink && (
+        {/* Phone */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Телефон</span>
+          {auth.identities.phone.connected ? (
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: '#4caf50',
+              background: 'rgba(76,175,80,0.10)', padding: '3px 10px',
+              borderRadius: 20, border: '1px solid rgba(76,175,80,0.20)',
+            }}>
+              {auth.identities.phone.phoneMasked ?? 'Привязан'}
+            </span>
+          ) : (
+            <button
+              onClick={() => setShowPhoneLink(v => !v)}
+              style={{
+                background: 'none', border: 'none', padding: 0,
+                fontSize: 12, color: 'var(--accent)', cursor: 'pointer',
+                fontWeight: 600, textDecoration: 'underline',
+              }}
+            >
+              {showPhoneLink ? 'Отмена' : 'Привязать'}
+            </button>
+          )}
+        </div>
+
+        {!auth.identities.phone.connected && showPhoneLink && (
+          <div style={{ marginTop: 12 }}>
             <PhoneLinkForm
               onSuccess={async () => {
                 setShowPhoneLink(false);
                 await loadData();
               }}
             />
-          )}
-        </div>
+          </div>
+        )}
       </Card>
 
       {/* ── E: My Expert card ── */}
@@ -906,60 +1002,68 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
 
         {clientExpert.hasExpert && clientExpert.expert ? (
           <>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-              {clientExpert.expert.fullName ?? 'Эксперт'}
-            </div>
-            {clientExpert.expert.specialization && (
-              <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 12 }}>
-                {clientExpert.expert.specialization}
-                {clientExpert.expert.city ? ` · ${clientExpert.expert.city}` : ''}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>
+                  {clientExpert.expert.fullName ?? 'Эксперт'}
+                </div>
+                {clientExpert.expert.specialization && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                    {clientExpert.expert.specialization}
+                    {clientExpert.expert.city ? ` · ${clientExpert.expert.city}` : ''}
+                  </div>
+                )}
               </div>
-            )}
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: '#4caf50',
+                background: 'rgba(76,175,80,0.10)', padding: '3px 10px',
+                borderRadius: 20, border: '1px solid rgba(76,175,80,0.20)', flexShrink: 0,
+              }}>Активен</span>
+            </div>
             {clientExpert.expert.slug && (
               <Link href={`/trainers/${clientExpert.expert.slug}`} style={{
-                fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600,
+                display: 'block', padding: '10px 0', borderRadius: 8, textAlign: 'center',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+                fontSize: 13, color: 'var(--text-2)', fontWeight: 600, textDecoration: 'none',
               }}>
-                Профиль эксперта →
+                Открыть эксперта
               </Link>
             )}
           </>
         ) : clientExpert.pendingRequest ? (
           <>
-            <div style={{ marginBottom: 10 }}>
-              <span style={{
-                display: 'inline-block',
-                padding: '4px 12px', borderRadius: 20,
-                fontSize: 11, fontWeight: 700,
-                background: 'rgba(255,193,7,0.1)',
-                color: '#ffc107',
-                border: '1px solid rgba(255,193,7,0.25)',
-              }}>
-                Заявка отправлена
-              </span>
-            </div>
-            {clientExpert.pendingRequest.expert?.fullName && (
-              <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 6 }}>
-                {clientExpert.pendingRequest.expert.fullName}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                {clientExpert.pendingRequest.expert?.fullName && (
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>
+                    {clientExpert.pendingRequest.expert.fullName}
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Ожидаем ответа эксперта</div>
               </div>
-            )}
-            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 12 }}>
-              Ожидаем ответа эксперта.
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: '#ffc107',
+                background: 'rgba(255,193,7,0.08)', padding: '3px 10px',
+                borderRadius: 20, border: '1px solid rgba(255,193,7,0.22)', flexShrink: 0,
+              }}>Заявка отправлена</span>
             </div>
-            <Link href="/client/expert" style={{ fontSize: 13, color: 'var(--text-3)', textDecoration: 'underline' }}>
-              Подробнее
+            <Link href="/client/expert" style={{
+              display: 'block', padding: '10px 0', borderRadius: 8, textAlign: 'center',
+              background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+              fontSize: 13, color: 'var(--text-2)', fontWeight: 600, textDecoration: 'none',
+            }}>
+              Посмотреть статус
             </Link>
           </>
         ) : (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 14 }}>
-              У вас пока нет эксперта. Найдите специалиста в каталоге.
+              Эксперт не подключён. На тарифе Pro нутрициолог видит ваш дневник и помогает с рационом.
             </p>
             <Link href="/trainers" style={{
-              display: 'inline-block',
-              padding: '9px 20px',
+              display: 'block', padding: '11px 0', borderRadius: 8, textAlign: 'center',
               background: 'var(--accent)', border: 'none',
-              borderRadius: 8, fontSize: 13, fontWeight: 700,
-              color: '#000', textDecoration: 'none',
+              fontSize: 13, fontWeight: 700, color: '#000', textDecoration: 'none',
             }}>
               Выбрать эксперта
             </Link>
@@ -996,13 +1100,31 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
         </Card>
       )}
 
-      {/* ── Expert / Company cabinet links ── */}
-      {roles.isCompany && (
+      {/* ── Role dashboards ── */}
+      {(roles.isExpert || roles.isCompany || roles.isAdmin) && (
         <Card>
-          <SLabel>Кабинет компании</SLabel>
+          <SLabel>Рабочие кабинеты</SLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { href: '/company',         label: 'Обзор' },
+            {roles.isExpert && [
+              { href: '/expert/profile',  label: 'Профиль эксперта' },
+              { href: '/expert/requests', label: 'Заявки клиентов' },
+              ...(expert.slug ? [{ href: `/trainers/${expert.slug}`, label: 'Публичный профиль' }] : []),
+            ].map((item, i, arr) => (
+              <span key={item.href}>
+                <Link href={item.href} style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{item.label}</span>
+                  <span style={{ color: 'var(--text-3)' }}>→</span>
+                </Link>
+                {i < arr.length - 1 && <div style={{ height: 1, background: 'var(--border)', marginTop: 10 }} />}
+              </span>
+            ))}
+
+            {roles.isExpert && (roles.isCompany || roles.isAdmin) && (
+              <div style={{ height: 1, background: 'var(--border)' }} />
+            )}
+
+            {roles.isCompany && [
+              { href: '/company',         label: 'Кабинет компании' },
               { href: '/company/profile', label: 'Профиль компании' },
               { href: '/company/offers',  label: 'Реферальные офферы' },
               { href: '/company/stats',   label: 'Статистика' },
@@ -1015,42 +1137,13 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
                 {i < arr.length - 1 && <div style={{ height: 1, background: 'var(--border)', marginTop: 10 }} />}
               </span>
             ))}
-          </div>
-        </Card>
-      )}
-      {roles.isExpert && (
-        <Card>
-          <SLabel>Кабинет эксперта</SLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Link href="/expert/profile" style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Мой профиль эксперта</span>
-              <span style={{ color: 'var(--text-3)' }}>→</span>
-            </Link>
-            <div style={{ height: 1, background: 'var(--border)' }} />
-            <Link href="/expert/requests" style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Заявки клиентов</span>
-              <span style={{ color: 'var(--text-3)' }}>→</span>
-            </Link>
-            {expert.slug && (
-              <>
-                <div style={{ height: 1, background: 'var(--border)' }} />
-                <Link href={`/trainers/${expert.slug}`} style={{ fontSize: 14, color: 'var(--text-2)', textDecoration: 'none', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Публичный профиль</span>
-                  <span style={{ color: 'var(--text-3)' }}>→</span>
-                </Link>
-              </>
-            )}
-          </div>
-        </Card>
-      )}
 
-      {/* ── Admin link ── */}
-      {roles.isAdmin && (
-        <Card>
-          <SLabel>Администрирование</SLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { href: '/admin',              label: 'Обзор' },
+            {roles.isCompany && roles.isAdmin && (
+              <div style={{ height: 1, background: 'var(--border)' }} />
+            )}
+
+            {roles.isAdmin && [
+              { href: '/admin',              label: 'Администрирование' },
               { href: '/admin/users',        label: 'Пользователи' },
               { href: '/admin/experts',      label: 'Эксперты и компании' },
               { href: '/admin/applications', label: 'Заявки экспертов' },
@@ -1067,24 +1160,6 @@ export default function ClientDashboard({ botUsername, maxBotName }: Props) {
           </div>
         </Card>
       )}
-
-      {/* ── F: Quick actions ── */}
-      <Card>
-        <SLabel>Быстрые действия</SLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <QuickLink href="/client/diary"   label="Дневник питания" />
-          <QuickLink href="/client/stats"  label="Статистика питания" />
-          <QuickLink href="/client/weight" label="История веса" />
-          <QuickLink href="/trainers"      label="Каталог экспертов" />
-          <QuickLink href="/client/expert" label="Мой эксперт" />
-          {!expertApplication.exists && !roles.isExpert && !roles.isCompany && (
-            <QuickLink href="/experts/apply" label="Стать экспертом" />
-          )}
-          <QuickLink href="/support"  label="Поддержка" />
-          <QuickLink href={tgBotUrl}  label="Telegram бот" external />
-          {maxBotUrl && <QuickLink href={maxBotUrl} label="MAX бот" external />}
-        </div>
-      </Card>
 
     </div>
   );

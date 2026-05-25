@@ -60,33 +60,19 @@ export default function LegalPage() {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {DOCS.map(({ title, desc, href }) => (
-            <a
-              key={href}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
+          {DOCS.map(({ title, desc }) => (
+            <div
+              key={title}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                gap: 16,
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--r-xl)',
                 padding: '20px 22px',
-                transition: 'border-color 0.2s, background 0.2s',
-                textDecoration: 'none', color: 'inherit',
               }}
             >
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{desc}</div>
-              </div>
-              <div style={{
-                color: 'var(--text-3)', fontSize: 20, flexShrink: 0, lineHeight: 1,
-              }}>
-                →
-              </div>
-            </a>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{title}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>{desc}</div>
+            </div>
           ))}
         </div>
 
